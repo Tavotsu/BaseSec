@@ -14,20 +14,20 @@ export function printBanner(noColor: boolean = false): void {
     return;
   }
 
-  const gradient = [
-    '\x1b[36;1m',
-    '\x1b[36m',
-    '\x1b[96m',
-    '\x1b[96;1m',
+  const gradient: ((s: string) => string)[] = [
+    pc.cyanBright,
+    pc.cyan,
+    pc.blue,
+    pc.green,
   ];
 
   const lines = BANNER.split('\n').filter((l) => l.length > 0);
-  const colored = lines
-    .map((line, i) => {
-      const color = gradient[i % gradient.length];
-      return `${color}${line}\x1b[0m`;
-    })
-    .join('\n');
+const colored = lines
+      .map((line, i) => {
+        const colorFn = gradient[i % gradient.length];
+        return colorFn(line);
+      })
+      .join('\n');
 
   console.log(colored);
   console.log();

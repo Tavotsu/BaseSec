@@ -1,5 +1,7 @@
 import pc from 'picocolors';
-import type { Finding, ScanResult, OutputFormat } from '../rules/types';
+import type { Finding, ScanResult, OutputFormat, Severity } from '../rules/types';
+import { SarifFormatter } from './sarif';
+import { MarkdownFormatter } from './markdown';
 
 export interface ReportFormatter {
   format(result: ScanResult, target: string): string;
@@ -9,6 +11,12 @@ export function getFormatter(format: OutputFormat): ReportFormatter {
   switch (format) {
     case 'json':
       return new JsonFormatter();
+    case 'sarif':
+      return new SarifFormatter();
+    case 'html':
+      throw new Error('HTML format is not yet implemented. Use --format terminal, json, sarif, or markdown.');
+    case 'markdown':
+      return new MarkdownFormatter();
     case 'terminal':
     default:
       return new TerminalFormatter();
@@ -40,7 +48,8 @@ class TerminalFormatter implements ReportFormatter {
     lines.push('  ─'.repeat(30));
     lines.push('');
 
-    const severityOrder = ['critical', 'high', 'medium', 'low', 'info'] as const;
+    const severityLevels: Severity[] = ['critical', 'high', 'medium', 'low', 'info'];
+    const severityRank = Object.fromEntries(severityLevels.map((s, i) => [s, i]));
     const severityColors: Record<string, (s: string) => string> = {
       critical: pc.red,
       high: pc.red,
@@ -56,7 +65,11 @@ class TerminalFormatter implements ReportFormatter {
       info: 'INFO',
     };
 
-    for (const finding of result.findings) {
+    const sortedFindings = [...result.findings].sort(
+      (a, b) => (severityRank[a.severity] ?? 99) - (severityRank[b.severity] ?? 99),
+    );
+
+    for (const finding of sortedFindings) {
       const colorFn = severityColors[finding.severity] ?? pc.white;
       const label = severityLabels[finding.severity] ?? finding.severity.toUpperCase();
 
@@ -82,7 +95,7 @@ class TerminalFormatter implements ReportFormatter {
       `  Scan complete: ${result.findings.length} finding${result.findings.length === 1 ? '' : 's'}`,
     );
     const parts: string[] = [];
-    for (const s of severityOrder) {
+    for (const s of severityLevels) {
       const count = totalBySeverity.get(s) ?? 0;
       if (count > 0) {
         const colorFn = severityColors[s];

@@ -3,7 +3,9 @@ import { FileCollector } from './file-collector';
 import { Parser } from './parser';
 import { Analyzer } from './analyzer';
 import { ResultStore } from './result-store';
-import { mergeConfigWithDefaults, DEFAULT_CONFIG } from '../config/defaults';
+import { mergeConfigWithDefaults } from '../config/defaults';
+import { ALL_RULES } from '../rules/index';
+import { detectFrameworks } from '../framework/detector';
 import type {
   secbaseConfig,
   ScanResult,
@@ -11,13 +13,20 @@ import type {
   CliOptions,
 } from '../rules/types';
 
-const BUILTIN_RULES: Rule[] = [];
-
 export class Pipeline {
   private collector = new FileCollector();
   private parser = new Parser();
   private analyzer = new Analyzer();
   private store = new ResultStore();
+  private rules: Rule[];
+
+  constructor(rules: Rule[] = ALL_RULES) {
+    this.rules = rules;
+  }
+
+  registerRules(rules: Rule[]): void {
+    this.rules.push(...rules);
+  }
 
   async run(
     targetPath: string,
@@ -38,10 +47,24 @@ export class Pipeline {
 
     const parsedFiles = this.parser.parseFiles(collectResult.files);
 
+    const frameworks = detectFrameworks(
+      cliOptions.framework ?? 'auto',
+      parsedFiles,
+      targetPath,
+    );
+
+    let rulesToRun = this.rules;
+    if (cliOptions.rulesFilter && cliOptions.rulesFilter.length > 0) {
+      rulesToRun = this.rules.filter((r) =>
+        cliOptions.rulesFilter!.includes(r.id),
+      );
+    }
+
     const findings = this.analyzer.analyze(
       parsedFiles,
-      BUILTIN_RULES,
+      rulesToRun,
       config,
+      frameworks,
     );
 
     this.store.addMany(findings);
@@ -50,8 +73,8 @@ export class Pipeline {
       filesScanned: parsedFiles.length,
       filesSkipped:
         collectResult.skippedBySize + collectResult.skippedByLimit,
-      rulesRun: BUILTIN_RULES.length,
-      frameworks: [],
+      rulesRun: rulesToRun.length,
+      frameworks,
     };
 
     const duration = Date.now() - start;

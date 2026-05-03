@@ -45,9 +45,8 @@ const JSON_CONFIG = `{
 }
 `;
 
-export async function runInit(format: string): Promise<void> {
-  const fileName =
-    format === 'json' ? 'secbase.config.json' : 'secbase.config.ts';
+export async function runInit(format: 'ts' | 'json'): Promise<void> {
+  const fileName = format === 'json' ? 'secbase.config.json' : 'secbase.config.ts';
   const content = format === 'json' ? JSON_CONFIG : TS_CONFIG;
 
   const filePath = path.resolve(process.cwd(), fileName);

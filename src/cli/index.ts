@@ -1,8 +1,13 @@
 import { cac } from 'cac';
-import { printBanner, printVersion, printError } from './output';
+import { printBanner, printError } from './output';
 import { runScan } from './commands/scan';
 import { runInit } from './commands/init';
-import type { CliOptions, OutputFormat, Severity } from '../rules/types';
+import { ALL_RULES } from '../rules/index';
+import pc from 'picocolors';
+import type { CliOptions, OutputFormat, Severity, RuleCategory } from '../rules/types';
+
+const VALID_FORMATS: OutputFormat[] = ['terminal', 'json', 'sarif', 'html', 'markdown'];
+const VALID_SEVERITIES: Severity[] = ['critical', 'high', 'medium', 'low', 'info'];
 
 export async function main(): Promise<void> {
   const cli = cac('secbase');
@@ -28,14 +33,26 @@ export async function main(): Promise<void> {
     .action(async (path: string | undefined, options: any) => {
       const targetPath = path || process.cwd();
 
+      const format = (options.format ?? 'terminal') as string;
+      if (!VALID_FORMATS.includes(format as OutputFormat)) {
+        printError(`Invalid format: ${format}. Valid options: ${VALID_FORMATS.join(', ')}`);
+        process.exit(2);
+      }
+
+      const severity = (options.severity ?? 'low') as string;
+      if (!VALID_SEVERITIES.includes(severity as Severity)) {
+        printError(`Invalid severity: ${severity}. Valid options: ${VALID_SEVERITIES.join(', ')}`);
+        process.exit(2);
+      }
+
       const rawIgnore: string[] = Array.isArray(options.ignore)
         ? options.ignore.filter((v: any) => v !== null && v !== undefined)
         : [];
 
       const cliOptions: CliOptions = {
-        format: (options.format ?? 'terminal') as OutputFormat,
+        format: format as OutputFormat,
         output: options.output,
-        severity: (options.severity ?? 'low') as Severity,
+        severity: severity as Severity,
         rules: options.rules,
         ignore: rawIgnore,
         config: options.config,
@@ -76,10 +93,53 @@ export async function main(): Promise<void> {
     .command('rules', 'List all built-in rules')
     .option('--category <cat>', 'Filter by category')
     .option('--severity <level>, -s', 'Filter by severity')
-    .action((_options: any) => {
-      printBanner(false);
-      console.log('No rules registered yet.');
-      console.log('Rules will be available in Phase 2.');
+    .action((options: any) => {
+      const category = options.category as string | undefined;
+      const severity = options.severity as string | undefined;
+
+      let rules = [...ALL_RULES];
+
+      if (category) {
+        rules = rules.filter((r) => r.category === category);
+      }
+      if (severity) {
+        rules = rules.filter((r) => r.severity === severity);
+      }
+
+      if (rules.length === 0) {
+        console.log(pc.yellow('  No rules found matching the specified filters.'));
+        return;
+      }
+
+      const severityColors: Record<string, (s: string) => string> = {
+        critical: pc.red,
+        high: pc.red,
+        medium: pc.yellow,
+        low: pc.blue,
+        info: pc.gray,
+      };
+
+      console.log(pc.bold(`\n  secbase rules (${rules.length} rules)\n`));
+
+      const byCategory = new Map<string, typeof rules>();
+      for (const rule of rules) {
+        const cat = rule.category;
+        if (!byCategory.has(cat)) byCategory.set(cat, []);
+        byCategory.get(cat)!.push(rule);
+      }
+
+      for (const [cat, catRules] of byCategory) {
+        console.log(pc.cyan(`  ${cat}`));
+        for (const rule of catRules) {
+          const colorFn = severityColors[rule.severity] ?? pc.white;
+          const label = rule.severity.toUpperCase().padEnd(8);
+          const frameworks = rule.frameworks.join(', ');
+          console.log(`    ${colorFn(label)} ${pc.bold(rule.id)}: ${rule.name}`);
+          console.log(pc.gray(`      ${rule.description}`));
+          console.log(pc.gray(`      Frameworks: ${frameworks} | Tags: ${rule.tags.join(', ')}`));
+        }
+        console.log('');
+      }
     });
 
   cli.help();

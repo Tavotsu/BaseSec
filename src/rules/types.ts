@@ -44,11 +44,20 @@ export interface Rule {
   detect(ctx: RuleContext): Finding[];
 }
 
+export interface TaintGraph {
+  filePath: string;
+  taintMap: Map<string, import('../taint/types').TaintInfo>;
+  sources: import('../taint/types').TaintSourceInfo[];
+  sinks: import('../taint/types').TaintSinkInfo[];
+  flows: import('../taint/types').TaintFlow[];
+}
+
 export interface RuleContext {
   sourceFile: import('typescript').SourceFile;
   filePath: string;
   content: string;
   config: secbaseConfig;
+  taintGraph?: TaintGraph;
 }
 
 export type OutputFormat = 'terminal' | 'json' | 'sarif' | 'html' | 'markdown';
@@ -87,6 +96,7 @@ export interface CliOptions {
   framework: 'auto' | 'express' | 'nestjs';
   noColor: boolean;
   noBanner: boolean;
+  rulesFilter?: string[];
 }
 
 export interface ScanResult {

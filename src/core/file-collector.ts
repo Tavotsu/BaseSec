@@ -66,7 +66,7 @@ export class FileCollector {
     return {
       files: result,
       skippedBySize,
-      skippedByLimit: Math.max(0, entries.length - result.length),
+      skippedByLimit: Math.max(0, entries.length - result.length - skippedBySize),
     };
   }
 }

@@ -1,4 +1,5 @@
 import type { Severity } from '../rules/types';
+import pc from 'picocolors';
 
 const SEVERITY_LEVELS: Record<Severity, number> = {
   critical: 0,
@@ -24,12 +25,10 @@ export const SEVERITY_LABELS: Record<Severity, string> = {
   info: 'INFO',
 };
 
-export const SEVERITY_COLORS: Record<Severity, string> = {
-  critical: '\x1b[91m',
-  high: '\x1b[31m',
-  medium: '\x1b[33m',
-  low: '\x1b[34m',
-  info: '\x1b[37m',
+export const SEVERITY_COLORS: Record<Severity, (s: string) => string> = {
+  critical: pc.red,
+  high: pc.red,
+  medium: pc.yellow,
+  low: pc.blue,
+  info: pc.gray,
 };
-
-export const RESET = '\x1b[0m';

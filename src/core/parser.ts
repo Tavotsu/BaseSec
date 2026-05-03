@@ -6,8 +6,15 @@ export class Parser {
   parseFile(filePath: string): ParsedFile | ParseError {
     try {
       const content = fs.readFileSync(filePath, 'utf-8');
-      const ext = filePath.substring(filePath.lastIndexOf('.'));
-      const scriptKind = this.getScriptKind(ext);
+const dotIdx = filePath.lastIndexOf('.');
+    if (dotIdx === -1) {
+      return {
+        filePath,
+        error: `File has no extension: ${filePath}`,
+      };
+    }
+    const ext = filePath.substring(dotIdx);
+    const scriptKind = this.getScriptKind(ext);
 
       const sourceFile = ts.createSourceFile(
         filePath,
@@ -52,9 +59,10 @@ export class Parser {
       case '.jsx':
         return ts.ScriptKind.JSX;
       case '.mjs':
-      case '.mts':
-        return ts.ScriptKind.TS;
+        return ts.ScriptKind.JS;
       case '.cjs':
+        return ts.ScriptKind.JS;
+      case '.mts':
       case '.cts':
         return ts.ScriptKind.TS;
       default:
