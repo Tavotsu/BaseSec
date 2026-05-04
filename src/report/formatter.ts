@@ -2,6 +2,7 @@ import pc from 'picocolors';
 import type { Finding, ScanResult, OutputFormat, Severity } from '../rules/types';
 import { SarifFormatter } from './sarif';
 import { MarkdownFormatter } from './markdown';
+import { HtmlFormatter } from './html';
 
 export interface ReportFormatter {
   format(result: ScanResult, target: string): string;
@@ -14,7 +15,7 @@ export function getFormatter(format: OutputFormat): ReportFormatter {
     case 'sarif':
       return new SarifFormatter();
     case 'html':
-      throw new Error('HTML format is not yet implemented. Use --format terminal, json, sarif, or markdown.');
+      return new HtmlFormatter();
     case 'markdown':
       return new MarkdownFormatter();
     case 'terminal':

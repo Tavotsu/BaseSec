@@ -17,7 +17,8 @@ export async function runScan(
     try {
       fileConfig = loadConfig(options.config, targetPath);
     } catch (e) {
-      console.error(`  Warning: Could not load config file: ${e instanceof Error ? e.message : String(e)}`);
+      console.error(`  Error: Could not load config file: ${e instanceof Error ? e.message : String(e)}`);
+      return 3;
     }
   } else {
     try {

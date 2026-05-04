@@ -5,13 +5,57 @@ import { getLineAndColumn, getCodeSnippet, visit } from '../../../utils/ast-help
 export const ERR003 = defineRule({
   id: 'ERR-003',
   name: 'Unhandled Promise Rejection',
-  description: 'Detects async route handlers without try/catch or .catch(), which can cause unhandled rejections.',
+  description: 'Detects async route handlers without try/catch or .catch(), and missing project-level unhandledRejection handler.',
   category: 'error-handling',
   severity: 'low',
   frameworks: ['express', 'nestjs', '*'],
   tags: ['cwe:754', 'error-handling'],
   detect(ctx) {
     const findings: import('../../../rules/types').Finding[] = [];
+
+    let hasGlobalHandler = false;
+    visit(ctx.sourceFile, (node) => {
+      if (ts.isCallExpression(node)) {
+        const expr = node.expression;
+        if (ts.isPropertyAccessExpression(expr)) {
+          const obj = expr.expression;
+          const method = expr.name.text;
+          if (
+            method === 'on' &&
+            ts.isIdentifier(obj) &&
+            obj.text === 'process'
+          ) {
+            const args = node.arguments;
+            if (args.length >= 1 && ts.isStringLiteral(args[0])) {
+              if (args[0].text === 'unhandledRejection') {
+                hasGlobalHandler = true;
+              }
+            }
+          }
+        }
+      }
+      return 'continue';
+    });
+
+    if (!hasGlobalHandler) {
+      const { line: firstLine } = getLineAndColumn(ctx.sourceFile, ctx.sourceFile.getChildAt(0));
+      findings.push({
+        ruleId: 'ERR-003',
+        ruleName: 'Unhandled Promise Rejection',
+        category: 'error-handling',
+        severity: 'low',
+        filePath: ctx.filePath,
+        line: 1,
+        column: 1,
+        endLine: 1,
+        endColumn: 1,
+        message: `No process.on('unhandledRejection') handler found. Unhandled promise rejections can crash the process.`,
+        codeSnippet: getCodeSnippet(ctx.content, 1),
+        remediation: "Add process.on('unhandledRejection', (reason) => { logger.error(reason); }) at the application entry point.",
+        references: ['https://nodejs.org/api/process.html#process_event_unhandledrejection'],
+        confidence: 'medium',
+      });
+    }
 
     visit(ctx.sourceFile, (node) => {
       if (ts.isCallExpression(node)) {

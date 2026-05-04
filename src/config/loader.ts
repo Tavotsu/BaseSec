@@ -43,7 +43,14 @@ function loadConfigFile(filePath: string): Partial<secbaseConfig> {
   }
 
   if (ext === '.ts') {
-    return loadJsonConfig(findCorrespondingJson(filePath)) ?? {};
+    try {
+      const content = fs.readFileSync(filePath, 'utf-8');
+      const config = extractConfigFromTs(content);
+      if (config) return normalizeConfig(config);
+    } catch {
+      // Fall through to empty config
+    }
+    return {};
   }
 
   if (ext === '.js') {
@@ -55,15 +62,6 @@ function loadConfigFile(filePath: string): Partial<secbaseConfig> {
   }
 
   return {};
-}
-
-function findCorrespondingJson(tsPath: string): string {
-  const dir = path.dirname(tsPath);
-  const base = path.basename(tsPath, '.ts');
-  const jsonPath = path.join(dir, base + '.json');
-  if (fs.existsSync(jsonPath)) return jsonPath;
-
-  return tsPath.replace(/\.ts$/, '.json');
 }
 
 function loadJsonConfig(filePath: string): Partial<secbaseConfig> {
@@ -134,6 +132,25 @@ function safeParseObject(literal: string): Record<string, unknown> | null {
   } catch {
     return null;
   }
+}
+
+function extractConfigFromTs(content: string): Record<string, unknown> | null {
+  const defineConfigMatch = content.match(/defineConfig\s*\(\s*(\{[\s\S]*?\})\s*\)/);
+  if (defineConfigMatch) {
+    return safeParseObject(defineConfigMatch[1]);
+  }
+
+  const defaultExportMatch = content.match(/export\s+default\s+(\{[\s\S]*?\n\})\s*;?\s*$/m);
+  if (defaultExportMatch) {
+    return safeParseObject(defaultExportMatch[1]);
+  }
+
+  const moduleExportsMatch = content.match(/module\.exports\s*=\s*(\{[\s\S]*?\})\s*;?\s*$/m);
+  if (moduleExportsMatch) {
+    return safeParseObject(moduleExportsMatch[1]);
+  }
+
+  return null;
 }
 
 function loadFromPackageJson(root: string): Partial<secbaseConfig> {

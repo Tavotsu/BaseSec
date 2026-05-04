@@ -17,7 +17,14 @@ export class Analyzer {
       this.buildTaintGraphs(parsedFiles, frameworks, config.sanitizers);
     }
 
-    const enabledRules = this.filterEnabledRules(rules, config);
+    const enabledRules = this.filterEnabledRules(rules, config, frameworks);
+    const severityOverrides = new Map<string, import('../rules/types').Severity>();
+    for (const rule of enabledRules) {
+      const override = config.rulesConfig[rule.id];
+      if (override && typeof override === 'object' && override.severity) {
+        severityOverrides.set(rule.id, override.severity);
+      }
+    }
 
     for (const parsedFile of parsedFiles) {
       const taintGraph = config.taintAnalysis
@@ -35,6 +42,11 @@ export class Analyzer {
       for (const rule of enabledRules) {
         try {
           const findings = rule.detect(ctx);
+          for (const f of findings) {
+            if (severityOverrides.has(rule.id)) {
+              f.severity = severityOverrides.get(rule.id)!;
+            }
+          }
           allFindings.push(...findings);
         } catch (e) {
           console.error(`  Rule ${rule.id} failed on ${parsedFile.filePath}: ${e instanceof Error ? e.message : String(e)}`);
@@ -64,11 +76,28 @@ export class Analyzer {
   private filterEnabledRules(
     rules: Rule[],
     config: secbaseConfig,
+    frameworks: string[] = [],
   ): Rule[] {
+    const fwSet = new Set(frameworks.length > 0 ? frameworks : ['*']);
+    const hasUniversal = fwSet.has('*');
+    const hasExpress = fwSet.has('express');
+    const hasNestjs = fwSet.has('nestjs');
+
     return rules.filter((rule) => {
       const override = config.rulesConfig[rule.id];
       if (override === false) return false;
-      return true;
+
+      if (hasUniversal) return true;
+
+      const ruleFw = rule.frameworks;
+      if (ruleFw.includes('*')) return true;
+
+      if (ruleFw.some((f) => fwSet.has(f))) return true;
+
+      if (hasExpress && ruleFw.includes('express')) return true;
+      if (hasNestjs && ruleFw.includes('nestjs')) return true;
+
+      return false;
     }).map((rule) => {
       const override = config.rulesConfig[rule.id];
       if (override && typeof override === 'object' && override.severity) {

@@ -46,7 +46,7 @@ export const CMDI002 = defineRule({
         const { line, column } = getLineAndColumn(ctx.sourceFile, node);
         const confidence: import('../../../rules/types').Confidence = isTaintSource(text) ? 'high' : 'low';
         findings.push({
-          ruleId: 'CMDI-002b',
+          ruleId: 'CMDI-002',
           ruleName: 'Use of new Function()',
           category: 'command-injection',
           severity: 'critical',

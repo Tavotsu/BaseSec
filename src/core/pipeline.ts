@@ -6,6 +6,8 @@ import { ResultStore } from './result-store';
 import { mergeConfigWithDefaults } from '../config/defaults';
 import { ALL_RULES } from '../rules/index';
 import { detectFrameworks } from '../framework/detector';
+import { RuleRegistry } from '../rules/registry';
+import { loadCustomRules } from '../rules/loader';
 import type {
   secbaseConfig,
   ScanResult,
@@ -18,14 +20,18 @@ export class Pipeline {
   private parser = new Parser();
   private analyzer = new Analyzer();
   private store = new ResultStore();
+  private registry: RuleRegistry;
   private rules: Rule[];
 
   constructor(rules: Rule[] = ALL_RULES) {
     this.rules = rules;
+    this.registry = new RuleRegistry();
+    this.registry.registerMany(rules);
   }
 
   registerRules(rules: Rule[]): void {
     this.rules.push(...rules);
+    this.registry.registerMany(rules);
   }
 
   async run(
@@ -41,6 +47,13 @@ export class Pipeline {
       taintAnalysis: cliOptions.noTaint ? false : undefined,
     });
 
+    if (config.rules && config.rules.length > 0) {
+      const { errors } = await loadCustomRules(config.rules, this.registry);
+      for (const err of errors) {
+        console.error(`  Warning: ${err}`);
+      }
+    }
+
     const collectResult = this.collector.collect(targetPath, {
       ignorePatterns: config.ignore,
     });
@@ -53,9 +66,9 @@ export class Pipeline {
       targetPath,
     );
 
-    let rulesToRun = this.rules;
+    let rulesToRun = this.registry.getAll();
     if (cliOptions.rulesFilter && cliOptions.rulesFilter.length > 0) {
-      rulesToRun = this.rules.filter((r) =>
+      rulesToRun = rulesToRun.filter((r) =>
         cliOptions.rulesFilter!.includes(r.id),
       );
     }

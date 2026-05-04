@@ -56,7 +56,13 @@ export function isTaintSource(nodeText: string): boolean {
 export function containsSqlKeywords(text: string): boolean {
   const upper = text.toUpperCase();
   for (const kw of SQL_KEYWORDS) {
-    if (upper.includes(kw)) return true;
+    const idx = upper.indexOf(kw);
+    if (idx === -1) continue;
+    const before = idx > 0 ? upper[idx - 1] : ' ';
+    const after = idx + kw.length < upper.length ? upper[idx + kw.length] : ' ';
+    if (!/[A-Z0-9_]/.test(before) && !/[A-Z0-9_]/.test(after)) {
+      return true;
+    }
   }
   return false;
 }

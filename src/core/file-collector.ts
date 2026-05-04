@@ -31,13 +31,19 @@ export class FileCollector {
     const opts = { ...DEFAULT_COLLECT_OPTIONS, ...options };
     const absRoot = path.resolve(rootPath);
 
+    const gitignorePatterns = this.loadGitignore(absRoot);
+    const mergedIgnore = [
+      ...opts.ignorePatterns,
+      ...gitignorePatterns,
+    ];
+
     const patterns = opts.extensions.map(
       (ext) => `**/*${ext}`,
     );
 
     const entries = fg.sync(patterns, {
       cwd: absRoot,
-      ignore: opts.ignorePatterns,
+      ignore: mergedIgnore,
       absolute: true,
       onlyFiles: true,
       dot: false,
@@ -68,5 +74,34 @@ export class FileCollector {
       skippedBySize,
       skippedByLimit: Math.max(0, entries.length - result.length - skippedBySize),
     };
+  }
+
+  private loadGitignore(rootPath: string): string[] {
+    const patterns: string[] = [];
+    const gitignorePath = path.join(rootPath, '.gitignore');
+
+    try {
+      if (!fs.existsSync(gitignorePath)) return patterns;
+      const content = fs.readFileSync(gitignorePath, 'utf-8');
+      for (const rawLine of content.split('\n')) {
+        const line = rawLine.trim();
+        if (!line || line.startsWith('#')) continue;
+
+        const negated = line.startsWith('!');
+        const pattern = negated ? line.slice(1) : line;
+
+        if (pattern.startsWith('/')) {
+          patterns.push(negated ? `!${pattern}` : pattern);
+        } else if (pattern.endsWith('/')) {
+          patterns.push(negated ? `!${pattern}**` : `${pattern}**`);
+        } else {
+          patterns.push(negated ? `!${pattern}` : pattern);
+        }
+      }
+    } catch {
+      // Ignore errors reading .gitignore
+    }
+
+    return patterns;
   }
 }

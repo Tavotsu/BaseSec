@@ -37,6 +37,45 @@ export const CONF002 = defineRule({
             });
           }
         }
+
+        if (ts.isPropertyAccessExpression(node.expression)) {
+          const obj = node.expression.expression;
+          const method = node.expression.name.text;
+          if (method === 'listen' || method === 'create') {
+            const args = node.arguments;
+            for (const arg of args) {
+              if (ts.isObjectLiteralExpression(arg)) {
+                for (const prop of arg.properties) {
+                  if (ts.isPropertyAssignment(prop) && ts.isIdentifier(prop.name)) {
+                    const propName = prop.name.text;
+                    if (propName === 'logger' || propName === 'debug') {
+                      const initText = prop.initializer.getText(ctx.sourceFile);
+                      if (initText === 'true' || initText === "'true'" || initText === '"true"' || initText === '1') {
+                        const { line, column } = getLineAndColumn(ctx.sourceFile, prop);
+                        findings.push({
+                          ruleId: 'CONF-002',
+                          ruleName: 'Debug Mode in Production',
+                          category: 'misconfiguration',
+                          severity: 'medium',
+                          filePath: ctx.filePath,
+                          line,
+                          column,
+                          endLine: line,
+                          endColumn: column + initText.length,
+                          message: `NestJS ${propName} option set to true in application factory, which may expose sensitive information in production.`,
+                          codeSnippet: getCodeSnippet(ctx.content, line),
+                          remediation: `Disable ${propName} in production. Use environment-specific configuration.`,
+                          references: ['https://docs.nestjs.com/techniques/logger'],
+                          confidence: 'medium',
+                        });
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
       }
 
       if (ts.isIfStatement(node)) {
