@@ -1,6 +1,6 @@
 import * as ts from 'typescript';
 import { defineRule } from '../../define-rule';
-import { findCallExpressions, getLineAndColumn, getCodeSnippet, visit } from '../../../utils/ast-helpers';
+import { getLineAndColumn, getCodeSnippet, visit } from '../../../utils/ast-helpers';
 import { isTaintSource, containsSqlKeywords } from '../../../utils/patterns';
 
 export const SQLI001 = defineRule({

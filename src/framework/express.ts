@@ -16,7 +16,7 @@ export interface ExpressAppInfo {
   routes: ExpressRouteInfo[];
 }
 
-const HTTP_METHODS = ['get', 'post', 'put', 'delete', 'patch', 'head', 'options'];
+const HTTP_METHODS = ['get', 'post', 'put', 'delete', 'patch', 'head', 'options', 'all'];
 const AUTH_MIDDLEWARE_NAMES = [
   'auth', 'authenticate', 'isAuth', 'isAuthenticated', 'requireAuth',
   'jwt', 'passport', 'verifyToken', 'checkAuth', 'ensureAuth',

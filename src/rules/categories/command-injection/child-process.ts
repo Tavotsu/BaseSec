@@ -22,7 +22,7 @@ export const CMDI001 = defineRule({
         const text = call.getText(ctx.sourceFile);
 
         if (fn === 'spawn' || fn === 'execFile' || fn === 'execFileSync') {
-          if (call.arguments.length > 1) {
+          if (call.arguments.length > 1 && !isTaintSource(text)) {
             continue;
           }
         }

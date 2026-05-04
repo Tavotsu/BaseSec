@@ -20,7 +20,7 @@ export const XSS001 = defineRule({
       const calls = findCallExpressions(ctx.sourceFile, method);
       for (const call of calls) {
         const text = call.getText(ctx.sourceFile);
-        if (isTaintSource(text) || text.includes('req.body') || text.includes('req.query') || text.includes('req.params')) {
+        if (isTaintSource(text)) {
           const { line, column } = getLineAndColumn(ctx.sourceFile, call);
           findings.push({
             ruleId: 'XSS-001',

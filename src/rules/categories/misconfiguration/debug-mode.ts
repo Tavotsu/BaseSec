@@ -41,7 +41,7 @@ export const CONF002 = defineRule({
 
       if (ts.isIfStatement(node)) {
         const text = node.getText(ctx.sourceFile);
-        if (text.includes('NODE_ENV') && (text.includes("'development'") || text.includes('"development"') || text.includes('!==') && (text.includes("'production'") || text.includes('"production"')))) {
+        if (text.includes('NODE_ENV') && (text.includes("'development'") || text.includes('"development"') || text.includes("'production'") || text.includes('"production"'))) {
           return 'continue';
         }
       }

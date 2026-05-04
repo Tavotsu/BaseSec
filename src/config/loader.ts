@@ -156,10 +156,11 @@ function normalizeConfig(raw: Record<string, unknown>): Partial<secbaseConfig> {
   if (raw.sanitizers) config.sanitizers = raw.sanitizers as string[];
   if (raw.output && typeof raw.output === 'object') {
     const output = raw.output as Record<string, unknown>;
-    config.output = {
-      format: output.format as OutputFormat | undefined,
-      filePath: output.filePath as string | undefined,
-    };
+    const fmt = typeof output.format === 'string' ? output.format as OutputFormat : undefined;
+    const fpath = typeof output.filePath === 'string' ? output.filePath : undefined;
+    if (fmt) {
+      config.output = { format: fmt, filePath: fpath };
+    }
   }
 
   return config;

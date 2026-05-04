@@ -17,7 +17,7 @@ export const XSS004 = defineRule({
     const calls = findCallExpressions(ctx.sourceFile, 'redirect');
     for (const call of calls) {
       const text = call.getText(ctx.sourceFile);
-      if (isTaintSource(text) || text.includes('req.query') || text.includes('req.body') || text.includes('req.params')) {
+      if (isTaintSource(text)) {
         const { line, column } = getLineAndColumn(ctx.sourceFile, call);
         findings.push({
           ruleId: 'XSS-004',

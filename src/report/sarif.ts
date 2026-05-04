@@ -70,10 +70,9 @@ export class SarifFormatter implements ReportFormatter {
               uri: f.filePath,
             },
             region: {
-              startLine: f.line,
-              startColumn: f.column,
-              endLine: f.endLine,
-              endColumn: f.endColumn,
+              startLine: Math.max(1, f.line),
+              startColumn: Math.max(1, f.column),
+              ...(f.endLine > f.line ? { endLine: f.endLine, endColumn: Math.max(1, f.endColumn) } : {}),
             },
           },
         },

@@ -3,7 +3,7 @@ import { defineRule } from '../../define-rule';
 import { getLineAndColumn, getCodeSnippet, visit } from '../../../utils/ast-helpers';
 
 const MUTATING_METHODS = ['post', 'put', 'patch', 'delete'];
-const AUTH_MIDDLEWARE_NAMES = ['authenticate', 'auth', 'requireAuth', 'isAuthenticated', 'checkAuth', 'verifyToken', 'jwt', 'passport', 'isAuth', 'ensureAuth', 'loginRequired', 'authMiddleware', 'requireLogin', 'isAuthenticated'];
+const AUTH_MIDDLEWARE_NAMES = ['authenticate', 'auth', 'requireAuth', 'isAuthenticated', 'checkAuth', 'verifyToken', 'jwt', 'passport', 'isAuth', 'ensureAuth', 'loginRequired', 'authMiddleware', 'requireLogin'];
 
 export const AUTH001 = defineRule({
   id: 'AUTH-001',
@@ -25,6 +25,26 @@ export const AUTH001 = defineRule({
             if (ts.isIdentifier(arg)) {
               return AUTH_MIDDLEWARE_NAMES.some((name) =>
                 arg.text.toLowerCase().includes(name.toLowerCase()),
+              );
+            }
+            if (ts.isCallExpression(arg)) {
+              const callee = arg.expression;
+              if (ts.isIdentifier(callee)) {
+                return AUTH_MIDDLEWARE_NAMES.some((name) =>
+                  callee.text.toLowerCase().includes(name.toLowerCase()),
+                );
+              }
+              if (ts.isPropertyAccessExpression(callee)) {
+                const calleeText = callee.getText(ctx.sourceFile).toLowerCase();
+                return AUTH_MIDDLEWARE_NAMES.some((name) =>
+                  calleeText.includes(name.toLowerCase()),
+                );
+              }
+            }
+            if (ts.isPropertyAccessExpression(arg)) {
+              const argText = arg.getText(ctx.sourceFile).toLowerCase();
+              return AUTH_MIDDLEWARE_NAMES.some((name) =>
+                argText.includes(name.toLowerCase()),
               );
             }
             return false;

@@ -21,7 +21,7 @@ export const CONF004 = defineRule({
         const expr = node.expression;
         if (ts.isPropertyAccessExpression(expr) && BODY_PARSER_CALLS.includes(expr.name.text)) {
           const objText = expr.expression.getText(ctx.sourceFile);
-          if (objText === 'express' || objText === 'app' || objText.includes('express')) {
+          if (objText === 'express' || objText === 'app' || objText === 'bodyParser' || objText.includes('express')) {
             const text = node.getText(ctx.sourceFile);
             const hasLimit = text.includes('limit:');
             if (!hasLimit) {

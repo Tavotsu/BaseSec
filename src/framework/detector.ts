@@ -59,7 +59,7 @@ function detectFromPackageJson(
         if (packageName in allDeps) {
           detected.set(fwk, {
             name: fwk,
-            version: allDeps[packageName]?.replace?.(/^[\^~]>=*/, ''),
+            version: allDeps[packageName]?.replace?.(/^[\^~>=]+/, ''),
             confidence: 'high',
             source: 'package.json',
           });

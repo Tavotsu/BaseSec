@@ -22,7 +22,7 @@ export const AUTH002 = defineRule({
       const calls = findCallExpressions(ctx.sourceFile, fn);
       for (const call of calls) {
         const text = call.getText(ctx.sourceFile);
-        if (!text.includes('jwt') && !text.includes('Jwt') && !text.includes('JWT')) {
+        if (!text.includes('jwt') && !text.includes('Jwt') && !text.includes('JWT') && !text.includes('jsonwebtoken')) {
           continue;
         }
 
@@ -52,10 +52,10 @@ export const AUTH002 = defineRule({
             });
           }
 
-          if (ts.isBinaryExpression(secretArg)) {
+          if (ts.isBinaryExpression(secretArg) && (secretArg.operatorToken.kind === ts.SyntaxKind.BarBarToken || secretArg.operatorToken.kind === ts.SyntaxKind.QuestionQuestionToken)) {
             const argText = secretArg.getText(ctx.sourceFile);
-            if (argText.includes('||') && (argText.includes("'") || argText.includes('"'))) {
-              const fallbackMatch = argText.match(/\|\|\s*['"](.+?)['"]/);
+            if ((argText.includes('||') || argText.includes('??')) && (argText.includes("'") || argText.includes('"'))) {
+              const fallbackMatch = argText.match(/(?:\|\||\?\?)\s*['"](.+?)['"]/);
               if (fallbackMatch) {
                 const { line, column } = getLineAndColumn(ctx.sourceFile, call);
                 findings.push({

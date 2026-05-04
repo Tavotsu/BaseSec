@@ -18,13 +18,14 @@ export const XSS002 = defineRule({
     visit(ctx.sourceFile, (node) => {
       if (ts.isCallExpression(node)) {
         const text = node.getText(ctx.sourceFile);
-        if (text.includes('helmet()') || text.includes('helmet(')) {
+        if (text.includes('helmet(')) {
           hasHelmet = true;
         }
       }
       if (ts.isImportDeclaration(node)) {
         const moduleSpecifier = node.moduleSpecifier.getText(ctx.sourceFile);
-        if (moduleSpecifier.includes('helmet')) {
+        const spec = moduleSpecifier.replace(/^['"]|['"]$/g, '');
+        if (spec === 'helmet') {
           hasHelmet = true;
         }
       }
@@ -37,7 +38,7 @@ export const XSS002 = defineRule({
       return 'continue';
     });
 
-    if (ctx.content.includes('express()') || ctx.content.includes('require(') && ctx.content.includes("'express'") || ctx.content.includes('"express"')) {
+    if (ctx.content.includes('express()') || (ctx.content.includes('require(') && (ctx.content.includes("'express'") || ctx.content.includes('"express"')))) {
       hasExpress = true;
     }
 

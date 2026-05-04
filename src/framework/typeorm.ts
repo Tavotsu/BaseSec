@@ -62,10 +62,6 @@ export function detectTypeORMPatterns(
       }
     }
 
-    if (content.includes('.query(') || content.includes('.raw(')) {
-      // Already handled above
-    }
-
     return 'continue';
   });
 

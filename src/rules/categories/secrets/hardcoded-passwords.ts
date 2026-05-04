@@ -40,9 +40,9 @@ export const SEC002 = defineRule({
         }
       }
 
-      if (ts.isBinaryExpression(node) && node.operatorToken.kind === ts.SyntaxKind.BarBarToken) {
+      if (ts.isBinaryExpression(node) && (node.operatorToken.kind === ts.SyntaxKind.BarBarToken || node.operatorToken.kind === ts.SyntaxKind.QuestionQuestionToken)) {
         const text = node.getText(ctx.sourceFile);
-        if (PASSWORD_VAR_NAMES.test(text.split('||')[0].split('.').pop() || '')) {
+        if (PASSWORD_VAR_NAMES.test(text.split(/\|\||\?\?/)[0].split('.').pop()?.trim() || '')) {
           const rightText = node.right.getText(ctx.sourceFile);
           if (ts.isStringLiteral(node.right) || (rightText.startsWith("'") || rightText.startsWith('"'))) {
             const { line, column } = getLineAndColumn(ctx.sourceFile, node);

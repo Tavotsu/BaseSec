@@ -9,6 +9,10 @@ const SEVERITY_LABELS: Record<string, string> = {
   info: 'INFO',
 };
 
+function escapeMarkdownCode(text: string): string {
+  return text.replace(/```/g, '\\`\\`\\`');
+}
+
 export class MarkdownFormatter implements ReportFormatter {
   format(result: ScanResult, target: string): string {
     const lines: string[] = [];
@@ -68,7 +72,7 @@ export class MarkdownFormatter implements ReportFormatter {
       lines.push(`**File:** \`${finding.filePath}:${finding.line}\``);
       lines.push('');
       lines.push('```typescript');
-      lines.push(finding.codeSnippet);
+      lines.push(escapeMarkdownCode(finding.codeSnippet));
       lines.push('```');
       lines.push('');
       lines.push(`**Message:** ${finding.message}`);

@@ -43,7 +43,7 @@ export const NOSQL001 = defineRule({
 
       if (ts.isPropertyAssignment(node)) {
         const name = node.name;
-        if (ts.isIdentifier(name) && name.text === '$where') {
+        if ((ts.isIdentifier(name) && name.text === '$where') || (ts.isStringLiteral(name) && name.text === '$where')) {
           const text = node.getText(ctx.sourceFile);
           if (isTaintSource(text)) {
             const { line, column } = getLineAndColumn(ctx.sourceFile, node);

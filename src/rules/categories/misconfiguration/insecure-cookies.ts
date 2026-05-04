@@ -36,7 +36,7 @@ export const CONF003 = defineRule({
               confidence: 'medium',
             });
           }
-          if (!text.includes('httpOnly') && !text.includes('httponly') && (text.includes('cookie(') || text.includes('session('))) {
+          if (!text.includes('httpOnly') && !text.includes('httponly') && (text.includes('cookie(') || text.includes('session(') || text.includes('cookieSession('))) {
             const { line, column } = getLineAndColumn(ctx.sourceFile, node);
             findings.push({
               ruleId: 'CONF-003',

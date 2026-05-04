@@ -49,8 +49,10 @@ export function findSources(
     }
 
     if (ts.isVariableDeclaration(node) && node.initializer) {
+      const varName = ts.isIdentifier(node.name) ? node.name.text : undefined;
       const initText = node.initializer.getText(sourceFile);
-      if (isTaintExpression(initText, allDefs, frameworks)) {
+
+      if (!ts.isObjectBindingPattern(node.name) && isTaintExpression(initText, allDefs, frameworks)) {
         const varName = ts.isIdentifier(node.name) ? node.name.text : undefined;
         const pos = sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile));
         const kind = detectSourceKind(initText, allDefs, frameworks);

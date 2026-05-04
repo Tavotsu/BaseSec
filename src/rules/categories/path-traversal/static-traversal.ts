@@ -18,24 +18,27 @@ export const PATH002 = defineRule({
         const expr = node.expression;
         if (ts.isPropertyAccessExpression(expr) && expr.name.text === 'static') {
           const text = node.getText(ctx.sourceFile);
-          const hasDotfilesDeny = text.includes('deny') || text.includes("'deny'") || text.includes('"deny"');
-          if (!hasDotfilesDeny && text.includes('dotfiles')) {
+          const hasDotfilesDeny = text.includes('deny') && text.includes('dotfiles');
+          const hasOptions = node.arguments.length > 1;
+          if (!hasDotfilesDeny) {
             const { line, column } = getLineAndColumn(ctx.sourceFile, node);
             findings.push({
               ruleId: 'PATH-002',
               ruleName: 'Insecure Express Static Configuration',
               category: 'path-traversal',
-              severity: 'medium',
+              severity: hasOptions ? 'low' : 'medium',
               filePath: ctx.filePath,
               line,
               column,
               endLine: line,
               endColumn: column + text.length,
-              message: `express.static() with dotfiles option not set to 'deny' may expose hidden files.`,
+              message: !hasOptions
+                ? `express.static() called without options, using default dotfiles behavior which may expose hidden files.`
+                : `express.static() with dotfiles option not set to 'deny' may expose hidden files.`,
               codeSnippet: getCodeSnippet(ctx.content, line),
               remediation: "Set dotfiles: 'deny' in express.static() options.",
               references: ['https://expressjs.com/en/4x/api.html#express.static'],
-              confidence: 'low',
+              confidence: hasOptions ? 'low' : 'medium',
             });
           }
         }

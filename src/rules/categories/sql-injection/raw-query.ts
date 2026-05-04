@@ -1,6 +1,6 @@
 import * as ts from 'typescript';
 import { defineRule } from '../../define-rule';
-import { findCallExpressions, getLineAndColumn, getCodeSnippet, visit } from '../../../utils/ast-helpers';
+import { getLineAndColumn, getCodeSnippet, visit } from '../../../utils/ast-helpers';
 import { isTaintSource } from '../../../utils/patterns';
 
 const RAW_QUERY_METHODS = ['.query(', '.raw('];
@@ -24,8 +24,8 @@ export const SQLI003 = defineRule({
         if (isRawQuery) {
           const callText = node.expression.getText(ctx.sourceFile);
           const args = node.arguments;
-          const singleStringArg = args.length === 1 && ts.isStringLiteral(args[0]);
-          const hasTaint = args.length === 1 && isTaintSource(text);
+          const singleStringArg = args.length === 1 && (ts.isStringLiteral(args[0]) || ts.isNoSubstitutionTemplateLiteral(args[0]));
+          const hasTaint = args.length >= 1 && isTaintSource(text);
 
           if (singleStringArg || hasTaint) {
             const { line, column } = getLineAndColumn(ctx.sourceFile, node);

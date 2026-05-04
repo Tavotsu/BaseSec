@@ -1,6 +1,6 @@
 import * as ts from 'typescript';
 import { defineRule } from '../../define-rule';
-import { findCallExpressions, getLineAndColumn, getCodeSnippet } from '../../../utils/ast-helpers';
+import { findCallExpressions, getLineAndColumn, getCodeSnippet, visit } from '../../../utils/ast-helpers';
 import { isTaintSource } from '../../../utils/patterns';
 
 export const CMDI002 = defineRule({
@@ -16,6 +16,7 @@ export const CMDI002 = defineRule({
 
     const evalCalls = findCallExpressions(ctx.sourceFile, 'eval');
     for (const call of evalCalls) {
+      if (ts.isPropertyAccessExpression(call.expression)) continue;
       const text = call.getText(ctx.sourceFile);
       const { line, column } = getLineAndColumn(ctx.sourceFile, call);
       const confidence: import('../../../rules/types').Confidence = isTaintSource(text) ? 'high' : 'low';
@@ -45,7 +46,7 @@ export const CMDI002 = defineRule({
         const { line, column } = getLineAndColumn(ctx.sourceFile, node);
         const confidence: import('../../../rules/types').Confidence = isTaintSource(text) ? 'high' : 'low';
         findings.push({
-          ruleId: 'CMDI-002',
+          ruleId: 'CMDI-002b',
           ruleName: 'Use of new Function()',
           category: 'command-injection',
           severity: 'critical',
@@ -69,5 +70,3 @@ export const CMDI002 = defineRule({
     return findings;
   },
 });
-
-import { visit } from '../../../utils/ast-helpers';

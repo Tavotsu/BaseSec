@@ -29,11 +29,27 @@ export const ERR003 = defineRule({
           if (ts.isExpressionStatement(parent) || ts.isReturnStatement(parent)) {
             if (!text.includes('.catch') && !text.includes('try')) {
               const { line, column } = getLineAndColumn(ctx.sourceFile, node);
-              if (line > 1) {
+              const hasNearbyErrorHandling = line > 1 && (() => {
                 const prevLine = ctx.content.split('\n')[line - 2]?.trim() || '';
-                if (!prevLine.includes('try') && !prevLine.includes('.catch')) {
-                  return 'continue';
-                }
+                return prevLine.includes('try') || prevLine.includes('.catch');
+              })();
+              if (!hasNearbyErrorHandling) {
+                findings.push({
+                  ruleId: 'ERR-003',
+                  ruleName: 'Unhandled Promise Rejection',
+                  category: 'error-handling',
+                  severity: 'low',
+                  filePath: ctx.filePath,
+                  line,
+                  column,
+                  endLine: line,
+                  endColumn: column + text.length,
+                  message: `Async operation without error handling may cause unhandled promise rejection.`,
+                  codeSnippet: getCodeSnippet(ctx.content, line),
+                  remediation: 'Wrap async operations in try/catch or chain .catch() handlers.',
+                  references: ['https://nodejs.org/api/process.html#process_event_unhandledrejection'],
+                  confidence: 'low',
+                });
               }
             }
           }

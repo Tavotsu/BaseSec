@@ -19,7 +19,7 @@ export const CMDI003 = defineRule({
       for (const call of calls) {
         if (call.arguments.length > 0) {
           const firstArg = call.arguments[0];
-          if (ts.isStringLiteral(firstArg) || ts.isTemplateExpression(firstArg)) {
+          if (ts.isStringLiteral(firstArg) || ts.isTemplateExpression(firstArg) || ts.isNoSubstitutionTemplateLiteral(firstArg) || (ts.isBinaryExpression(firstArg) && firstArg.operatorToken.kind === ts.SyntaxKind.PlusToken)) {
             const text = call.getText(ctx.sourceFile);
             const { line, column } = getLineAndColumn(ctx.sourceFile, call);
             const confidence: import('../../../rules/types').Confidence = isTaintSource(text) ? 'high' : 'low';

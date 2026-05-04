@@ -1,7 +1,9 @@
 import * as ts from 'typescript';
 import { defineRule } from '../../define-rule';
-import { findCallExpressions, getLineAndColumn, getCodeSnippet } from '../../../utils/ast-helpers';
+import { getLineAndColumn, getCodeSnippet, visit } from '../../../utils/ast-helpers';
 import { isTaintSource } from '../../../utils/patterns';
+
+const HEADER_RECEIVERS = new Set(['res', 'response', 'ctx']);
 
 export const XSS003 = defineRule({
   id: 'XSS-003',
@@ -14,31 +16,49 @@ export const XSS003 = defineRule({
   detect(ctx) {
     const findings: import('../../../rules/types').Finding[] = [];
 
-    for (const method of ['set', 'setHeader']) {
-      const calls = findCallExpressions(ctx.sourceFile, method);
-      for (const call of calls) {
-        const text = call.getText(ctx.sourceFile);
-        if (isTaintSource(text)) {
-          const { line, column } = getLineAndColumn(ctx.sourceFile, call);
-          findings.push({
-            ruleId: 'XSS-003',
-            ruleName: 'Unsafe Response Header with User Input',
-            category: 'xss',
-            severity: 'medium',
-            filePath: ctx.filePath,
-            line,
-            column,
-            endLine: line,
-            endColumn: column + text.length,
-            message: `User input used in response header, which may enable header injection or XSS.`,
-            codeSnippet: getCodeSnippet(ctx.content, line),
-            remediation: 'Validate and sanitize all user input before including it in HTTP headers.',
-            references: ['https://owasp.org/www-community/attacks/xss/'],
-            confidence: 'medium',
-          });
+    visit(ctx.sourceFile, (node) => {
+      if (ts.isCallExpression(node)) {
+        const expr = node.expression;
+        if (ts.isPropertyAccessExpression(expr)) {
+          const methodName = expr.name.text;
+          if (methodName !== 'set' && methodName !== 'setHeader') return 'continue';
+
+          const objText = expr.expression.getText(ctx.sourceFile).toLowerCase();
+          let isResReceiver = false;
+          for (const receiver of HEADER_RECEIVERS) {
+            if (objText === receiver || objText.includes(receiver)) {
+              isResReceiver = true;
+              break;
+            }
+          }
+          if (objText.charAt(0) === 'r') isResReceiver = true;
+
+          if (isResReceiver) {
+            const text = node.getText(ctx.sourceFile);
+            if (isTaintSource(text)) {
+              const { line, column } = getLineAndColumn(ctx.sourceFile, node);
+              findings.push({
+                ruleId: 'XSS-003',
+                ruleName: 'Unsafe Response Header with User Input',
+                category: 'xss',
+                severity: 'medium',
+                filePath: ctx.filePath,
+                line,
+                column,
+                endLine: line,
+                endColumn: column + text.length,
+                message: `User input used in response header, which may enable header injection or XSS.`,
+                codeSnippet: getCodeSnippet(ctx.content, line),
+                remediation: 'Validate and sanitize all user input before including it in HTTP headers.',
+                references: ['https://owasp.org/www-community/attacks/xss/'],
+                confidence: 'medium',
+              });
+            }
+          }
         }
       }
-    }
+      return 'continue';
+    });
 
     return findings;
   },

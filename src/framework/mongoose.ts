@@ -89,7 +89,7 @@ export function detectMongoosePatterns(
 
 function isReqProperty(node: ts.Node, sourceFile: ts.SourceFile): boolean {
   const text = node.getText(sourceFile);
-  return text.startsWith('req.') || text === 'req.body' || text === 'req.query' || text === 'req.params';
+  return text.startsWith('req.');
 }
 
 function getSurroundingLine(content: string, _sourceFile: ts.SourceFile, node: ts.Node): string {
