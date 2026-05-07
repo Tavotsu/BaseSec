@@ -4,7 +4,7 @@ BaseSec is designed to scan large Node.js Codebases (TypeScript/JavaScript) rapi
 
 ## Performance Highlights
 
-By default, BaseSec v1.0.0 employs an **Analysis Cache**, which stores the result of every scanned file. This strategy achieves an order-of-magnitude speedup on incremental scans.
+By default, BaseSec v0.1.0 employs an **Analysis Cache**, which stores the result of every scanned file. This strategy achieves an order-of-magnitude speedup on incremental scans.
 
 **Benchmark Setup**
 - **Hardware:** 8-Core CPU, 16GB RAM
