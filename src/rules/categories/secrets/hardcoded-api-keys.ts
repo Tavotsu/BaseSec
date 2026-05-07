@@ -44,6 +44,28 @@ export const SEC001 = defineRule({
             references: ['https://cwe.mitre.org/data/definitions/798.html'],
             confidence: isSecretValue ? 'high' : 'medium',
           });
+        } else if (!isSecretVar && isSecretValue) {
+          const text = node.getText(ctx.sourceFile);
+          const { line, column } = getLineAndColumn(ctx.sourceFile, node);
+          const matchedPattern = SECRET_VALUE_PATTERNS.find((p) => p.pattern.test(value));
+          findings.push({
+            ruleId: 'SEC-001',
+            ruleName: 'Hardcoded API Key',
+            category: 'secrets',
+            severity: 'high',
+            filePath: ctx.filePath,
+            line,
+            column,
+            endLine: line,
+            endColumn: column + text.length,
+            message: matchedPattern
+              ? `Potential ${matchedPattern.name} detected. Variable name does not indicate a secret.`
+              : `Potential hardcoded secret detected by value pattern. Use environment variables.`,
+            codeSnippet: getCodeSnippet(ctx.content, line),
+            remediation: 'Store secrets in environment variables or secret managers. Never commit secrets to source code.',
+            references: ['https://cwe.mitre.org/data/definitions/798.html'],
+            confidence: 'low',
+          });
         }
       }
 
@@ -55,6 +77,8 @@ export const SEC001 = defineRule({
         if (isSecretProp && value.length > 0) {
           const text = node.getText(ctx.sourceFile);
           const { line, column } = getLineAndColumn(ctx.sourceFile, node);
+          const isSecretValue = SECRET_VALUE_PATTERNS.some((p) => p.pattern.test(value));
+          const matchedPattern = SECRET_VALUE_PATTERNS.find((p) => p.pattern.test(value));
           findings.push({
             ruleId: 'SEC-001',
             ruleName: 'Hardcoded API Key',
@@ -65,11 +89,13 @@ export const SEC001 = defineRule({
             column,
             endLine: line,
             endColumn: column + text.length,
-            message: `Hardcoded secret in property "${propName}". Use environment variables.`,
+            message: matchedPattern
+              ? `Hardcoded ${matchedPattern.name} in property "${propName}".`
+              : `Hardcoded secret in property "${propName}". Use environment variables.`,
             codeSnippet: getCodeSnippet(ctx.content, line),
             remediation: 'Store secrets in environment variables or secret managers.',
             references: ['https://cwe.mitre.org/data/definitions/798.html'],
-            confidence: 'medium',
+            confidence: isSecretValue ? 'high' : 'medium',
           });
         }
       }

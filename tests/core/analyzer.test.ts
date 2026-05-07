@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { Analyzer } from '../../src/core/analyzer';
 import { ALL_RULES } from '../../src/rules/index';
-import type { ParsedFile, secbaseConfig } from '../../src/rules/types';
+import type { ParsedFile, basesecConfig } from '../../src/rules/types';
 import { createSourceFile } from '../helpers';
 import * as ts from 'typescript';
 
@@ -14,7 +14,7 @@ function makeParsedFile(code: string, filePath = 'test.ts'): ParsedFile {
   };
 }
 
-const defaultConfig: secbaseConfig = {
+const defaultConfig: basesecConfig = {
   target: ['./src'],
   ignore: [],
   framework: 'auto',
@@ -44,7 +44,7 @@ describe('Analyzer', () => {
       const query = "SELECT * FROM users WHERE id = " + req.params.id;
     `;
     const parsedFile = makeParsedFile(code);
-    const config: secbaseConfig = {
+    const config: basesecConfig = {
       ...defaultConfig,
       rulesConfig: { 'SQLI-001': false },
     };
@@ -59,7 +59,7 @@ describe('Analyzer', () => {
       const app = express();
     `;
     const parsedFile = makeParsedFile(code);
-    const config: secbaseConfig = {
+    const config: basesecConfig = {
       ...defaultConfig,
       rulesConfig: { 'XSS-002': { severity: 'critical' } },
     };

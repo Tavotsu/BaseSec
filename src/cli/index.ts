@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 import { cac } from 'cac';
 import { printBanner, printError } from './output';
 import { runScan } from './commands/scan';
@@ -10,7 +11,7 @@ const VALID_FORMATS: OutputFormat[] = ['terminal', 'json', 'sarif', 'html', 'mar
 const VALID_SEVERITIES: Severity[] = ['critical', 'high', 'medium', 'low', 'info'];
 
 export async function main(): Promise<void> {
-  const cli = cac('secbase');
+  const cli = cac('basesec');
 
   cli
     .version('0.1.0')
@@ -27,9 +28,11 @@ export async function main(): Promise<void> {
     .option('--no-taint', 'Disable taint analysis')
     .option('--quiet, -q', 'Only show summary')
     .option('--strict', 'Exit with code 1 on any finding')
-    .option('--framework <fw>', 'Force framework: express|nestjs|auto', { default: 'auto' })
+    .option('--framework <fw>', 'Force framework: express|nestjs|mongoose|typeorm|auto', { default: 'auto' })
     .option('--no-color', 'Disable colored output')
     .option('--no-banner', 'Disable banner')
+    .option('--workers <num>', 'Number of worker threads (default: auto)')
+    .option('--no-cache', 'Disable result caching')
     .action(async (path: string | undefined, options: any) => {
       const targetPath = path || process.cwd();
 
@@ -59,9 +62,11 @@ export async function main(): Promise<void> {
         noTaint: options.taint === false,
         quiet: options.quiet ?? false,
         strict: options.strict ?? false,
-        framework: (options.framework ?? 'auto') as 'auto' | 'express' | 'nestjs',
+        framework: (options.framework ?? 'auto') as 'auto' | 'express' | 'nestjs' | 'mongoose' | 'typeorm',
         noColor: options.color === false,
         noBanner: options.banner === false,
+        workers: options.workers ? parseInt(options.workers, 10) : undefined,
+        noCache: options.cache === false,
       };
 
       if (!cliOptions.noBanner && !cliOptions.quiet) {
@@ -78,7 +83,7 @@ export async function main(): Promise<void> {
     });
 
   cli
-    .command('init', 'Initialize a secbase config file')
+    .command('init', 'Initialize a basesec config file')
     .option('--format <format>', 'Config format: ts or json', { default: 'ts' })
     .action(async (options: any) => {
       try {
@@ -119,7 +124,7 @@ export async function main(): Promise<void> {
         info: pc.gray,
       };
 
-      console.log(pc.bold(`\n  secbase rules (${rules.length} rules)\n`));
+      console.log(pc.bold(`\n  basesec rules (${rules.length} rules)\n`));
 
       const byCategory = new Map<string, typeof rules>();
       for (const rule of rules) {

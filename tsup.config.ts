@@ -1,12 +1,12 @@
 import { defineConfig } from 'tsup';
 
 export default defineConfig({
-  entry: ['src/cli/index.ts'],
+  entry: {
+    index: 'src/cli/index.ts',
+    worker: 'src/worker/analyzer.ts'
+  },
   format: ['esm'],
   target: 'node18',
-  banner: {
-    js: '#!/usr/bin/env node',
-  },
   clean: true,
   outDir: 'dist',
   splitting: false,
@@ -16,4 +16,9 @@ export default defineConfig({
   external: [
     'typescript',
   ],
+  esbuildOptions(options) {
+    options.banner = {
+      js: 'import { createRequire } from "module"; const require = createRequire(import.meta.url);',
+    };
+  }
 });

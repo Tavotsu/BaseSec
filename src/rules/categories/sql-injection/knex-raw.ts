@@ -2,6 +2,7 @@ import * as ts from 'typescript';
 import { defineRule } from '../../define-rule';
 import { getLineAndColumn, getCodeSnippet, visit } from '../../../utils/ast-helpers';
 import { isTaintSource, containsSqlKeywords } from '../../../utils/patterns';
+import { resolveConfidence, isExpressionTainted } from '../../../taint/integration';
 
 export const SQLI004 = defineRule({
   id: 'SQLI-004',
@@ -19,9 +20,11 @@ export const SQLI004 = defineRule({
         const expr = node.expression;
         if (ts.isPropertyAccessExpression(expr) && expr.name.text === 'raw') {
           const text = node.getText(ctx.sourceFile);
-          if (isTaintSource(text) || (node.arguments.length === 1 && containsSqlKeywords(text))) {
-            const firstArg = node.arguments[0];
-            if (firstArg && (ts.isTemplateExpression(firstArg) || ts.isBinaryExpression(firstArg))) {
+          const firstArg = node.arguments[0];
+          const argText = firstArg ? firstArg.getText(ctx.sourceFile) : text;
+          const hasTaint = isTaintSource(argText) || isExpressionTainted(ctx.taintGraph, argText);
+          if (hasTaint || (node.arguments.length === 1 && containsSqlKeywords(text))) {
+            if (firstArg && (ts.isTemplateExpression(firstArg) || ts.isBinaryExpression(firstArg) || ts.isIdentifier(firstArg))) {
               const { line, column } = getLineAndColumn(ctx.sourceFile, node);
               findings.push({
                 ruleId: 'SQLI-004',
@@ -37,7 +40,7 @@ export const SQLI004 = defineRule({
                 codeSnippet: getCodeSnippet(ctx.content, line),
                 remediation: 'Use knex.raw() with parameter bindings: knex.raw(\'SELECT * FROM users WHERE id = ?\', [id])',
                 references: ['https://owasp.org/www-community/attacks/SQL_Injection'],
-                confidence: 'medium',
+                confidence: resolveConfidence(ctx.taintGraph, argText, hasTaint ? 'high' : 'medium'),
               });
             }
           }

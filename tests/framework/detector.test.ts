@@ -8,7 +8,7 @@ describe('detectFrameworks', () => {
   let tmpDir: string;
 
   function createTempProject(files: Record<string, string>): string {
-    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'secbase-fw-'));
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'basesec-fw-'));
     for (const [relativePath, content] of Object.entries(files)) {
       const fullPath = path.join(tmpDir, relativePath);
       fs.mkdirSync(path.dirname(fullPath), { recursive: true });
@@ -75,6 +75,46 @@ describe('detectFrameworks', () => {
     });
     const detected = detectFrameworks('auto', [{ filePath: 'util.ts', content: 'import _ from "lodash";' }], dir);
     expect(detected).toEqual([]);
+    cleanup();
+  });
+
+  it('does not falsely detect express from express-validator', () => {
+    const dir = createTempProject({
+      'package.json': JSON.stringify({ dependencies: { 'express-validator': '^7.0.0' } }),
+      'app.ts': "import { body } from 'express-validator';",
+    });
+    const detected = detectFrameworks('auto', [{ filePath: 'app.ts', content: "import { body } from 'express-validator';" }], dir);
+    expect(detected).not.toContain('express');
+    cleanup();
+  });
+
+  it('does not falsely detect express from express-session import', () => {
+    const dir = createTempProject({
+      'package.json': JSON.stringify({}),
+      'app.ts': "import session from 'express-session';",
+    });
+    const detected = detectFrameworks('auto', [{ filePath: 'app.ts', content: "import session from 'express-session';" }], dir);
+    expect(detected).not.toContain('express');
+    cleanup();
+  });
+
+  it('detects mongoose from @nestjs/mongoose package', () => {
+    const dir = createTempProject({
+      'package.json': JSON.stringify({ dependencies: { '@nestjs/mongoose': '^10.0.0' } }),
+      'app.ts': "import { Module } from '@nestjs/common';",
+    });
+    const detected = detectFrameworks('auto', [{ filePath: 'app.ts', content: "import { Module } from '@nestjs/common';" }], dir);
+    expect(detected).toContain('mongoose');
+    cleanup();
+  });
+
+  it('detects frameworks from require syntax', () => {
+    const dir = createTempProject({
+      'package.json': JSON.stringify({}),
+      'app.js': 'const express = require("express");',
+    });
+    const detected = detectFrameworks('auto', [{ filePath: 'app.js', content: 'const express = require("express");' }], dir);
+    expect(detected).toContain('express');
     cleanup();
   });
 });

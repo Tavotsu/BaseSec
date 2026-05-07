@@ -8,7 +8,7 @@ describe('Parser', () => {
   let tmpDir: string;
 
   function createFile(name: string, content: string): string {
-    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'secbase-parser-'));
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'basesec-parser-'));
     const filePath = path.join(tmpDir, name);
     fs.writeFileSync(filePath, content);
     return filePath;

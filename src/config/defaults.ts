@@ -1,4 +1,4 @@
-import type { secbaseConfig, Severity, OutputFormat, RuleConfigOverride } from '../rules/types';
+import type { basesecConfig, Severity, OutputFormat, RuleConfigOverride } from '../rules/types';
 
 export const DEFAULT_IGNORE_PATTERNS: string[] = [
   'node_modules/**',
@@ -25,7 +25,7 @@ export const DEFAULT_EXTENSIONS: string[] = [
   '.tsx',
 ];
 
-export const DEFAULT_CONFIG: secbaseConfig = {
+export const DEFAULT_CONFIG: basesecConfig = {
   target: ['./src'],
   ignore: DEFAULT_IGNORE_PATTERNS,
   framework: 'auto',
@@ -40,9 +40,9 @@ export const DEFAULT_CONFIG: secbaseConfig = {
 };
 
 export function mergeConfigWithDefaults(
-  fileConfig: Partial<secbaseConfig>,
-  cliOverrides: Partial<secbaseConfig> = {},
-): secbaseConfig {
+  fileConfig: Partial<basesecConfig>,
+  cliOverrides: Partial<basesecConfig> = {},
+): basesecConfig {
   return {
     target: cliOverrides.target ?? fileConfig.target ?? DEFAULT_CONFIG.target,
     ignore: [

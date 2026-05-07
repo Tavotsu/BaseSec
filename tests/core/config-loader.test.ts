@@ -8,7 +8,7 @@ describe('loadConfig', () => {
   let tmpDir: string;
 
   beforeEach(() => {
-    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'secbase-cfg-'));
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'basesec-cfg-'));
   });
 
   afterEach(() => {
@@ -16,7 +16,7 @@ describe('loadConfig', () => {
   });
 
   it('loads JSON config file', () => {
-    const configPath = path.join(tmpDir, 'secbase.config.json');
+    const configPath = path.join(tmpDir, 'basesec.config.json');
     fs.writeFileSync(configPath, JSON.stringify({
       target: ['./src'],
       severity: 'high',
@@ -28,7 +28,7 @@ describe('loadConfig', () => {
   });
 
   it('loads JS config file with module.exports', () => {
-    const configPath = path.join(tmpDir, 'secbase.config.js');
+    const configPath = path.join(tmpDir, 'basesec.config.js');
     fs.writeFileSync(configPath, `module.exports = {
       target: ['./src'],
       severity: 'medium',
@@ -38,7 +38,7 @@ describe('loadConfig', () => {
   });
 
   it('loads TS config file with defineConfig pattern', () => {
-    const configPath = path.join(tmpDir, 'secbase.config.ts');
+    const configPath = path.join(tmpDir, 'basesec.config.ts');
     fs.writeFileSync(configPath, `defineConfig({
   target: ['./src'],
   severity: 'high',
@@ -49,7 +49,7 @@ describe('loadConfig', () => {
   });
 
   it('loads JS config file with module.exports', () => {
-    const configPath = path.join(tmpDir, 'secbase.config.js');
+    const configPath = path.join(tmpDir, 'basesec.config.js');
     fs.writeFileSync(configPath, `module.exports = {
       target: ['./src'],
       severity: 'medium',
@@ -59,8 +59,8 @@ describe('loadConfig', () => {
   });
 
   it('loads TS config file with defineConfig', () => {
-    const configPath = path.join(tmpDir, 'secbase.config.ts');
-    fs.writeFileSync(configPath, `import { defineConfig } from 'secbase/config';
+    const configPath = path.join(tmpDir, 'basesec.config.ts');
+    fs.writeFileSync(configPath, `import { defineConfig } from 'basesec/config';
 export default defineConfig({
   target: ['./src'],
   severity: 'high',
@@ -71,8 +71,8 @@ export default defineConfig({
     expect(config.taintAnalysis).toBe(true);
   });
 
-  it('loads config from .secbaserc', () => {
-    const configPath = path.join(tmpDir, '.secbaserc');
+  it('loads config from .basesecrc', () => {
+    const configPath = path.join(tmpDir, '.basesecrc');
     fs.writeFileSync(configPath, JSON.stringify({
       target: ['./src'],
       severity: 'low',
@@ -81,11 +81,11 @@ export default defineConfig({
     expect(config.severity).toBe('low');
   });
 
-  it('loads config from package.json secbase key', () => {
+  it('loads config from package.json basesec key', () => {
     const pkgPath = path.join(tmpDir, 'package.json');
     fs.writeFileSync(pkgPath, JSON.stringify({
       name: 'test-app',
-      secbase: {
+      basesec: {
         severity: 'high',
         taintAnalysis: false,
       },

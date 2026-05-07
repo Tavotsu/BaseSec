@@ -21,9 +21,9 @@ export class SarifFormatter implements ReportFormatter {
         {
           tool: {
             driver: {
-              name: 'secbase',
+              name: 'basesec',
               version: '0.1.0',
-              informationUri: 'https://github.com/secbase/secbase',
+              informationUri: 'https://github.com/basesec/basesec',
               rules,
             },
           },

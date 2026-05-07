@@ -1,19 +1,19 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import type { secbaseConfig, Severity, OutputFormat, RuleConfigOverride } from '../rules/types';
+import type { basesecConfig, Severity, OutputFormat, RuleConfigOverride } from '../rules/types';
 
 const CONFIG_FILES = [
-  'secbase.config.ts',
-  'secbase.config.js',
-  'secbase.config.json',
-  '.secbaserc',
-  '.secbaserc.json',
+  'basesec.config.ts',
+  'basesec.config.js',
+  'basesec.config.json',
+  '.basesecrc',
+  '.basesecrc.json',
 ];
 
 export function loadConfig(
   configPath?: string,
   projectRoot?: string,
-): Partial<secbaseConfig> {
+): Partial<basesecConfig> {
   const root = projectRoot ?? process.cwd();
 
   if (configPath) {
@@ -34,11 +34,11 @@ export function loadConfig(
   return loadFromPackageJson(root);
 }
 
-function loadConfigFile(filePath: string): Partial<secbaseConfig> {
+function loadConfigFile(filePath: string): Partial<basesecConfig> {
   const ext = path.extname(filePath);
   const basename = path.basename(filePath);
 
-  if (ext === '.json' || basename === '.secbaserc' || basename === '.secbaserc.json') {
+  if (ext === '.json' || basename === '.basesecrc' || basename === '.basesecrc.json') {
     return loadJsonConfig(filePath);
   }
 
@@ -64,20 +64,20 @@ function loadConfigFile(filePath: string): Partial<secbaseConfig> {
   return {};
 }
 
-function loadJsonConfig(filePath: string): Partial<secbaseConfig> {
+function loadJsonConfig(filePath: string): Partial<basesecConfig> {
   if (!fs.existsSync(filePath)) return {};
   try {
     const content = fs.readFileSync(filePath, 'utf-8');
     const parsed = JSON.parse(content);
 
     if (path.basename(filePath) === 'package.json') {
-      if (parsed.secbase && typeof parsed.secbase === 'object') {
-        return normalizeConfig(parsed.secbase);
+      if (parsed.basesec && typeof parsed.basesec === 'object') {
+        return normalizeConfig(parsed.basesec);
       }
       return {};
     }
 
-    if (path.basename(filePath) === '.secbaserc' || path.basename(filePath) === '.secbaserc.json') {
+    if (path.basename(filePath) === '.basesecrc' || path.basename(filePath) === '.basesecrc.json') {
       return normalizeConfig(parsed);
     }
 
@@ -87,7 +87,7 @@ function loadJsonConfig(filePath: string): Partial<secbaseConfig> {
   }
 }
 
-function loadJsConfig(filePath: string): Partial<secbaseConfig> {
+function loadJsConfig(filePath: string): Partial<basesecConfig> {
   try {
     const content = fs.readFileSync(filePath, 'utf-8');
 
@@ -153,19 +153,19 @@ function extractConfigFromTs(content: string): Record<string, unknown> | null {
   return null;
 }
 
-function loadFromPackageJson(root: string): Partial<secbaseConfig> {
+function loadFromPackageJson(root: string): Partial<basesecConfig> {
   const pkgPath = path.join(root, 'package.json');
   if (!fs.existsSync(pkgPath)) return {};
 
   return loadJsonConfig(pkgPath);
 }
 
-function normalizeConfig(raw: Record<string, unknown>): Partial<secbaseConfig> {
-  const config: Partial<secbaseConfig> = {};
+function normalizeConfig(raw: Record<string, unknown>): Partial<basesecConfig> {
+  const config: Partial<basesecConfig> = {};
 
   if (raw.target) config.target = raw.target as string[];
   if (raw.ignore) config.ignore = raw.ignore as string[];
-  if (raw.framework) config.framework = raw.framework as secbaseConfig['framework'];
+  if (raw.framework) config.framework = raw.framework as basesecConfig['framework'];
   if (raw.severity) config.severity = raw.severity as Severity;
   if (raw.taintAnalysis !== undefined) config.taintAnalysis = raw.taintAnalysis as boolean;
   if (raw.rules) config.rules = raw.rules as string[];

@@ -56,7 +56,7 @@ export interface RuleContext {
   sourceFile: import('typescript').SourceFile;
   filePath: string;
   content: string;
-  config: secbaseConfig;
+  config: basesecConfig;
   taintGraph?: TaintGraph;
 }
 
@@ -68,10 +68,10 @@ export type RuleConfigOverride = {
   confidence?: Confidence;
 };
 
-export interface secbaseConfig {
+export interface basesecConfig {
   target: string[];
   ignore: string[];
-  framework: 'auto' | 'express' | 'nestjs';
+  framework: 'auto' | 'express' | 'nestjs' | 'mongoose' | 'typeorm';
   severity: Severity;
   taintAnalysis: boolean;
   rules: string[];
@@ -93,10 +93,12 @@ export interface CliOptions {
   noTaint: boolean;
   quiet: boolean;
   strict: boolean;
-  framework: 'auto' | 'express' | 'nestjs';
+  framework: 'auto' | 'express' | 'nestjs' | 'mongoose' | 'typeorm';
   noColor: boolean;
   noBanner: boolean;
   rulesFilter?: string[];
+  workers?: number;
+  noCache?: boolean;
 }
 
 export interface ScanResult {

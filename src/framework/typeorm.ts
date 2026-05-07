@@ -8,9 +8,12 @@ export interface TypeORMPatternInfo {
   lineNumbers: number[];
 }
 
+const QUERY_RECEIVERS = ['manager', 'connection', 'queryrunner', 'db', 'getConnection'];
+const RAW_RECEIVERS = ['manager', 'connection', 'knex', 'db'];
+const REPO_RECEIVERS = ['repository', 'Repository', 'repo', 'Repo'];
+
 export function detectTypeORMPatterns(
   sourceFile: ts.SourceFile,
-  content: string,
 ): TypeORMPatternInfo {
   const info: TypeORMPatternInfo = {
     hasRawQueryWithoutParams: false,
@@ -29,23 +32,35 @@ export function detectTypeORMPatterns(
         const objText = expr.expression.getText(sourceFile);
 
         if (methodName === 'query') {
-          if (node.arguments.length === 1) {
-            const argText = node.arguments[0].getText(sourceFile);
-            if (isDynamicString(argText)) {
-              info.hasRawQueryWithoutParams = true;
-              const pos = sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile));
-              info.lineNumbers.push(pos.line + 1);
+          const isQueryReceiver = QUERY_RECEIVERS.some((r) => objText.toLowerCase().includes(r.toLowerCase()));
+          if (isQueryReceiver || node.arguments.length === 1) {
+            if (node.arguments.length >= 1) {
+              const argText = node.arguments[0].getText(sourceFile);
+              const firstArg = node.arguments[0];
+              const isDynamic = ts.isTemplateExpression(firstArg) || ts.isBinaryExpression(firstArg)
+                || (ts.isIdentifier(firstArg) && isDynamicString(argText));
+              if (isDynamic) {
+                info.hasRawQueryWithoutParams = true;
+                const pos = sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile));
+                info.lineNumbers.push(pos.line + 1);
+              }
             }
           }
         }
 
         if (methodName === 'raw') {
-          if (node.arguments.length >= 1) {
-            const argText = node.arguments[0].getText(sourceFile);
-            if (isDynamicString(argText)) {
-              info.hasRawQueryWithoutParams = true;
-              const pos = sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile));
-              info.lineNumbers.push(pos.line + 1);
+          const isRawReceiver = RAW_RECEIVERS.some((r) => objText.toLowerCase().includes(r.toLowerCase()));
+          if (isRawReceiver || objText.toLowerCase().includes('typeorm')) {
+            if (node.arguments.length >= 1) {
+              const argText = node.arguments[0].getText(sourceFile);
+              const firstArg = node.arguments[0];
+              const isDynamic = ts.isTemplateExpression(firstArg) || ts.isBinaryExpression(firstArg)
+                || (ts.isIdentifier(firstArg) && isDynamicString(argText));
+              if (isDynamic) {
+                info.hasRawQueryWithoutParams = true;
+                const pos = sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile));
+                info.lineNumbers.push(pos.line + 1);
+              }
             }
           }
         }
@@ -55,7 +70,7 @@ export function detectTypeORMPatterns(
         }
 
         if (methodName === 'find' || methodName === 'findOne') {
-          if (objText.includes('repository') || objText.includes('Repository') || objText.includes('repo')) {
+          if (REPO_RECEIVERS.some((r) => objText.includes(r))) {
             info.hasRepositoryFind = true;
           }
         }
@@ -69,5 +84,7 @@ export function detectTypeORMPatterns(
 }
 
 function isDynamicString(text: string): boolean {
-  return text.includes('req.') || text.includes('${') || text.includes(' + ') || text.includes('process.');
+  return text.includes('req.') || text.includes('params.') || text.includes('query.')
+    || text.includes('body.') || text.includes('process.argv')
+    || text.includes('${') || text.includes(' + ');
 }

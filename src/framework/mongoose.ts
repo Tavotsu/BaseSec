@@ -1,5 +1,6 @@
 import * as ts from 'typescript';
 import { visit } from '../utils/ast-helpers';
+import { isTaintSource } from '../utils/patterns';
 
 export interface MongoosePatternInfo {
   hasLeanWithoutSelect: boolean;
@@ -8,6 +9,8 @@ export interface MongoosePatternInfo {
   schemaNames: string[];
   lineNumbers: number[];
 }
+
+const MONGOOSE_QUERY_METHODS = ['find', 'findOne', 'findById', 'findByIdAndUpdate', 'findOneAndUpdate', 'findByIdAndDelete', 'findOneAndDelete', 'findOneAndRemove'];
 
 export function detectMongoosePatterns(
   sourceFile: ts.SourceFile,
@@ -24,16 +27,11 @@ export function detectMongoosePatterns(
   visit(sourceFile, (node) => {
     if (ts.isCallExpression(node)) {
       const expr = node.expression;
-      const text = node.getText(sourceFile);
 
       if (ts.isPropertyAccessExpression(expr)) {
         const methodName = expr.name.text;
 
         if (methodName === 'lean') {
-          const fullText = content.substring(
-            node.parent ? node.parent.getStart(sourceFile) : node.getStart(sourceFile),
-            node.parent ? node.parent.getEnd() : node.getEnd(),
-          );
           const surroundingText = getSurroundingLine(content, sourceFile, node);
           if (!surroundingText.includes('.select(')) {
             info.hasLeanWithoutSelect = true;
@@ -42,10 +40,11 @@ export function detectMongoosePatterns(
           }
         }
 
-        if (methodName === 'find' || methodName === 'findOne' || methodName === 'findById') {
+        if (MONGOOSE_QUERY_METHODS.includes(methodName)) {
           if (node.arguments.length > 0) {
             const firstArg = node.arguments[0];
-            if (isReqProperty(firstArg, sourceFile)) {
+            const argText = firstArg.getText(sourceFile);
+            if (isTaintSource(argText) || argText.startsWith('{ ...req.') || argText.startsWith('{...req.')) {
               info.hasDirectQueryPass = true;
               const pos = sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile));
               info.lineNumbers.push(pos.line + 1);
@@ -85,11 +84,6 @@ export function detectMongoosePatterns(
   });
 
   return info;
-}
-
-function isReqProperty(node: ts.Node, sourceFile: ts.SourceFile): boolean {
-  const text = node.getText(sourceFile);
-  return text.startsWith('req.');
 }
 
 function getSurroundingLine(content: string, _sourceFile: ts.SourceFile, node: ts.Node): string {

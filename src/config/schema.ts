@@ -1,9 +1,9 @@
-import type { secbaseConfig, Severity, OutputFormat, RuleConfigOverride } from '../rules/types';
+import type { basesecConfig, Severity, OutputFormat, RuleConfigOverride } from '../rules/types';
 
-export interface SecbaseConfigSchema {
+export interface basesecConfigSchema {
   target?: string[];
   ignore?: string[];
-  framework?: 'auto' | 'express' | 'nestjs';
+  framework?: 'auto' | 'express' | 'nestjs' | 'mongoose' | 'typeorm';
   severity?: Severity;
   taintAnalysis?: boolean;
   rules?: string[];
@@ -15,6 +15,6 @@ export interface SecbaseConfigSchema {
   };
 }
 
-export function defineConfig(config: SecbaseConfigSchema): SecbaseConfigSchema {
+export function defineConfig(config: basesecConfigSchema): basesecConfigSchema {
   return config;
 }

@@ -1,6 +1,7 @@
 import * as ts from 'typescript';
 import { defineRule } from '../../define-rule';
 import { getLineAndColumn, getCodeSnippet, visit } from '../../../utils/ast-helpers';
+import { detectNestJSPatterns } from '../../../framework/nestjs';
 
 const MUTATING_METHODS = ['post', 'put', 'patch', 'delete'];
 const AUTH_MIDDLEWARE_NAMES = ['authenticate', 'auth', 'requireAuth', 'isAuthenticated', 'checkAuth', 'verifyToken', 'jwt', 'passport', 'isAuth', 'ensureAuth', 'loginRequired', 'authMiddleware', 'requireLogin'];
@@ -8,13 +9,41 @@ const AUTH_MIDDLEWARE_NAMES = ['authenticate', 'auth', 'requireAuth', 'isAuthent
 export const AUTH001 = defineRule({
   id: 'AUTH-001',
   name: 'Missing Authentication Guard',
-  description: 'Detects mutating routes (POST, PUT, PATCH, DELETE) without authentication middleware.',
+  description: 'Detects mutating routes (POST, PUT, PATCH, DELETE) without authentication middleware or NestJS guards.',
   category: 'auth',
   severity: 'high',
   frameworks: ['express', 'nestjs', '*'],
   tags: ['owasp:a1', 'cwe:306', 'auth'],
   detect(ctx) {
     const findings: import('../../../rules/types').Finding[] = [];
+
+    const hasNestJS = ctx.content.includes('@Controller') || ctx.content.includes('@Injectable') || ctx.content.includes('@Module');
+
+    if (hasNestJS) {
+      const controllers = detectNestJSPatterns(ctx.sourceFile);
+      for (const controller of controllers) {
+        for (const method of controller.methods) {
+          if (!method.hasGuard && (method.method === 'POST' || method.method === 'PUT' || method.method === 'PATCH' || method.method === 'DELETE')) {
+            findings.push({
+              ruleId: 'AUTH-001',
+              ruleName: 'Missing Authentication Guard',
+              category: 'auth',
+              severity: 'high',
+              filePath: ctx.filePath,
+              line: method.line,
+              column: 1,
+              endLine: method.line,
+              endColumn: 80,
+              message: `NestJS ${method.method} route "${method.path}" in ${controller.className} has no @UseGuards() decorator.`,
+              codeSnippet: getCodeSnippet(ctx.content, method.line),
+              remediation: 'Add @UseGuards(AuthGuard) to the method or controller class.',
+              references: ['https://docs.nestjs.com/guards', 'https://cwe.mitre.org/data/definitions/306.html'],
+              confidence: controller.hasGuard ? 'low' : 'medium',
+            });
+          }
+        }
+      }
+    }
 
     visit(ctx.sourceFile, (node) => {
       if (ts.isCallExpression(node)) {

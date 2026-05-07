@@ -12,6 +12,8 @@ logs/
 .idea/
 *.swp
 *.swo
+audit
+bench-files
 .DS_Store
 Thumbs.db
 .agents

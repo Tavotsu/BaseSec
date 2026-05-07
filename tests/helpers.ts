@@ -1,5 +1,5 @@
 import * as ts from 'typescript';
-import type { Finding, Rule, RuleContext, secbaseConfig, TaintGraph } from '../../src/rules/types';
+import type { Finding, Rule, RuleContext, basesecConfig, TaintGraph } from '../../src/rules/types';
 
 export function createSourceFile(code: string, fileName = 'test.ts'): ts.SourceFile {
   return ts.createSourceFile(

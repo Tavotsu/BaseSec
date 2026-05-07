@@ -2,6 +2,7 @@ import * as ts from 'typescript';
 import { defineRule } from '../../define-rule';
 import { getLineAndColumn, getCodeSnippet, visit } from '../../../utils/ast-helpers';
 import { isTaintSource } from '../../../utils/patterns';
+import { resolveConfidence, isExpressionTainted } from '../../../taint/integration';
 
 const HEADER_RECEIVERS = new Set(['res', 'response', 'ctx']);
 
@@ -24,19 +25,19 @@ export const XSS003 = defineRule({
           if (methodName !== 'set' && methodName !== 'setHeader') return 'continue';
 
           const objText = expr.expression.getText(ctx.sourceFile).toLowerCase();
-          let isResReceiver = false;
-          for (const receiver of HEADER_RECEIVERS) {
-            if (objText === receiver || objText.includes(receiver)) {
-              isResReceiver = true;
-              break;
-            }
-          }
-          if (objText.charAt(0) === 'r') isResReceiver = true;
+
+          const isResReceiver = Array.from(HEADER_RECEIVERS).some(
+            (receiver) => objText === receiver || objText.endsWith(receiver)
+          );
 
           if (isResReceiver) {
-            const text = node.getText(ctx.sourceFile);
-            if (isTaintSource(text)) {
+            const argTexts = node.arguments.map((a) => a.getText(ctx.sourceFile));
+            const valueArgText = (methodName === 'set' || methodName === 'setHeader') && node.arguments.length >= 2
+              ? argTexts[1]
+              : argTexts[0] ?? node.getText(ctx.sourceFile);
+            if (isTaintSource(valueArgText) || isExpressionTainted(ctx.taintGraph, valueArgText)) {
               const { line, column } = getLineAndColumn(ctx.sourceFile, node);
+              const nodeText = node.getText(ctx.sourceFile);
               findings.push({
                 ruleId: 'XSS-003',
                 ruleName: 'Unsafe Response Header with User Input',
@@ -46,12 +47,12 @@ export const XSS003 = defineRule({
                 line,
                 column,
                 endLine: line,
-                endColumn: column + text.length,
+                endColumn: column + nodeText.length,
                 message: `User input used in response header, which may enable header injection or XSS.`,
                 codeSnippet: getCodeSnippet(ctx.content, line),
                 remediation: 'Validate and sanitize all user input before including it in HTTP headers.',
                 references: ['https://owasp.org/www-community/attacks/xss/'],
-                confidence: 'medium',
+                confidence: resolveConfidence(ctx.taintGraph, valueArgText, 'medium'),
               });
             }
           }

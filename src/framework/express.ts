@@ -1,5 +1,4 @@
 import * as ts from 'typescript';
-import type { DetectedFramework } from './detector';
 import { visit } from '../utils/ast-helpers';
 
 export interface ExpressRouteInfo {

@@ -11,21 +11,35 @@ import * as path from 'node:path';
 const FRAMEWORK_PACKAGES: Record<string, string[]> = {
   express: ['express'],
   nestjs: ['@nestjs/core', '@nestjs/common'],
-  mongoose: ['mongoose'],
+  mongoose: ['mongoose', '@nestjs/mongoose'],
   typeorm: ['typeorm', '@nestjs/typeorm'],
   sequelize: ['sequelize'],
 };
 
 const FRAMEWORK_IMPORTS: Record<string, string[]> = {
-  express: ["from 'express'", 'require("express")', "require('express')", 'import express'],
+  express: ["from 'express'", "from \"express\"", 'require("express")', "require('express')", 'import express from', 'import * as express from'],
   nestjs: ["from '@nestjs/", "@Controller", "@Module", "@Injectable"],
-  mongoose: ["from 'mongoose'", 'require("mongoose")', "require('mongoose')", "mongoose.model", "mongoose.connect"],
-  typeorm: ["from 'typeorm'", "require('typeorm')", "require(\"typeorm\")", "@Entity"],
-  sequelize: ["from 'sequelize'", 'require("sequelize")'],
+  mongoose: ["from 'mongoose'", "from \"mongoose\"", 'require("mongoose")', "require('mongoose')", 'mongoose.model', 'mongoose.connect'],
+  typeorm: ["from 'typeorm'", "from \"typeorm\"", "require('typeorm')", "require(\"typeorm\")", '@Entity'],
+  sequelize: ["from 'sequelize'", "from \"sequelize\"", 'require("sequelize")', "require('sequelize')"],
 };
 
+function isExactImportMatch(content: string, pattern: string): boolean {
+  if (pattern.startsWith('from ') || pattern.startsWith('import ')) {
+    const idx = content.indexOf(pattern);
+    if (idx === -1) return false;
+    const afterPattern = idx + pattern.length;
+    if (afterPattern < content.length) {
+      const nextChar = content[afterPattern];
+      if (nextChar === '/' || nextChar === '-' || nextChar === '_') return false;
+    }
+    return true;
+  }
+  return content.includes(pattern);
+}
+
 export function detectFrameworks(
-  framework: 'auto' | 'express' | 'nestjs',
+  framework: 'auto' | 'express' | 'nestjs' | 'mongoose' | 'typeorm',
   parsedFiles: { filePath: string; content: string }[],
   projectRoot?: string,
 ): string[] {
@@ -37,6 +51,29 @@ export function detectFrameworks(
   detectFromImports(parsedFiles, detected);
 
   return [...detected.keys()];
+}
+
+function detectFromImports(
+  parsedFiles: { filePath: string; content: string }[],
+  detected: Map<string, DetectedFramework>,
+): void {
+  for (const file of parsedFiles) {
+    for (const [fwk, patterns] of Object.entries(FRAMEWORK_IMPORTS)) {
+      if (detected.has(fwk) && detected.get(fwk)!.confidence === 'high') continue;
+      for (const pattern of patterns) {
+        if (isExactImportMatch(file.content, pattern)) {
+          if (!detected.has(fwk)) {
+            detected.set(fwk, {
+              name: fwk,
+              confidence: 'medium',
+              source: 'imports',
+            });
+          }
+          break;
+        }
+      }
+    }
+  }
 }
 
 function detectFromPackageJson(
@@ -69,28 +106,5 @@ function detectFromPackageJson(
     }
   } catch {
     // Invalid package.json, skip
-  }
-}
-
-function detectFromImports(
-  parsedFiles: { filePath: string; content: string }[],
-  detected: Map<string, DetectedFramework>,
-): void {
-  for (const file of parsedFiles) {
-    for (const [fwk, patterns] of Object.entries(FRAMEWORK_IMPORTS)) {
-      if (detected.has(fwk) && detected.get(fwk)!.confidence === 'high') continue;
-      for (const pattern of patterns) {
-        if (file.content.includes(pattern)) {
-          if (!detected.has(fwk)) {
-            detected.set(fwk, {
-              name: fwk,
-              confidence: 'medium',
-              source: 'imports',
-            });
-          }
-          break;
-        }
-      }
-    }
   }
 }

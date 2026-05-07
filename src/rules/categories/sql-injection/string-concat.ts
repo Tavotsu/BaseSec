@@ -2,6 +2,7 @@ import * as ts from 'typescript';
 import { defineRule } from '../../define-rule';
 import { getLineAndColumn, getCodeSnippet, visit } from '../../../utils/ast-helpers';
 import { isTaintSource, containsSqlKeywords } from '../../../utils/patterns';
+import { resolveConfidence, isExpressionTainted } from '../../../taint/integration';
 
 export const SQLI001 = defineRule({
   id: 'SQLI-001',
@@ -17,7 +18,12 @@ export const SQLI001 = defineRule({
     visit(ctx.sourceFile, (node) => {
       if (ts.isBinaryExpression(node) && node.operatorToken.kind === ts.SyntaxKind.PlusToken) {
         const text = node.getText(ctx.sourceFile);
-        if (containsSqlKeywords(text) && isTaintSource(text)) {
+        const leftText = node.left.getText(ctx.sourceFile);
+        const rightText = node.right.getText(ctx.sourceFile);
+        const isTainted = (isTaintSource(text) || isTaintSource(leftText) || isTaintSource(rightText))
+          || (isExpressionTainted(ctx.taintGraph, leftText) || isExpressionTainted(ctx.taintGraph, rightText));
+        if (containsSqlKeywords(text) && isTainted) {
+          const taintText = isTaintSource(rightText) || isExpressionTainted(ctx.taintGraph, rightText) ? rightText : leftText;
           const { line, column } = getLineAndColumn(ctx.sourceFile, node);
           findings.push({
             ruleId: 'SQLI-001',
@@ -33,7 +39,7 @@ export const SQLI001 = defineRule({
             codeSnippet: getCodeSnippet(ctx.content, line),
             remediation: 'Use parameterized queries or an ORM query builder.',
             references: ['https://owasp.org/www-community/attacks/SQL_Injection', 'https://cwe.mitre.org/data/definitions/89.html'],
-            confidence: 'high',
+            confidence: resolveConfidence(ctx.taintGraph, taintText, 'high'),
           });
         }
       }

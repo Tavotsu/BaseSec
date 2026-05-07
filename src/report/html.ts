@@ -100,7 +100,7 @@ export class HtmlFormatter implements ReportFormatter {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>secbase Security Report</title>
+  <title>basesec Security Report</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f172a; color: #e2e8f0; padding: 24px; }
@@ -133,7 +133,7 @@ export class HtmlFormatter implements ReportFormatter {
 </head>
 <body>
   <div class="container">
-    <h1>secbase Security Report</h1>
+    <h1>basesec Security Report</h1>
     <h2>Target: ${escapeHtml(target)} | ${result.stats.frameworks.length > 0 ? `Frameworks: ${escapeHtml(result.stats.frameworks.join(', '))}` : 'No frameworks detected'}</h2>
 
     <div class="stats-grid">

@@ -2,6 +2,7 @@ import * as ts from 'typescript';
 import { defineRule } from '../../define-rule';
 import { findCallExpressions, getLineAndColumn, getCodeSnippet } from '../../../utils/ast-helpers';
 import { isTaintSource } from '../../../utils/patterns';
+import { resolveConfidence } from '../../../taint/integration';
 
 export const CMDI003 = defineRule({
   id: 'CMDI-003',
@@ -21,8 +22,9 @@ export const CMDI003 = defineRule({
           const firstArg = call.arguments[0];
           if (ts.isStringLiteral(firstArg) || ts.isTemplateExpression(firstArg) || ts.isNoSubstitutionTemplateLiteral(firstArg) || (ts.isBinaryExpression(firstArg) && firstArg.operatorToken.kind === ts.SyntaxKind.PlusToken)) {
             const text = call.getText(ctx.sourceFile);
+            const argText = firstArg.getText(ctx.sourceFile);
             const { line, column } = getLineAndColumn(ctx.sourceFile, call);
-            const confidence: import('../../../rules/types').Confidence = isTaintSource(text) ? 'high' : 'low';
+            const confidence: import('../../../rules/types').Confidence = resolveConfidence(ctx.taintGraph, argText, isTaintSource(argText) ? 'high' : 'low');
             findings.push({
               ruleId: 'CMDI-003',
               ruleName: 'setTimeout/setInterval with String Argument',

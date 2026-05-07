@@ -1,7 +1,7 @@
 import { Pipeline } from '../../core/pipeline';
 import { getFormatter } from '../../report/formatter';
 import { loadConfig } from '../../config/loader';
-import type { CliOptions, ScanResult, secbaseConfig } from '../../rules/types';
+import type { CliOptions, ScanResult, basesecConfig } from '../../rules/types';
 import { severityGte } from '../../utils/severity';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
@@ -10,9 +10,12 @@ export async function runScan(
   targetPath: string,
   options: CliOptions,
 ): Promise<number> {
-  const pipeline = new Pipeline();
+  const pipeline = new Pipeline(undefined, {
+    workers: options.workers,
+    noCache: options.noCache,
+  });
 
-  let fileConfig: Partial<secbaseConfig> = {};
+  let fileConfig: Partial<basesecConfig> = {};
   if (options.config) {
     try {
       fileConfig = loadConfig(options.config, targetPath);
@@ -32,7 +35,7 @@ export async function runScan(
     ? options.rules.split(',').map((r) => r.trim())
     : undefined;
 
-  const cliOverrides: Partial<secbaseConfig> = {
+  const cliOverrides: Partial<basesecConfig> = {
     severity: options.severity,
     ignore: options.ignore,
     framework: options.framework,

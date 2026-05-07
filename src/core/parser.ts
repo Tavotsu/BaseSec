@@ -3,18 +3,17 @@ import * as fs from 'node:fs';
 import type { ParsedFile, ParseError } from '../rules/types';
 
 export class Parser {
-  parseFile(filePath: string): ParsedFile | ParseError {
+  parseContent(filePath: string, content: string): ParsedFile | ParseError {
     try {
-      const content = fs.readFileSync(filePath, 'utf-8');
-const dotIdx = filePath.lastIndexOf('.');
-    if (dotIdx === -1) {
-      return {
-        filePath,
-        error: `File has no extension: ${filePath}`,
-      };
-    }
-    const ext = filePath.substring(dotIdx);
-    const scriptKind = this.getScriptKind(ext);
+      const dotIdx = filePath.lastIndexOf('.');
+      if (dotIdx === -1) {
+        return {
+          filePath,
+          error: `File has no extension: ${filePath}`,
+        };
+      }
+      const ext = filePath.substring(dotIdx);
+      const scriptKind = this.getScriptKind(ext);
 
       const sourceFile = ts.createSourceFile(
         filePath,
@@ -30,6 +29,18 @@ const dotIdx = filePath.lastIndexOf('.');
         content,
         size: content.length,
       };
+    } catch (error) {
+      return {
+        filePath,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  }
+
+  parseFile(filePath: string): ParsedFile | ParseError {
+    try {
+      const content = fs.readFileSync(filePath, 'utf-8');
+      return this.parseContent(filePath, content);
     } catch (e) {
       return {
         filePath,

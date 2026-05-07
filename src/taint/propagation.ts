@@ -5,23 +5,24 @@ import { TAINT_SOURCES } from '../utils/patterns';
 
 const SANITIZER_NAMES = new Set([
   'escapeHtml', 'encodeURI', 'encodeURIComponent',
-  'sanitize', 'parseInt', 'parseFloat', 'Number',
-  'DOMPurify.sanitize', 'validator.escape', 'validator.trim',
-  'check', 'escapeJavaScript',
+  'sanitize', 'DOMPurify.sanitize', 'validator.escape', 'validator.trim',
+  'escapeJavaScript',
 ]);
 
 const SANITIZER_PREFIXES = [
-  'escape', 'sanitize', 'encode', 'validate', 'check', 'filter',
+  'escape', 'sanitize', 'encode',
 ];
 
 export class TaintPropagation {
   private taintMap: Map<string, TaintInfo> = new Map();
   private sourceFile: ts.SourceFile;
   private content: string;
+  private customSanitizers: string[];
 
-  constructor(sourceFile: ts.SourceFile, content: string) {
+  constructor(sourceFile: ts.SourceFile, content: string, customSanitizers: string[] = []) {
     this.sourceFile = sourceFile;
     this.content = content;
+    this.customSanitizers = customSanitizers;
   }
 
   analyze(): Map<string, TaintInfo> {
@@ -97,6 +98,7 @@ export class TaintPropagation {
 
           if (this.templateLiteralHasTaint(node.initializer)) {
             const sources = this.getTemplateLiteralSources(node.initializer);
+            if (sources.length === 0) return 'continue';
             const pos = this.sourceFile.getLineAndCharacterOfPosition(node.getStart(this.sourceFile));
             this.taintMap.set(varName, {
               sources,
@@ -265,7 +267,8 @@ export class TaintPropagation {
   }
 
   private resolvesToTainted(text: string): boolean {
-    for (const [varName] of this.taintMap) {
+    for (const [varName, info] of this.taintMap) {
+      if (info.isSanitized) continue;
       if (text === varName || text.startsWith(varName + '.') || text.startsWith(varName + '[')) {
         return true;
       }
@@ -325,6 +328,9 @@ export class TaintPropagation {
     if (ts.isCallExpression(expr)) {
       const callee = expr.expression.getText(this.sourceFile);
       if (SANITIZER_NAMES.has(callee)) return true;
+      for (const custom of this.customSanitizers) {
+        if (callee === custom || callee.endsWith('.' + custom)) return true;
+      }
       for (const prefix of SANITIZER_PREFIXES) {
         if (callee.startsWith(prefix)) return true;
       }

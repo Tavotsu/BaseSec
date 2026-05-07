@@ -16,7 +16,7 @@ export const CONF001 = defineRule({
     let hasExpress = false;
     let expressLine = 1;
 
-    if (ctx.content.includes('express()') || ctx.content.includes("require('express')") || ctx.content.includes('from \'express\'')) {
+    if (ctx.content.includes('express()') || ctx.content.includes("require('express')") || ctx.content.includes('require("express")') || ctx.content.includes("from 'express'") || ctx.content.includes('from "express"')) {
       hasExpress = true;
     }
 

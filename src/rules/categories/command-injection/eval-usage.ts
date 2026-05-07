@@ -2,6 +2,7 @@ import * as ts from 'typescript';
 import { defineRule } from '../../define-rule';
 import { findCallExpressions, getLineAndColumn, getCodeSnippet, visit } from '../../../utils/ast-helpers';
 import { isTaintSource } from '../../../utils/patterns';
+import { resolveConfidence } from '../../../taint/integration';
 
 export const CMDI002 = defineRule({
   id: 'CMDI-002',
@@ -17,9 +18,9 @@ export const CMDI002 = defineRule({
     const evalCalls = findCallExpressions(ctx.sourceFile, 'eval');
     for (const call of evalCalls) {
       if (ts.isPropertyAccessExpression(call.expression)) continue;
-      const text = call.getText(ctx.sourceFile);
+      const argText = call.arguments.length > 0 ? call.arguments[0].getText(ctx.sourceFile) : call.getText(ctx.sourceFile);
       const { line, column } = getLineAndColumn(ctx.sourceFile, call);
-      const confidence: import('../../../rules/types').Confidence = isTaintSource(text) ? 'high' : 'low';
+      const confidence: import('../../../rules/types').Confidence = resolveConfidence(ctx.taintGraph, argText, isTaintSource(argText) ? 'high' : 'low');
       findings.push({
         ruleId: 'CMDI-002',
         ruleName: 'Use of eval()',
@@ -29,7 +30,7 @@ export const CMDI002 = defineRule({
         line,
         column,
         endLine: line,
-        endColumn: column + text.length,
+        endColumn: column + call.getText(ctx.sourceFile).length,
         message: confidence === 'high'
           ? `eval() called with user input, enabling arbitrary code execution.`
           : `eval() usage detected. eval() is a security risk and should be avoided.`,
@@ -42,9 +43,9 @@ export const CMDI002 = defineRule({
 
     visit(ctx.sourceFile, (node) => {
       if (ts.isNewExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === 'Function') {
-        const text = node.getText(ctx.sourceFile);
+        const argText = node.arguments && node.arguments.length > 0 ? node.arguments[0].getText(ctx.sourceFile) : node.getText(ctx.sourceFile);
         const { line, column } = getLineAndColumn(ctx.sourceFile, node);
-        const confidence: import('../../../rules/types').Confidence = isTaintSource(text) ? 'high' : 'low';
+        const confidence: import('../../../rules/types').Confidence = resolveConfidence(ctx.taintGraph, argText, isTaintSource(argText) ? 'high' : 'low');
         findings.push({
           ruleId: 'CMDI-002',
           ruleName: 'Use of new Function()',
@@ -54,7 +55,7 @@ export const CMDI002 = defineRule({
           line,
           column,
           endLine: line,
-          endColumn: column + text.length,
+          endColumn: column + node.getText(ctx.sourceFile).length,
           message: confidence === 'high'
             ? `new Function() with user input enables arbitrary code execution.`
             : `new Function() usage detected. This is equivalent to eval() and should be avoided.`,

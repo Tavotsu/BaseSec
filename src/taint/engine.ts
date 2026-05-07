@@ -3,7 +3,10 @@ import type { TaintGraph, TaintFlow, TaintSourceInfo, TaintSinkInfo } from './ty
 import { findSources } from './source';
 import { findSinks } from './sink';
 import { TaintPropagation } from './propagation';
+import { isExpressionTainted as isTainted, isExpressionSanitized as isSanitized } from './integration';
 import type { ParsedFile } from '../rules/types';
+
+export { isTainted as isExpressionTainted, isSanitized as isExpressionSanitized };
 
 export function analyzeFile(
   parsedFile: ParsedFile,
@@ -15,7 +18,7 @@ export function analyzeFile(
   const sources = findSources(sourceFile, content, frameworks);
   const sinks = findSinks(sourceFile);
 
-  const propagation = new TaintPropagation(sourceFile, content);
+  const propagation = new TaintPropagation(sourceFile, content, customSanitizers);
   const taintMap = propagation.analyze();
 
   const flows = buildFlows(sources, sinks, taintMap, content, sourceFile);
@@ -97,34 +100,11 @@ function escapeRegex(str: string): string {
 function deduplicateFlows(flows: TaintFlow[]): TaintFlow[] {
   const seen = new Set<string>();
   return flows.filter((f) => {
-    const key = `${f.source.kind}\x00${f.sink.functionName}\x00${f.sink.line}`;
+    const key = `${f.source.expression}\x00${f.sink.functionName}\x00${f.sink.line}`;
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
   });
-}
-
-export function isExpressionTainted(
-  graph: TaintGraph,
-  expression: string,
-): boolean {
-  if (!graph) return false;
-
-  for (const src of graph.sources) {
-    if (expression === src.expression || expression.startsWith(src.kind + '.')) {
-      return true;
-    }
-  }
-
-  for (const [varName, info] of graph.taintMap) {
-    if (!info.isSanitized) {
-      if (expression === varName || expression.startsWith(varName + '.') || expression.startsWith(varName + '[')) {
-        return true;
-      }
-    }
-  }
-
-  return false;
 }
 
 export function getTaintSourcesForExpression(
@@ -146,26 +126,4 @@ export function getTaintSourcesForExpression(
   }
 
   return result;
-}
-
-export function isExpressionSanitized(
-  graph: TaintGraph,
-  expression: string,
-): boolean {
-  if (!graph) return false;
-
-  for (const [varName, info] of graph.taintMap) {
-    if (info.isSanitized) {
-      if (expression === varName || expression.startsWith(varName + '.') || expression.startsWith(varName + '[')) {
-        return true;
-      }
-      for (const src of info.sources) {
-        if (expression === src.expression || expression.startsWith(src.kind + '.')) {
-          return true;
-        }
-      }
-    }
-  }
-
-  return false;
 }

@@ -34,7 +34,7 @@ const colored = lines
 }
 
 export function printVersion(): void {
-  console.log(pc.cyan('secbase v0.1.0'));
+  console.log(pc.cyan('basesec v0.1.0'));
 }
 
 export function printError(message: string): void {

@@ -1,6 +1,6 @@
 import * as ts from 'typescript';
 import { defineRule } from '../../define-rule';
-import { findCallExpressions, getLineAndColumn, getCodeSnippet, visit } from '../../../utils/ast-helpers';
+import { findCallExpressions, getLineAndColumn, getCodeSnippet } from '../../../utils/ast-helpers';
 
 const WEAK_SECRETS = [
   'secret', 'password', 'key', 'token', 'changeme', 'default',

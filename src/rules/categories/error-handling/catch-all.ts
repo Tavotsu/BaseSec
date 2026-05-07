@@ -1,6 +1,5 @@
-import * as ts from 'typescript';
 import { defineRule } from '../../define-rule';
-import { getLineAndColumn, getCodeSnippet, visit } from '../../../utils/ast-helpers';
+import { getCodeSnippet } from '../../../utils/ast-helpers';
 
 export const ERR002 = defineRule({
   id: 'ERR-002',

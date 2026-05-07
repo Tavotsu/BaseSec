@@ -17,7 +17,7 @@ export class MarkdownFormatter implements ReportFormatter {
   format(result: ScanResult, target: string): string {
     const lines: string[] = [];
 
-    lines.push('# secbase Security Report');
+    lines.push('# basesec Security Report');
     lines.push('');
     lines.push(`**Version:** 0.1.0`);
     lines.push(`**Target:** ${target}`);

@@ -8,7 +8,7 @@ describe('FileCollector', () => {
   let tmpDir: string;
 
   async function setuptmpDir(structure: Record<string, string>) {
-    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'secbase-test-'));
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'basesec-test-'));
     for (const [relativePath, content] of Object.entries(structure)) {
       const fullPath = path.join(tmpDir, relativePath);
       fs.mkdirSync(path.dirname(fullPath), { recursive: true });
@@ -25,7 +25,7 @@ describe('FileCollector', () => {
 
   describe('collect', () => {
     it('collects .ts and .js files from target directory', () => {
-      tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'secbase-test-'));
+      tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'basesec-test-'));
       fs.writeFileSync(path.join(tmpDir, 'app.ts'), 'const x = 1;');
       fs.writeFileSync(path.join(tmpDir, 'utils.js'), 'const y = 2;');
       fs.writeFileSync(path.join(tmpDir, 'style.css'), 'body { color: red; }');
@@ -42,7 +42,7 @@ describe('FileCollector', () => {
     });
 
     it('respects ignore patterns for node_modules and dist', () => {
-      tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'secbase-test-'));
+      tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'basesec-test-'));
       fs.mkdirSync(path.join(tmpDir, 'node_modules'), { recursive: true });
       fs.mkdirSync(path.join(tmpDir, 'dist'), { recursive: true });
       fs.writeFileSync(path.join(tmpDir, 'node_modules', 'lib.ts'), 'export const lib = 1;');
@@ -60,7 +60,7 @@ describe('FileCollector', () => {
     });
 
     it('skips files exceeding maxFileSize', () => {
-      tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'secbase-test-'));
+      tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'basesec-test-'));
       const largeContent = 'x'.repeat(600 * 1024);
       fs.writeFileSync(path.join(tmpDir, 'large.ts'), largeContent);
       fs.writeFileSync(path.join(tmpDir, 'small.ts'), 'const x = 1;');
@@ -78,7 +78,7 @@ describe('FileCollector', () => {
     });
 
     it('loads .gitignore patterns', () => {
-      tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'secbase-test-'));
+      tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'basesec-test-'));
       fs.writeFileSync(path.join(tmpDir, '.gitignore'), 'logs/\n*.bak\n');
       fs.mkdirSync(path.join(tmpDir, 'logs'), { recursive: true });
       fs.writeFileSync(path.join(tmpDir, 'logs', 'app.ts'), 'const x = 1;');
@@ -95,7 +95,7 @@ describe('FileCollector', () => {
     });
 
     it('collects .tsx and .jsx files', () => {
-      tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'secbase-test-'));
+      tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'basesec-test-'));
       fs.writeFileSync(path.join(tmpDir, 'component.tsx'), 'const X = () => <div/>;');
       fs.writeFileSync(path.join(tmpDir, 'app.jsx'), 'const Y = () => {};');
 

@@ -39,6 +39,13 @@ export function detectNestJSPatterns(
   return controllers;
 }
 
+function getDecoratorsSafe(node: ts.Node): ts.Decorator[] {
+  if (ts.canHaveDecorators(node)) {
+    return [...(ts.getDecorators(node) ?? [])];
+  }
+  return [];
+}
+
 function analyzeController(
   node: ts.ClassDeclaration,
   sourceFile: ts.SourceFile,
@@ -47,18 +54,16 @@ function analyzeController(
   let routePrefix = '';
   let classHasGuard = false;
 
-  const decorators = (node as any).decorators as ts.NodeArray<ts.Decorator> | undefined;
-  if (decorators) {
-    for (const dec of decorators) {
-      const text = dec.getText(sourceFile);
-      if (text.includes('@Controller')) {
-        isController = true;
-        const match = text.match(/@Controller\(['"]([^'"]+)['"]\)/);
-        if (match) routePrefix = match[1];
-      }
-      if (text.includes('@UseGuards')) {
-        classHasGuard = true;
-      }
+  const decorators = getDecoratorsSafe(node);
+  for (const dec of decorators) {
+    const text = dec.getText(sourceFile);
+    if (/^@Controller\b/.test(text)) {
+      isController = true;
+      const match = text.match(/@Controller\(['"]([^'"]+)['"]\)/);
+      if (match) routePrefix = match[1];
+    }
+    if (/^@UseGuards\b/.test(text)) {
+      classHasGuard = true;
     }
   }
 
@@ -90,8 +95,8 @@ function analyzeRouteMethod(
   sourceFile: ts.SourceFile,
   classHasGuard: boolean,
 ): NestJSRouteInfo | null {
-  const decorators = (node as any).decorators as ts.NodeArray<ts.Decorator> | undefined;
-  if (!decorators) return null;
+  const decorators = getDecoratorsSafe(node);
+  if (decorators.length === 0) return null;
 
   let httpMethod = '';
   let routePath = '/';
@@ -104,20 +109,20 @@ function analyzeRouteMethod(
     const text = dec.getText(sourceFile);
 
     for (const method of HTTP_DECORATORS) {
-      if (text.includes(`@${method}`)) {
+      if (/^@Get\b|^@Post\b|^@Put\b|^@Delete\b|^@Patch\b|^@Head\b|^@Options\b|^@All\b/.test(text) && text.startsWith(`@${method}`)) {
         httpMethod = method.toUpperCase();
-        const match = text.match(new RegExp(`@${method}\\(['"]([^'"]+)['"]\\)`));
+        const match = text.match(new RegExp(`@${method}\\(['"\`]([^'"\`]+)['"\`]\\)`));
         if (match) routePath = match[1];
         break;
       }
     }
 
-    if (text.includes('@Body')) hasBody = true;
-    if (text.includes('@Param')) hasParam = true;
-    if (text.includes('@Query')) hasQuery = true;
+    if (text.startsWith('@Body')) hasBody = true;
+    if (text.startsWith('@Param')) hasParam = true;
+    if (text.startsWith('@Query')) hasQuery = true;
 
     for (const guardDec of GUARD_DECORATORS) {
-      if (text.includes(`@${guardDec}`)) {
+      if (text.startsWith(`@${guardDec}`)) {
         hasGuard = true;
       }
     }

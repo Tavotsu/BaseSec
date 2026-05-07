@@ -1,4 +1,4 @@
-import type { Rule, Finding, RuleContext, secbaseConfig, TaintGraph } from '../rules/types';
+import type { Rule, Finding, RuleContext, basesecConfig, TaintGraph } from '../rules/types';
 import type { ParsedFile } from '../rules/types';
 import { analyzeFile } from '../taint/engine';
 
@@ -8,13 +8,13 @@ export class Analyzer {
   analyze(
     parsedFiles: ParsedFile[],
     rules: Rule[],
-    config: secbaseConfig,
+    config: basesecConfig,
     frameworks: string[] = [],
   ): Finding[] {
     const allFindings: Finding[] = [];
 
     if (config.taintAnalysis) {
-      this.buildTaintGraphs(parsedFiles, frameworks, config.sanitizers);
+      this.buildTaintGraphs(parsedFiles, frameworks, config.sanitizers ?? []);
     }
 
     const enabledRules = this.filterEnabledRules(rules, config, frameworks);
@@ -60,28 +60,26 @@ export class Analyzer {
   private buildTaintGraphs(
     parsedFiles: ParsedFile[],
     frameworks: string[],
-    _customSanitizers: string[],
+    customSanitizers: string[],
   ): void {
     this.taintGraphs.clear();
     for (const file of parsedFiles) {
       try {
-        const graph = analyzeFile(file, frameworks, _customSanitizers);
+        const graph = analyzeFile(file, frameworks, customSanitizers);
         this.taintGraphs.set(file.filePath, graph);
-      } catch {
-        // Skip files where taint analysis fails
+      } catch (e) {
+        console.error(`  Taint analysis failed for ${file.filePath}: ${e instanceof Error ? e.message : String(e)}`);
       }
     }
   }
 
   private filterEnabledRules(
     rules: Rule[],
-    config: secbaseConfig,
+    config: basesecConfig,
     frameworks: string[] = [],
   ): Rule[] {
     const fwSet = new Set(frameworks.length > 0 ? frameworks : ['*']);
     const hasUniversal = fwSet.has('*');
-    const hasExpress = fwSet.has('express');
-    const hasNestjs = fwSet.has('nestjs');
 
     return rules.filter((rule) => {
       const override = config.rulesConfig[rule.id];
@@ -92,18 +90,7 @@ export class Analyzer {
       const ruleFw = rule.frameworks;
       if (ruleFw.includes('*')) return true;
 
-      if (ruleFw.some((f) => fwSet.has(f))) return true;
-
-      if (hasExpress && ruleFw.includes('express')) return true;
-      if (hasNestjs && ruleFw.includes('nestjs')) return true;
-
-      return false;
-    }).map((rule) => {
-      const override = config.rulesConfig[rule.id];
-      if (override && typeof override === 'object' && override.severity) {
-        return { ...rule, severity: override.severity };
-      }
-      return rule;
+      return ruleFw.some((f) => fwSet.has(f));
     });
   }
 }

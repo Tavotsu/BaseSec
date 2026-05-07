@@ -2,6 +2,7 @@ import * as ts from 'typescript';
 import { defineRule } from '../../define-rule';
 import { getLineAndColumn, getCodeSnippet, visit } from '../../../utils/ast-helpers';
 import { isTaintSource, containsSqlKeywords } from '../../../utils/patterns';
+import { resolveConfidence, isExpressionTainted } from '../../../taint/integration';
 
 export const SQLI002 = defineRule({
   id: 'SQLI-002',
@@ -17,7 +18,19 @@ export const SQLI002 = defineRule({
     visit(ctx.sourceFile, (node) => {
       if (ts.isTemplateExpression(node)) {
         const text = node.getText(ctx.sourceFile);
-        if (containsSqlKeywords(text) && isTaintSource(text)) {
+        let isTainted = isTaintSource(text) || isExpressionTainted(ctx.taintGraph, text);
+        let taintText = text;
+        if (!isTainted) {
+          for (const span of node.templateSpans) {
+            const spanText = span.expression.getText(ctx.sourceFile);
+            if (isTaintSource(spanText) || isExpressionTainted(ctx.taintGraph, spanText)) {
+              isTainted = true;
+              taintText = spanText;
+              break;
+            }
+          }
+        }
+        if (containsSqlKeywords(text) && isTainted) {
           const { line, column } = getLineAndColumn(ctx.sourceFile, node);
           findings.push({
             ruleId: 'SQLI-002',
@@ -33,7 +46,7 @@ export const SQLI002 = defineRule({
             codeSnippet: getCodeSnippet(ctx.content, line),
             remediation: 'Use parameterized queries instead of template literals for SQL.',
             references: ['https://owasp.org/www-community/attacks/SQL_Injection', 'https://cwe.mitre.org/data/definitions/89.html'],
-            confidence: 'high',
+            confidence: resolveConfidence(ctx.taintGraph, taintText, 'high'),
           });
         }
       }
