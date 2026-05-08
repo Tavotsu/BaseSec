@@ -23,7 +23,7 @@ function App() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <Link to="/" className="flex items-center gap-3 group">
-              <img src="/solologo.png" alt="BaseSec Logo" className="w-8 h-8 drop-shadow-[0_0_8px_rgba(0,255,65,0.8)] group-hover:animate-pulse" />
+              <img src={`${import.meta.env.BASE_URL}solologo.png`} alt="BaseSec Logo" className="w-8 h-8 drop-shadow-[0_0_8px_rgba(0,255,65,0.8)] group-hover:animate-pulse" />
               <span className="font-heading font-bold text-xl tracking-wider text-glow uppercase">BaseSec</span>
             </Link>
             <nav className="flex gap-6">

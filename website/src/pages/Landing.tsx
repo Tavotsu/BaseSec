@@ -11,7 +11,7 @@ const Landing: React.FC = () => {
       {/* Hero Section */}
       <section className="min-h-[80vh] flex flex-col items-center justify-center text-center px-4 relative z-10">
         <div className="mb-8 relative inline-block">
-          <img src="/logo.png" alt="BaseSec Logo" className="w-32 h-32 md:w-48 md:h-48 drop-shadow-[0_0_24px_rgba(0,255,65,0.4)]" />
+          <img src={`${import.meta.env.BASE_URL}logo.png`} alt="BaseSec Logo" className="w-32 h-32 md:w-48 md:h-48 drop-shadow-[0_0_24px_rgba(0,255,65,0.4)]" />
           <div className="absolute inset-0 border border-[var(--color-primary)]/20 rounded-full animate-ping opacity-30"></div>
         </div>
 
