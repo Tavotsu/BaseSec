@@ -1,0 +1,150 @@
+@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Orbitron:wght@700;900&display=swap');
+
+@theme {
+  --color-primary: #00FF41;
+  --color-on-primary: #0F172A;
+  --color-secondary: #0D0D0D;
+  --color-accent: #FF3333;
+  --color-background: #191919;
+  --color-foreground: #E0E0E0;
+  --color-muted: #808080;
+  --color-border: #2a2a2a;
+  --color-destructive: #EF4444;
+  --color-ring: #00FF41;
+
+  --font-heading: 'Orbitron', sans-serif;
+  --font-body: 'JetBrains Mono', monospace;
+}
+
+:root {
+  color-scheme: dark;
+}
+
+body {
+  background-color: var(--color-background);
+  color: var(--color-foreground);
+  font-family: var(--font-body);
+  overflow-x: hidden;
+  margin: 0;
+  padding: 0;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-heading);
+  letter-spacing: 0.05em;
+}
+
+/* ───── Animated background ───── */
+/* Layer 1: drifting particle field using CSS counter + custom properties */
+.cyber-bg {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+  background: var(--color-background);
+}
+
+/* Subtle hex/grid overlay */
+.cyber-bg::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(var(--color-border) 1px, transparent 1px),
+    linear-gradient(90deg, var(--color-border) 1px, transparent 1px);
+  background-size: 48px 48px;
+  opacity: 0.25;
+  /* Math: perspective warp + infinite scroll */
+  transform: perspective(600px) rotateX(55deg) scale(2) translateZ(0);
+  animation: gridScroll 18s linear infinite;
+  transform-origin: center bottom;
+}
+
+/* Radial glow pulse */
+.cyber-bg::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    ellipse 60% 40% at 50% 100%,
+    rgba(0, 255, 65, 0.03) 0%,
+    transparent 70%
+  );
+  animation: glowPulse 6s ease-in-out infinite;
+}
+
+@keyframes gridScroll {
+  from { background-position: center 0; }
+  to   { background-position: center 48px; }
+}
+
+@keyframes glowPulse {
+  0%, 100% { opacity: 0.4; }
+  50%       { opacity: 0.7; }
+}
+
+/* Floating particles (6 pseudo-independent orbs via animation-delay math) */
+.cyber-particles {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+}
+
+.cyber-particles span {
+  position: absolute;
+  border-radius: 50%;
+  background: var(--color-primary);
+  filter: blur(1px);
+  opacity: 0;
+  animation: floatUp var(--dur, 12s) calc(var(--d, 0s)) linear infinite;
+  width: var(--sz, 2px);
+  height: var(--sz, 2px);
+  left: var(--x, 50%);
+}
+
+@keyframes floatUp {
+  0%   { transform: translateY(100vh) scale(0); opacity: 0; }
+  10%  { opacity: 0.6; }
+  90%  { opacity: 0.3; }
+  100% { transform: translateY(-10vh) scale(1.5); opacity: 0; }
+}
+
+/* ───── Glitch hover ───── */
+.glitch-hover {
+  transition: color 0.2s ease;
+}
+
+.glitch-hover:hover {
+  color: var(--color-primary);
+  animation: glitchSkew 0.3s steps(1) both 1;
+  text-shadow: 1px 0 var(--color-accent), -1px 0 #0ff;
+}
+
+@keyframes glitchSkew {
+  0%   { transform: skewX(0deg); }
+  25%  { transform: skewX(-8deg); }
+  50%  { transform: skewX(8deg); }
+  75%  { transform: skewX(-4deg); }
+  100% { transform: skewX(0deg); }
+}
+
+/* ───── Utilities ───── */
+.text-glow {
+  text-shadow: 0 0 8px rgba(0, 255, 65, 0.4), 0 0 16px rgba(0, 255, 65, 0.15);
+}
+
+.neon-border {
+  box-shadow: 0 0 4px rgba(0, 255, 65, 0.35), inset 0 0 3px rgba(0, 255, 65, 0.15);
+  border: 1px solid rgba(0, 255, 65, 0.6);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cyber-bg::before,
+  .cyber-bg::after,
+  .cyber-particles span {
+    animation: none;
+  }
+}

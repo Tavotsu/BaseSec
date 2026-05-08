@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>BaseSec Terminal Animation</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap');
+    
+    :root {
+      --color-primary: #00FF41;
+      --color-bg: #000000;
+      --color-err: #FF3333;
+      --color-muted: #1F1F1F;
+      --color-text: #E0E0E0;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: var(--color-bg);
+      color: var(--color-text);
+      font-family: 'JetBrains Mono', monospace;
+      overflow: hidden;
+    }
+
+    /* Scene Container */
+    .scene-content {
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-start;
+      width: 100%;
+      height: 100%;
+      padding: 40px;
+      box-sizing: border-box;
+      position: absolute;
+    }
+
+    .line {
+      font-size: 24px;
+      line-height: 1.6;
+      display: flex;
+      gap: 12px;
+      opacity: 0; /* GSAP will animate this */
+    }
+
+    .prompt { color: var(--color-primary); font-weight: bold; }
+    .cmd { color: white; }
+    .muted { color: gray; }
+    .success { color: var(--color-primary); }
+    .error { color: var(--color-err); font-weight: bold; }
+    
+    .code-block {
+      background: var(--color-muted);
+      padding: 16px;
+      border-left: 4px solid var(--color-err);
+      margin: 12px 0 12px 40px;
+      font-size: 20px;
+      display: flex;
+      flex-direction: column;
+      opacity: 0;
+    }
+
+    .vuln-title {
+      font-size: 28px;
+      margin-top: 24px;
+      color: var(--color-err);
+      font-weight: bold;
+      opacity: 0;
+    }
+
+    /* Scanlines */
+    body::after {
+      content: " ";
+      display: block;
+      position: absolute;
+      top: 0;
+      left: 0;
+      bottom: 0;
+      right: 0;
+      background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+      z-index: 2;
+      background-size: 100% 4px, 6px 100%;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Root Composition -->
+  <div data-composition-id="terminal-scan" data-width="1920" data-height="1080">
+    
+    <!-- Scene 1: Init and Scan -->
+    <div class="scene-content" id="scene-1">
+      <div class="line l1">
+        <span class="prompt">tavotsu@basesec:~$</span>
+        <span class="cmd">basesec scan ./src</span>
+      </div>
+      <div class="line l2 mt-4">
+        <span class="muted">[INFO]</span> <span>Initializing BaseSec Engine v1.0.0...</span>
+      </div>
+      <div class="line l3">
+        <span class="muted">[INFO]</span> <span>Discovered 45 TypeScript files.</span>
+      </div>
+      <div class="line l4">
+        <span class="muted">[INFO]</span> <span>Building Abstract Syntax Trees... <span class="success">DONE</span></span>
+      </div>
+      <div class="line l5">
+        <span class="muted">[INFO]</span> <span>Running Taint Analysis (32 active rules)...</span>
+      </div>
+      <div class="line l6">
+        <span class="muted">[WARN]</span> <span>Analyzing flow in auth.controller.ts...</span>
+      </div>
+      
+      <div class="vuln-title v1">
+        [!] VULNERABILITY DETECTED: SQLI-001 (High Severity)
+      </div>
+      
+      <div class="line l7">
+        <span class="error">Location:</span> <span>src/controllers/auth.controller.ts:42:15</span>
+      </div>
+      
+      <div class="code-block c1">
+        <div><span class="muted">41 |</span> const userId = req.query.id; // Untrusted Source</div>
+        <div><span class="error">42 |</span> const user = await db.query(`SELECT * FROM users WHERE id = '${userId}'`);</div>
+        <div><span class="muted">43 |</span> return res.json(user);</div>
+      </div>
+      
+      <div class="line l8 mt-4">
+        <span class="prompt">Confidence:</span> <span class="error">CERTAIN (100%)</span> - Untrusted data flows directly into SQL execution sink.
+      </div>
+      
+      <div class="line l9">
+        <span class="prompt">tavotsu@basesec:~$</span> <span class="cmd">_</span>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+  <script>
+    window.__timelines = window.__timelines || {};
+    const tl = gsap.timeline({ paused: true });
+
+    // Scene 1 Entrance Animations
+    // 1. User types command
+    tl.fromTo(".l1", { opacity: 0 }, { opacity: 1, duration: 0.1 }, 0.5);
+    
+    // 2. Logs appear one by one
+    tl.fromTo(".l2", { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.2 }, 1.2);
+    tl.fromTo(".l3", { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.2 }, 1.6);
+    tl.fromTo(".l4", { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.2 }, 2.2);
+    tl.fromTo(".l5", { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.2 }, 3.0);
+    tl.fromTo(".l6", { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.2 }, 3.5);
+    
+    // 3. Vulnerability Alert (glitchy/dramatic entrance)
+    tl.fromTo(".v1", 
+      { opacity: 0, scale: 0.95, x: -20 }, 
+      { opacity: 1, scale: 1, x: 0, duration: 0.4, ease: "back.out(1.7)" }, 
+      4.5
+    );
+    
+    // 4. Details and Code Snippet
+    tl.fromTo(".l7", { opacity: 0, x: -10 }, { opacity: 1, x: 0, duration: 0.3 }, 5.0);
+    tl.fromTo(".c1", { opacity: 0, height: 0 }, { opacity: 1, height: "auto", duration: 0.5, ease: "power2.out" }, 5.5);
+    
+    // 5. Conclusion
+    tl.fromTo(".l8", { opacity: 0 }, { opacity: 1, duration: 0.3 }, 6.5);
+    
+    // 6. Prompt returns (blinking cursor effect handled by CSS or just simple opacity)
+    tl.fromTo(".l9", { opacity: 0 }, { opacity: 1, duration: 0.1 }, 7.5);
+    
+    // Setup cursor blink for the end
+    tl.to(".l9 .cmd", { opacity: 0, repeat: 100, yoyo: true, duration: 0.5 }, 7.6);
+
+    window.__timelines["terminal-scan"] = tl;
+  </script>
+</body>
+</html>
