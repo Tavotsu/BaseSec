@@ -5,6 +5,8 @@ function matchesExpression(expression: string, target: string): boolean {
   if (expression === target) return true;
   if (expression.startsWith(target + '.')) return true;
   if (expression.startsWith(target + '[')) return true;
+  if (expression.includes(target + '.')) return true;
+  if (expression.includes(target + '[')) return true;
   return false;
 }
 
@@ -36,6 +38,9 @@ export function isExpressionTainted(
 
   for (const src of graph.sources) {
     if (expression === src.expression || expression.startsWith(src.kind + '.')) {
+      return true;
+    }
+    if (src.variableName && (expression === src.variableName || expression.startsWith(src.variableName + '.'))) {
       return true;
     }
   }

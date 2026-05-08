@@ -16,8 +16,15 @@ export const ERR001 = defineRule({
     visit(ctx.sourceFile, (node) => {
       if (ts.isCallExpression(node)) {
         const text = node.getText(ctx.sourceFile);
-        if (text.includes('.send(') || text.includes('.json(')) {
-          if (text.includes('err.stack') || text.includes('err.message') || text.includes('error.stack') || text.includes('error.message') || text.includes('e.stack') || text.includes('e.message')) {
+        const callee = node.expression;
+        let isResponseSend = false;
+        if (ts.isPropertyAccessExpression(callee)) {
+          const methodName = callee.name.text;
+          isResponseSend = ['send', 'json', 'end', 'write'].includes(methodName);
+        }
+        if (isResponseSend) {
+          const argsText = node.arguments.map(arg => arg.getText(ctx.sourceFile)).join(' ');
+          if (argsText.includes('.stack') || argsText.includes('.message')) {
             const { line, column } = getLineAndColumn(ctx.sourceFile, node);
             findings.push({
               ruleId: 'ERR-001',

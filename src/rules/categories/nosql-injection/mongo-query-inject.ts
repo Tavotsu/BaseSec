@@ -20,7 +20,7 @@ export const NOSQL002 = defineRule({
 
     const mongoosePatterns = detectMongoosePatterns(ctx.sourceFile, ctx.content);
     if (mongoosePatterns.hasDirectQueryPass) {
-      for (const line of mongoosePatterns.lineNumbers) {
+      for (const line of mongoosePatterns.directQueryLineNumbers) {
         const alreadyReported = findings.some(f => f.line === line);
         if (!alreadyReported) {
           const lineText = ctx.content.split('\n')[line - 1] ?? '';

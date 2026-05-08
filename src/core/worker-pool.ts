@@ -29,6 +29,11 @@ export function shouldUseWorkers(numFiles: number, cliWorkers?: number): boolean
   if (cliWorkers !== undefined) {
     return cliWorkers > 0;
   }
+  // Workers break under tsx (module resolution fails in worker threads)
+  try {
+    const __filename = fileURLToPath(import.meta.url);
+    if (__filename.endsWith('.ts')) return false;
+  } catch {}
   return numFiles > 50;
 }
 

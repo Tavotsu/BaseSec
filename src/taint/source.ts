@@ -87,6 +87,28 @@ export function findSources(
       }
     }
 
+    if (ts.isParameter(node) && ts.isIdentifier(node.name)) {
+      const paramName = node.name.text;
+      const decorators = ts.canHaveDecorators(node) ? ts.getDecorators(node) ?? [] : [];
+      for (const dec of decorators) {
+        const decText = dec.getText(sourceFile);
+        for (const def of NESTJS_DECORATOR_SOURCES) {
+          if (def.framework !== '*' && !frameworks.includes(def.framework)) continue;
+          if (decText.startsWith(def.pattern)) {
+            const pos = sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile));
+            sources.push({
+              kind: def.pattern,
+              expression: paramName,
+              line: pos.line + 1,
+              column: pos.character + 1,
+              variableName: paramName,
+            });
+            break;
+          }
+        }
+      }
+    }
+
     return 'continue';
   });
 

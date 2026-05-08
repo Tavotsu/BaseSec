@@ -7,7 +7,9 @@ export interface MongoosePatternInfo {
   hasDirectQueryPass: boolean;
   hasWhereOperator: boolean;
   schemaNames: string[];
-  lineNumbers: number[];
+  leanLineNumbers: number[];
+  directQueryLineNumbers: number[];
+  whereLineNumbers: number[];
 }
 
 const MONGOOSE_QUERY_METHODS = ['find', 'findOne', 'findById', 'findByIdAndUpdate', 'findOneAndUpdate', 'findByIdAndDelete', 'findOneAndDelete', 'findOneAndRemove'];
@@ -21,7 +23,9 @@ export function detectMongoosePatterns(
     hasDirectQueryPass: false,
     hasWhereOperator: false,
     schemaNames: [],
-    lineNumbers: [],
+    leanLineNumbers: [],
+    directQueryLineNumbers: [],
+    whereLineNumbers: [],
   };
 
   visit(sourceFile, (node) => {
@@ -36,7 +40,7 @@ export function detectMongoosePatterns(
           if (!surroundingText.includes('.select(')) {
             info.hasLeanWithoutSelect = true;
             const pos = sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile));
-            info.lineNumbers.push(pos.line + 1);
+            info.leanLineNumbers.push(pos.line + 1);
           }
         }
 
@@ -47,7 +51,7 @@ export function detectMongoosePatterns(
             if (isTaintSource(argText) || argText.startsWith('{ ...req.') || argText.startsWith('{...req.')) {
               info.hasDirectQueryPass = true;
               const pos = sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile));
-              info.lineNumbers.push(pos.line + 1);
+              info.directQueryLineNumbers.push(pos.line + 1);
             }
           }
         }
@@ -58,7 +62,7 @@ export function detectMongoosePatterns(
             if (firstArgText.includes('req.') || firstArgText.includes('process.')) {
               info.hasWhereOperator = true;
               const pos = sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile));
-              info.lineNumbers.push(pos.line + 1);
+              info.whereLineNumbers.push(pos.line + 1);
             }
           }
         }

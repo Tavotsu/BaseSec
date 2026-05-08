@@ -3,15 +3,21 @@
   "version": "0.1.0",
   "description": "SAST CLI tool for detecting vulnerabilities in Node.js backends",
   "type": "module",
-  "main": "dist/cli.js",
+  "main": "dist/index.js",
   "bin": {
-    "basesec": "./dist/cli.js"
+    "basesec": "./dist/index.js"
   },
   "exports": {
-    ".": "./dist/cli.js",
-    "./rule": "./dist/rule.js",
-    "./config": "./dist/config.js"
+    ".": "./dist/index.js"
   },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Tavotsu/BaseSec.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Tavotsu/BaseSec/issues"
+  },
+  "homepage": "https://github.com/Tavotsu/BaseSec#readme",
   "files": [
     "dist/"
   ],
