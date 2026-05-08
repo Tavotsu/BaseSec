@@ -79,15 +79,15 @@ Combined, these deliver **~12x speedup** on rescans. See [PERFORMANCE.md](PERFOR
 
 ## Documentation
 
-- [INSTALLATION.md](INSTALLATION.md) — Detailed installation options
-- [USAGE.md](USAGE.md) — CLI commands and flags
-- [CONFIGURATION.md](CONFIGURATION.md) — Configuration file reference
-- [RULES.md](RULES.md) — Complete rule catalog
+- [INSTALLATION.md](docs/INSTALLATION.md) — Detailed installation options
+- [USAGE.md](docs/USAGE.md) — CLI commands and flags
+- [CONFIGURATION.md](docs/CONFIGURATION.md) — Configuration file reference
+- [RULES.md](docs/RULES.md) — Complete rule catalog
 - [PERFORMANCE.md](PERFORMANCE.md) — Benchmarks and optimization guide
-- [CI_CD.md](CI_CD.md) — CI/CD integration examples
-- [TROUBLESHOOTING.md](TROUBLESHOOTING.md) — Common issues and fixes
-- [FAQ.md](FAQ.md) — Frequently asked questions
-- [EXAMPLES.md](EXAMPLES.md) — Vulnerable vs. secure code examples
+- [CI_CD.md](docs/CI_CD.md) — CI/CD integration examples
+- [TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) — Common issues and fixes
+- [FAQ.md](docs/FAQ.md) — Frequently asked questions
+- [EXAMPLES.md](docs/EXAMPLES.md) — Vulnerable vs. secure code examples
 - [CONTRIBUTING.md](CONTRIBUTING.md) — How to contribute
 - [CHANGELOG.md](CHANGELOG.md) — Version history
 - [SECURITY.md](SECURITY.md) — Security policy
