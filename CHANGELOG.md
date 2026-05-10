@@ -2,6 +2,18 @@
 
 All notable changes to BaseSec are documented in this file.
 
+## [0.1.1] — 2026-05-10
+
+### Fixed
+
+- **`typescript` moved to `dependencies`** — fixes `ERR_MODULE_NOT_FOUND: Cannot find package 'typescript'` when installing globally via `npm i -g basesec`
+- **NestJS taint propagation** — `@Body()`, `@Param()`, `@Query()`, `@Headers()`, `@Req()` decorator parameters now correctly registered as taint sources; enables detection of SQLI-002, CMDI-001 on NestJS code
+- **ERR-001 (Exposed Stack Trace)** — broadened detection to catch any `.stack` or `.message` access inside response arguments (e.g., `res.json({ error: new Error().stack })`)
+- **NOSQL-002 over-reporting** — Mongoose `detectMongoosePatterns()` now separates line numbers by pattern type (`leanLineNumbers`, `directQueryLineNumbers`, `whereLineNumbers`) to avoid false positives on `.lean()` calls
+- **`isExpressionTainted()` substring matching** — tainted variables embedded in larger expressions (e.g., `'rm -rf ' + body.path`) are now detected via `matchesExpression()` substring checks
+- **`package.json` entry points** — corrected `main`, `bin`, `exports` to point to `dist/index.js` (was `dist/cli.js`)
+- **`package.json` metadata** — added `repository`, `bugs`, `homepage` fields
+
 ## [0.1.0] — 2025-05-07
 
 ### Added
