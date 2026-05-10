@@ -1,6 +1,6 @@
 {
   "name": "basesec",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "SAST CLI tool for detecting vulnerabilities in Node.js backends",
   "type": "module",
   "main": "dist/index.js",
@@ -37,13 +37,13 @@
     "@vitest/coverage-v8": "^4.1.5",
     "tsup": "^8.5.1",
     "tsx": "^4.21.0",
-    "typescript": "^6.0.3",
     "vitest": "^4.1.5"
   },
   "dependencies": {
     "cac": "^7.0.0",
     "cli-table3": "^0.6.5",
     "fast-glob": "^3.3.3",
-    "picocolors": "^1.1.1"
+    "picocolors": "^1.1.1",
+    "typescript": "^6.0.3"
   }
 }

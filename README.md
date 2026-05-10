@@ -66,7 +66,7 @@ export default {
 };
 ```
 
-See [CONFIGURATION.md](CONFIGURATION.md) for full options.
+See [CONFIGURATION.md](docs/CONFIGURATION.md) for full options.
 
 ## Performance
 
