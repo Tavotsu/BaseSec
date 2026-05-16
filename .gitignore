@@ -18,5 +18,6 @@ bench-files
 Thumbs.db
 .agents
 skills-lock.json
+docs/dev_files
 AGENTS.md
 DESIGN.md
