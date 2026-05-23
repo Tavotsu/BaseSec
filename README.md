@@ -7,9 +7,11 @@ Scans JavaScript and TypeScript source files, detects vulnerabilities via AST an
 
 ## Features
 
-- **30 Security Rules** across 9 categories (SQL Injection, XSS, NoSQL Injection, Command Injection, Path Traversal, Authentication, Secrets, Error Handling, Misconfiguration)
+- **42 Security Rules** across 10 categories (SQL Injection, XSS, NoSQL Injection, Command Injection, Path Traversal, Authentication, Secrets, Error Handling, Misconfiguration, Dependency Checking)
 - **Taint Analysis** — tracks data flow from user input (`req.query`, `req.body`, etc.) to dangerous sinks
-- **Framework Detection** — auto-detects Express, NestJS, Mongoose, and TypeORM
+- **Framework Detection** — auto-detects Express, NestJS, Mongoose, TypeORM, Fastify, Koa, and Prisma
+- **Dependency Checking** — detects outdated packages with known CVEs, vulnerable dependencies (via `pnpm/npm audit`), unused dependencies, and lockfile mismatches
+- **Sensitive File Protection** — `.env` and credential files are completely ignored by default unless explicitly allowed with `--read-env`
 - **Multiple Output Formats** — Terminal (colored tables), JSON, SARIF, HTML, Markdown
 - **Analysis Cache** — hash-based per-file caching for 10x speedup on incremental scans
 - **Worker Threads** — multi-core parallel analysis for large codebases
@@ -50,8 +52,11 @@ basesec scan ./src --severity high --strict
 |---|---|---|
 | Express | Yes | Route handlers, middleware, `res.send()`, `res.set()` |
 | NestJS | Yes | Decorators (`@Controller`, `@Get`, etc.), guards |
+| Fastify | Yes | Route handlers, rate limit, helmet, CORS |
+| Koa | Yes | Context assignments (`ctx.body`), middleware |
 | Mongoose | Yes | Query chains, `$where`, `lean()` |
 | TypeORM | Yes | Query builder, raw queries |
+| Prisma | Yes | Raw queries (`$queryRaw`, `$executeRaw`) |
 
 ## Configuration
 
@@ -65,6 +70,8 @@ export default {
   taintAnalysis: true,
   rules: [],
   rulesConfig: {},
+  maxFileSize: 512000,
+  maxFiles: 10000,
 };
 ```
 
