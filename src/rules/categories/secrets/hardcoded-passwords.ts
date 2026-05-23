@@ -1,6 +1,7 @@
 import * as ts from 'typescript';
 import { defineRule } from '../../define-rule';
 import { getLineAndColumn, getCodeSnippet, visit } from '../../../utils/ast-helpers';
+import { redactSecret } from '../../../utils/redact';
 
 const PASSWORD_VAR_NAMES = /^(password|passwd|pwd|pass|db_pass|db_password|db_passwd|database_password|mongo_password|redis_password|mysql_password|postgres_password|smtp_password|ftp_password)$/i;
 
@@ -32,7 +33,7 @@ export const SEC002 = defineRule({
             endLine: line,
             endColumn: column + text.length,
             message: `Hardcoded password in variable "${varName}". Use environment variables.`,
-            codeSnippet: getCodeSnippet(ctx.content, line),
+            codeSnippet: redactSecret(getCodeSnippet(ctx.content, line), node.initializer.text),
             remediation: 'Use environment variables or secret managers for passwords.',
             references: ['https://cwe.mitre.org/data/definitions/798.html'],
             confidence: 'high',
@@ -46,6 +47,12 @@ export const SEC002 = defineRule({
           const rightText = node.right.getText(ctx.sourceFile);
           if (ts.isStringLiteral(node.right) || (rightText.startsWith("'") || rightText.startsWith('"'))) {
             const { line, column } = getLineAndColumn(ctx.sourceFile, node);
+            let secretValue = rightText;
+            if (ts.isStringLiteral(node.right)) {
+              secretValue = node.right.text;
+            } else {
+              secretValue = secretValue.substring(1, secretValue.length - 1);
+            }
             findings.push({
               ruleId: 'SEC-002',
               ruleName: 'Hardcoded Password Fallback',
@@ -57,7 +64,7 @@ export const SEC002 = defineRule({
               endLine: line,
               endColumn: column + text.length,
               message: `Password with hardcoded fallback value. Use process.env without fallback.`,
-              codeSnippet: getCodeSnippet(ctx.content, line),
+              codeSnippet: redactSecret(getCodeSnippet(ctx.content, line), secretValue),
               remediation: 'Use process.env.DB_PASSWORD without fallback values.',
               references: ['https://cwe.mitre.org/data/definitions/798.html'],
               confidence: 'high',

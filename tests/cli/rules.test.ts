@@ -5,8 +5,8 @@ import { ALL_RULES } from '../../src/rules/index';
 import { RuleRegistry } from '../../src/rules/registry';
 
 describe('CLI: rules command data', () => {
-  it('ALL_RULES has 30 rules', () => {
-    expect(ALL_RULES).toHaveLength(30);
+  it('ALL_RULES has 42 rules', () => {
+    expect(ALL_RULES).toHaveLength(42);
   });
 
   it('every rule has required fields', () => {
@@ -41,7 +41,7 @@ describe('CLI: rules command data', () => {
   });
 
   it('framework values are valid', () => {
-    const validFrameworks = ['express', 'nestjs', 'mongoose', 'typeorm', '*'];
+    const validFrameworks = ['express', 'nestjs', 'mongoose', 'typeorm', 'fastify', 'koa', 'prisma', '*'];
     for (const rule of ALL_RULES) {
       for (const fw of rule.frameworks) {
         expect(validFrameworks).toContain(fw);
@@ -54,15 +54,16 @@ describe('CLI: rules command data', () => {
     for (const rule of ALL_RULES) {
       categories.set(rule.category, (categories.get(rule.category) ?? 0) + 1);
     }
-    expect(categories.get('sql-injection')).toBe(4);
+    expect(categories.get('sql-injection')).toBe(6);
     expect(categories.get('nosql-injection')).toBe(3);
-    expect(categories.get('xss')).toBe(4);
+    expect(categories.get('xss')).toBe(7);
     expect(categories.get('command-injection')).toBe(3);
     expect(categories.get('path-traversal')).toBe(2);
-    expect(categories.get('auth')).toBe(4);
+    expect(categories.get('auth')).toBe(5);
     expect(categories.get('secrets')).toBe(3);
     expect(categories.get('error-handling')).toBe(3);
-    expect(categories.get('misconfiguration')).toBe(4);
+    expect(categories.get('misconfiguration')).toBe(6);
+    expect(categories.get('dependency-check')).toBe(4);
   });
 });
 
@@ -77,14 +78,14 @@ describe('RuleRegistry', () => {
   it('getAll returns all registered rules', () => {
     const registry = new RuleRegistry();
     registry.registerMany(ALL_RULES);
-    expect(registry.getAll()).toHaveLength(30);
+    expect(registry.getAll()).toHaveLength(42);
   });
 
   it('getByCategory returns rules in category', () => {
     const registry = new RuleRegistry();
     registry.registerMany(ALL_RULES);
     const sqlRules = registry.getByCategory('sql-injection');
-    expect(sqlRules).toHaveLength(4);
+    expect(sqlRules).toHaveLength(6);
     for (const r of sqlRules) {
       expect(r.category).toBe('sql-injection');
     }
@@ -104,6 +105,6 @@ describe('RuleRegistry', () => {
     const registry = new RuleRegistry();
     registry.registerMany(ALL_RULES);
     const ids = registry.getIds();
-    expect(ids).toHaveLength(30);
+    expect(ids).toHaveLength(42);
   });
 });

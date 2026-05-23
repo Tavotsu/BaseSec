@@ -46,7 +46,7 @@ export const CONF001 = defineRule({
         endLine: expressLine,
         endColumn: 1,
         message: `Express application without Content-Security-Policy header.`,
-        codeSnippet: getCodeSnippet(ctx.content, expressLine),
+        codeSnippet: '',
         remediation: 'Use helmet() middleware or set CSP headers manually: app.use(helmet())',
         references: ['https://owasp.org/www-project-web-security-testing-guide/'],
         confidence: 'low',

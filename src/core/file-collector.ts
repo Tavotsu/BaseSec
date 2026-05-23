@@ -1,13 +1,15 @@
 import fg from 'fast-glob';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { DEFAULT_EXTENSIONS, DEFAULT_IGNORE_PATTERNS } from '../config/defaults';
+import { DEFAULT_EXTENSIONS, DEFAULT_IGNORE_PATTERNS, SENSITIVE_FILE_PATTERNS } from '../config/defaults';
+import { logger } from '../utils/logger';
 
 export interface CollectOptions {
   extensions: string[];
   ignorePatterns: string[];
   maxFileSize: number;
   maxFiles: number;
+  readEnv?: boolean;
 }
 
 const DEFAULT_COLLECT_OPTIONS: CollectOptions = {
@@ -32,14 +34,24 @@ export class FileCollector {
     const absRoot = path.resolve(rootPath);
 
     const gitignorePatterns = this.loadGitignore(absRoot);
-    const mergedIgnore = [
+    
+    // If readEnv is true, filter out SENSITIVE_FILE_PATTERNS from the mergedIgnore list
+    let mergedIgnore = [
       ...opts.ignorePatterns,
       ...gitignorePatterns,
     ];
+    
+    if (opts.readEnv) {
+      mergedIgnore = mergedIgnore.filter(p => !SENSITIVE_FILE_PATTERNS.includes(p));
+    }
 
     const patterns = opts.extensions.map(
       (ext) => `**/*${ext}`,
     );
+
+    if (opts.readEnv) {
+      patterns.push('**/.env', '**/.env.*');
+    }
 
     const entries = fg.sync(patterns, {
       cwd: absRoot,
@@ -57,6 +69,10 @@ export class FileCollector {
         break;
       }
 
+      if (this.isSensitiveFile(filePath, opts.readEnv)) {
+        continue;
+      }
+
       try {
         const stat = fs.statSync(filePath);
         if (stat.size > opts.maxFileSize) {
@@ -64,7 +80,8 @@ export class FileCollector {
           continue;
         }
         result.push(filePath);
-      } catch {
+      } catch (e) {
+        logger.warn(`Failed to stat file ${filePath}`, e);
         continue;
       }
     }
@@ -98,10 +115,34 @@ export class FileCollector {
           patterns.push(negated ? `!${pattern}` : pattern);
         }
       }
-    } catch {
-      // Ignore errors reading .gitignore
+    } catch (e) {
+      logger.warn(`Failed to read/parse .gitignore at ${gitignorePath}`, e);
     }
 
     return patterns;
+  }
+
+  private isSensitiveFile(filePath: string, readEnv?: boolean): boolean {
+    const basename = path.basename(filePath).toLowerCase();
+    const sensitiveNames = ['.env', 'secrets', 'credentials'];
+    const sensitiveExts = ['.pem', '.key', '.p12', '.pfx'];
+
+    if (sensitiveExts.some((ext) => basename.endsWith(ext))) {
+      return true;
+    }
+
+    if (readEnv && (basename.startsWith('.env') || basename === '.env')) {
+      return false; // User explicitly allowed scanning .env files
+    }
+
+    if (basename.startsWith('.env')) {
+      return true;
+    }
+
+    if (sensitiveNames.some((name) => basename.startsWith(name + '.') || basename === name)) {
+      return true;
+    }
+
+    return false;
   }
 }

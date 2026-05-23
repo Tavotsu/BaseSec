@@ -11,6 +11,20 @@ const SOURCE_DEFINITIONS: SourceDefinition[] = [
   { pattern: 'req.cookies', framework: 'express' },
   { pattern: 'req.files', framework: 'express' },
   { pattern: 'process.argv', framework: '*' },
+  { pattern: 'request.body', framework: 'fastify' },
+  { pattern: 'request.params', framework: 'fastify' },
+  { pattern: 'request.query', framework: 'fastify' },
+  { pattern: 'request.headers', framework: 'fastify' },
+  { pattern: 'request.cookies', framework: 'fastify' },
+  { pattern: 'request.ip', framework: 'fastify' },
+  { pattern: 'ctx.request.body', framework: 'koa' },
+  { pattern: 'ctx.params', framework: 'koa' },
+  { pattern: 'ctx.query', framework: 'koa' },
+  { pattern: 'ctx.request.query', framework: 'koa' },
+  { pattern: 'ctx.headers', framework: 'koa' },
+  { pattern: 'ctx.cookies', framework: 'koa' },
+  { pattern: 'ctx.ip', framework: 'koa' },
+  { pattern: 'ctx.request.ip', framework: 'koa' },
 ];
 
 const NESTJS_DECORATOR_SOURCES: SourceDefinition[] = [

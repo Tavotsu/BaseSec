@@ -9,6 +9,7 @@ import type { CliOptions, OutputFormat, Severity, RuleCategory } from '../rules/
 
 const VALID_FORMATS: OutputFormat[] = ['terminal', 'json', 'sarif', 'html', 'markdown'];
 const VALID_SEVERITIES: Severity[] = ['critical', 'high', 'medium', 'low', 'info'];
+const VALID_FRAMEWORKS = ['auto', 'express', 'nestjs', 'mongoose', 'typeorm', 'fastify', 'koa', 'prisma'];
 
 export async function main(): Promise<void> {
   const cli = cac('basesec');
@@ -28,11 +29,14 @@ export async function main(): Promise<void> {
     .option('--no-taint', 'Disable taint analysis')
     .option('--quiet, -q', 'Only show summary')
     .option('--strict', 'Exit with code 1 on any finding')
-    .option('--framework <fw>', 'Force framework: express|nestjs|mongoose|typeorm|auto', { default: 'auto' })
+    .option('--framework <fw>', 'Force framework: express|nestjs|mongoose|typeorm|fastify|koa|prisma|auto', { default: 'auto' })
     .option('--no-color', 'Disable colored output')
     .option('--no-banner', 'Disable banner')
     .option('--workers <num>', 'Number of worker threads (default: auto)')
     .option('--no-cache', 'Disable result caching')
+    .option('--no-deps', 'Disable dependency checking')
+    .option('--read-env', 'Allow scanning of .env files')
+    .option('--verbose, -V', 'Show verbose output')
     .action(async (path: string | undefined, options: any) => {
       const targetPath = path || process.cwd();
 
@@ -46,6 +50,21 @@ export async function main(): Promise<void> {
       if (!VALID_SEVERITIES.includes(severity as Severity)) {
         printError(`Invalid severity: ${severity}. Valid options: ${VALID_SEVERITIES.join(', ')}`);
         process.exit(2);
+      }
+
+      const framework = (options.framework ?? 'auto') as string;
+      if (!VALID_FRAMEWORKS.includes(framework)) {
+        printError(`Invalid framework: ${framework}. Valid options: ${VALID_FRAMEWORKS.join(', ')}`);
+        process.exit(2);
+      }
+
+      let workers: number | undefined = undefined;
+      if (options.workers !== undefined && options.workers !== 'auto') {
+        workers = parseInt(options.workers, 10);
+        if (isNaN(workers) || workers < 0) {
+          printError(`Invalid workers value: ${options.workers}. Must be a non-negative integer or "auto".`);
+          process.exit(2);
+        }
       }
 
       const rawIgnore: string[] = Array.isArray(options.ignore)
@@ -62,11 +81,14 @@ export async function main(): Promise<void> {
         noTaint: options.taint === false,
         quiet: options.quiet ?? false,
         strict: options.strict ?? false,
-        framework: (options.framework ?? 'auto') as 'auto' | 'express' | 'nestjs' | 'mongoose' | 'typeorm',
+        framework: framework as 'auto' | 'express' | 'nestjs' | 'mongoose' | 'typeorm' | 'fastify' | 'koa' | 'prisma',
         noColor: options.color === false,
         noBanner: options.banner === false,
-        workers: options.workers ? parseInt(options.workers, 10) : undefined,
+        workers,
         noCache: options.cache === false,
+        noDeps: options.deps === false,
+        readEnv: options.readEnv === true,
+        verbose: options.verbose === true,
       };
 
       if (!cliOptions.noBanner && !cliOptions.quiet) {

@@ -11,6 +11,9 @@ import { loadCustomRules } from '../rules/loader';
 import { AnalysisCache, shouldUseCache } from './analysis-cache';
 import { getWorkerCount, shouldUseWorkers, WorkerPool } from './worker-pool';
 import { severityGte } from '../utils/severity';
+import { logger } from '../utils/logger';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import type {
   basesecConfig,
   ScanResult,
@@ -65,12 +68,13 @@ export class Pipeline {
     if (config.rules && config.rules.length > 0) {
       const { errors } = await loadCustomRules(config.rules, this.registry);
       for (const err of errors) {
-        console.error(`  Warning: ${err}`);
+        logger.warn(err);
       }
     }
 
     const collectResult = this.collector.collect(targetPath, {
       ignorePatterns: config.ignore,
+      readEnv: cliOptions.readEnv,
     });
 
     const parsedFiles = this.parser.parseFiles(collectResult.files);
@@ -89,6 +93,11 @@ export class Pipeline {
     }
 
     const findings = await this.analyzeWithCache(parsedFiles, rulesToRun, config, frameworks);
+
+    if (!cliOptions.noDeps) {
+      const depFindings = this.checkDependencies(targetPath, rulesToRun, config);
+      findings.push(...depFindings);
+    }
 
     this.store.addMany(findings);
 
@@ -142,10 +151,10 @@ export class Pipeline {
 
     if (filesToAnalyze.length > 0) {
       let freshFindings: Finding[] = [];
-      const useWorkers = shouldUseWorkers(filesToAnalyze.length, this.cliWorkers);
+      const useWorkers = shouldUseWorkers(filesToAnalyze.length, this.cliWorkers, config.workers?.threshold);
 
       if (useWorkers) {
-        const pool = new WorkerPool(this.numWorkers);
+        const pool = new WorkerPool(this.cliWorkers ?? config.workers?.max ?? this.numWorkers);
         try {
           const promises = filesToAnalyze.map(file => 
             pool.analyzeFile({
@@ -182,6 +191,44 @@ export class Pipeline {
 
   private filterBySeverity(findings: Finding[], minSeverity: string): Finding[] {
     return findings.filter((f) => severityGte(f.severity, minSeverity as any));
+  }
+
+  private checkDependencies(targetPath: string, rules: Rule[], config: basesecConfig): Finding[] {
+    const findings: Finding[] = [];
+    const packageJsonPath = path.join(path.resolve(targetPath), 'package.json');
+
+    if (!fs.existsSync(packageJsonPath)) return findings;
+
+    try {
+      const content = fs.readFileSync(packageJsonPath, 'utf-8');
+      const depRules = rules.filter((r) => r.category === 'dependency-check');
+
+      if (depRules.length === 0) return findings;
+
+      const { Parser } = require('./parser');
+      const parser = new Parser();
+      const [parsedFile] = parser.parseFiles([packageJsonPath]);
+
+      if (!parsedFile) return findings;
+
+      for (const rule of depRules) {
+        try {
+          const ruleFindings = rule.detect({
+            sourceFile: parsedFile.sourceFile,
+            filePath: packageJsonPath,
+            content,
+            config,
+          });
+          findings.push(...ruleFindings);
+        } catch (e) {
+          logger.warn(`Rule ${rule.id} failed on package.json: ${e instanceof Error ? e.message : String(e)}`);
+        }
+      }
+    } catch (e) {
+      logger.warn('Could not read package.json', e);
+    }
+
+    return findings;
   }
 
   clearCache(): void {

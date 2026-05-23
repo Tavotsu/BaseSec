@@ -5,11 +5,16 @@ import type { CliOptions, ScanResult, basesecConfig } from '../../rules/types';
 import { severityGte } from '../../utils/severity';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { logger } from '../../utils/logger';
 
 export async function runScan(
   targetPath: string,
   options: CliOptions,
 ): Promise<number> {
+  if (options.verbose) {
+    logger.isVerbose = true;
+  }
+
   const pipeline = new Pipeline(undefined, {
     workers: options.workers,
     noCache: options.noCache,
@@ -62,9 +67,11 @@ export async function runScan(
     output: options.output,
     severity: options.severity,
     ignore: mergedConfig.ignore,
-    framework: (mergedConfig.framework as 'auto' | 'express' | 'nestjs') ?? options.framework,
+    framework: (mergedConfig.framework as 'auto' | 'express' | 'nestjs' | 'mongoose' | 'typeorm' | 'fastify' | 'koa' | 'prisma') ?? options.framework,
     noTaint: options.noTaint,
     rulesFilter: ruleFilter,
+    noDeps: options.noDeps,
+    readEnv: options.readEnv,
   });
 
   const filtered = filterBySeverity(result, options.severity);

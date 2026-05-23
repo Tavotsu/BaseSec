@@ -9,6 +9,16 @@ export interface basesecConfigSchema {
   rules?: string[];
   rulesConfig?: Record<string, RuleConfigOverride | false>;
   sanitizers?: string[];
+  maxFileSize?: number;
+  maxFiles?: number;
+  cache?: {
+    maxAge?: number;
+    dir?: string;
+  };
+  workers?: {
+    threshold?: number;
+    max?: number;
+  };
   output?: {
     format?: OutputFormat;
     filePath?: string;

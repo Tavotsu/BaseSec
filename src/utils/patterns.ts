@@ -6,6 +6,20 @@ export const TAINT_SOURCES = [
   'req.cookies',
   'req.files',
   'process.argv',
+  'request.body',
+  'request.params',
+  'request.query',
+  'request.headers',
+  'request.cookies',
+  'request.ip',
+  'ctx.request.body',
+  'ctx.params',
+  'ctx.query',
+  'ctx.request.query',
+  'ctx.headers',
+  'ctx.cookies',
+  'ctx.ip',
+  'ctx.request.ip',
 ] as const;
 
 export const TAINT_SOURCE_IDENTIFIERS = [

@@ -15,10 +15,10 @@ export function printBanner(noColor: boolean = false): void {
   }
 
   const gradient: ((s: string) => string)[] = [
-    pc.cyanBright,
-    pc.cyan,
-    pc.blue,
-    pc.green,
+    (s: string) => `\x1b[38;2;0;255;255m${s}\x1b[0m`,  // cyan bright
+    (s: string) => `\x1b[38;2;0;200;200m${s}\x1b[0m`,  // cyan
+    (s: string) => `\x1b[38;2;0;100;255m${s}\x1b[0m`,  // blue
+    (s: string) => `\x1b[38;2;0;200;100m${s}\x1b[0m`,  // green
   ];
 
   const lines = BANNER.split('\n').filter((l) => l.length > 0);

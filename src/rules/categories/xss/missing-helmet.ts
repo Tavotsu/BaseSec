@@ -62,7 +62,7 @@ export const XSS002 = defineRule({
         endLine: expressLine,
         endColumn: 1,
         message: `Express application without helmet() middleware. Missing security headers may enable XSS and other attacks.`,
-        codeSnippet: getCodeSnippet(ctx.content, expressLine),
+        codeSnippet: '',
         remediation: 'Install and use helmet middleware: npm install helmet, then app.use(helmet())',
         references: ['https://helmetjs.github.io/', 'https://owasp.org/www-project-web-security-testing-guide/'],
         confidence: 'low',

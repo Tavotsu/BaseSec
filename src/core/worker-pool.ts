@@ -2,6 +2,7 @@ import * as os from 'node:os';
 import { Worker } from 'node:worker_threads';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
+import { logger } from '../utils/logger';
 import type { Finding, basesecConfig, ParsedFile } from '../rules/types';
 import type { WorkerInput, WorkerOutput } from '../worker/analyzer';
 
@@ -25,7 +26,7 @@ export interface WorkerError {
   error: string;
 }
 
-export function shouldUseWorkers(numFiles: number, cliWorkers?: number): boolean {
+export function shouldUseWorkers(numFiles: number, cliWorkers?: number, threshold = 50): boolean {
   if (cliWorkers !== undefined) {
     return cliWorkers > 0;
   }
@@ -33,8 +34,10 @@ export function shouldUseWorkers(numFiles: number, cliWorkers?: number): boolean
   try {
     const __filename = fileURLToPath(import.meta.url);
     if (__filename.endsWith('.ts')) return false;
-  } catch {}
-  return numFiles > 50;
+  } catch (e) {
+    logger.warn('Failed to detect worker environment', e);
+  }
+  return numFiles > threshold;
 }
 
 export function getWorkerCount(cliWorkers?: number): number {
@@ -90,16 +93,21 @@ export class WorkerPool {
       });
 
       worker.on('error', (err) => {
+        logger.warn(`Worker thread crashed`, err);
         const task = this.activeTasks.get(worker);
         if (task) {
           this.activeTasks.delete(worker);
           task.reject(err instanceof Error ? err : new Error(String(err)));
         }
         // Restart worker on crash
-        const newWorker = new Worker(workerPath, isTs ? { execArgv: ['--import', 'tsx'] } : undefined);
-        this.workers[this.workers.indexOf(worker)] = newWorker;
-        this.setupWorkerEvents(newWorker);
-        this.pumpQueue();
+        try {
+          const newWorker = new Worker(workerPath, isTs ? { execArgv: ['--import', 'tsx'] } : undefined);
+          this.workers[this.workers.indexOf(worker)] = newWorker;
+          this.setupWorkerEvents(newWorker);
+          this.pumpQueue();
+        } catch (e) {
+          logger.error('Failed to restart worker', e);
+        }
       });
 
       this.workers.push(worker);

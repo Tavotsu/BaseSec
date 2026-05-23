@@ -2,6 +2,43 @@
 
 All notable changes to BaseSec are documented in this file.
 
+## [0.1.2] — Unreleased
+
+### Added
+
+- **Fastify support** — detection logic, taint sources (`request.body`, etc.), and 3 new rules:
+  - `FASTIFY-001`: Missing Fastify Rate Limiting
+  - `FASTIFY-002`: Missing Fastify Helmet
+  - `FASTIFY-003`: Missing Fastify CORS
+- **Koa support** — detection logic, taint sources (`ctx.request.body`, etc.), and 3 new rules:
+  - `KOA-001`: Missing Koa Helmet
+  - `KOA-002`: Missing Koa CORS
+  - `KOA-003`: Unsafe ctx.body with User Input
+- **Prisma support** — detection logic, dangerous sinks (`$queryRaw`, `$executeRaw`, etc.), and 2 new rules:
+  - `PRISMA-001`: Prisma Raw Query Injection
+  - `PRISMA-002`: Unsafe Prisma Raw Query
+- **Dependency checking** — 4 new rules (DEP-001 to DEP-004) in new `dependency-check` category
+  - `DEP-001`: Outdated dependencies with known CVEs (bundled CVE database for top npm packages)
+  - `DEP-002`: Vulnerable dependencies via `pnpm audit` / `npm audit` integration
+  - `DEP-003`: Unused dependencies detection (declared but never imported)
+  - `DEP-004`: Lockfile mismatch detection (package.json out of sync with lockfile)
+- **`--no-deps` CLI flag** — skip dependency checking during scan
+- **`--read-env` CLI flag** — allows scanning of `.env` files (which are skipped by default) to detect hardcoded secrets
+- **`--verbose` CLI flag** — added detailed logging and robust error reporting
+- **Config exposure** — hardcoded settings are now configurable via `.basesecrc` (`maxFileSize`, `maxFiles`, `cache.maxAge`, `cache.dir`, `workers.threshold`, `workers.max`)
+- **CLI input validation** — explicit validation and clear error messages for `--framework` and `--workers` inputs
+
+### Fixed
+
+- **Error handling improvements** — removed silent `catch {}` blocks across the codebase, replacing them with proper warning logs when `--verbose` is enabled
+- **Test coverage** — added missing tests for CLI init, worker pool, pipeline, rule registry, taint sources, taint sinks, and TypeORM patterns (coverage increased to 342 tests)
+- **Sensitive file protection** — `.env`, `.pem`, `.key`, credentials files are now skipped entirely during scanning (hard skip in file collector) unless `--read-env` is passed
+- **Config override warning** — warns when user config removes sensitive file ignore patterns
+
+### Security
+
+- Sensitive files (`.env`, `.pem`, `.key`, `.p12`, `.pfx`, `secrets.*`, `credentials.*`) are never scanned, even if removed from ignore patterns, unless explicitly opted-in via `--read-env` this is 
+
 ## [0.1.1] — 2026-05-10
 
 ### Fixed

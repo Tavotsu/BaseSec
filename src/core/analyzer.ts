@@ -1,6 +1,7 @@
 import type { Rule, Finding, RuleContext, basesecConfig, TaintGraph } from '../rules/types';
 import type { ParsedFile } from '../rules/types';
 import { analyzeFile } from '../taint/engine';
+import { logger } from '../utils/logger';
 
 export class Analyzer {
   private taintGraphs: Map<string, TaintGraph> = new Map();
@@ -14,7 +15,7 @@ export class Analyzer {
     const allFindings: Finding[] = [];
 
     if (config.taintAnalysis) {
-      this.buildTaintGraphs(parsedFiles, frameworks, config.sanitizers ?? []);
+      this.buildTaintGraphs(parsedFiles, frameworks, config.sanitizers ?? [], allFindings);
     }
 
     const enabledRules = this.filterEnabledRules(rules, config, frameworks);
@@ -39,7 +40,11 @@ export class Analyzer {
         taintGraph,
       };
 
+      const isEnvFile = parsedFile.filePath.includes('.env');
+
       for (const rule of enabledRules) {
+        if (isEnvFile && rule.id !== 'SEC-001') continue;
+
         try {
           const findings = rule.detect(ctx);
           for (const f of findings) {
@@ -49,7 +54,23 @@ export class Analyzer {
           }
           allFindings.push(...findings);
         } catch (e) {
-          console.error(`  Rule ${rule.id} failed on ${parsedFile.filePath}: ${e instanceof Error ? e.message : String(e)}`);
+          logger.warn(`Rule ${rule.id} failed on ${parsedFile.filePath}`, e);
+          allFindings.push({
+            ruleId: 'SYS-001',
+            ruleName: 'Rule Execution Failed',
+            category: 'error-handling',
+            severity: 'info',
+            filePath: parsedFile.filePath,
+            line: 1,
+            column: 1,
+            endLine: 1,
+            endColumn: 1,
+            message: `Rule ${rule.id} failed to execute: ${e instanceof Error ? e.message : String(e)}`,
+            codeSnippet: '',
+            remediation: 'Check rule implementation or report a bug.',
+            references: [],
+            confidence: 'high',
+          });
         }
       }
     }
@@ -61,6 +82,7 @@ export class Analyzer {
     parsedFiles: ParsedFile[],
     frameworks: string[],
     customSanitizers: string[],
+    findings: Finding[],
   ): void {
     this.taintGraphs.clear();
     for (const file of parsedFiles) {
@@ -68,7 +90,23 @@ export class Analyzer {
         const graph = analyzeFile(file, frameworks, customSanitizers);
         this.taintGraphs.set(file.filePath, graph);
       } catch (e) {
-        console.error(`  Taint analysis failed for ${file.filePath}: ${e instanceof Error ? e.message : String(e)}`);
+        logger.warn(`Taint analysis failed for ${file.filePath}`, e);
+        findings.push({
+          ruleId: 'SYS-002',
+          ruleName: 'Taint Analysis Failed',
+          category: 'error-handling',
+          severity: 'info',
+          filePath: file.filePath,
+          line: 1,
+          column: 1,
+          endLine: 1,
+          endColumn: 1,
+          message: `Taint analysis failed: ${e instanceof Error ? e.message : String(e)}`,
+          codeSnippet: '',
+          remediation: 'Report a bug if this persists.',
+          references: [],
+          confidence: 'high',
+        });
       }
     }
   }

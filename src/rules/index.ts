@@ -39,6 +39,22 @@ export { CONF002 } from './categories/misconfiguration/debug-mode';
 export { CONF003 } from './categories/misconfiguration/insecure-cookies';
 export { CONF004 } from './categories/misconfiguration/unlimited-body-parser';
 
+export { DEP001 } from './categories/dependency-check/outdated-deps';
+export { DEP002 } from './categories/dependency-check/vulnerable-deps';
+export { DEP003 } from './categories/dependency-check/unused-deps';
+export { DEP004 } from './categories/dependency-check/lockfile-mismatch';
+
+export { FASTIFY001 } from './categories/fastify/missing-rate-limit';
+export { FASTIFY002 } from './categories/fastify/missing-helmet';
+export { FASTIFY003 } from './categories/fastify/missing-cors';
+
+export { KOA001 } from './categories/koa/missing-helmet';
+export { KOA002 } from './categories/koa/missing-cors';
+export { KOA003 } from './categories/koa/unsafe-ctx-body';
+
+export { PRISMA001 } from './categories/prisma/raw-query-injection';
+export { PRISMA002 } from './categories/prisma/unsafe-raw-query';
+
 import { SQLI001 } from './categories/sql-injection/string-concat';
 import { SQLI002 } from './categories/sql-injection/template-literal';
 import { SQLI003 } from './categories/sql-injection/raw-query';
@@ -78,6 +94,22 @@ import { CONF002 } from './categories/misconfiguration/debug-mode';
 import { CONF003 } from './categories/misconfiguration/insecure-cookies';
 import { CONF004 } from './categories/misconfiguration/unlimited-body-parser';
 
+import { DEP001 } from './categories/dependency-check/outdated-deps';
+import { DEP002 } from './categories/dependency-check/vulnerable-deps';
+import { DEP003 } from './categories/dependency-check/unused-deps';
+import { DEP004 } from './categories/dependency-check/lockfile-mismatch';
+
+import { FASTIFY001 } from './categories/fastify/missing-rate-limit';
+import { FASTIFY002 } from './categories/fastify/missing-helmet';
+import { FASTIFY003 } from './categories/fastify/missing-cors';
+
+import { KOA001 } from './categories/koa/missing-helmet';
+import { KOA002 } from './categories/koa/missing-cors';
+import { KOA003 } from './categories/koa/unsafe-ctx-body';
+
+import { PRISMA001 } from './categories/prisma/raw-query-injection';
+import { PRISMA002 } from './categories/prisma/unsafe-raw-query';
+
 export const ALL_RULES: Rule[] = [
   SQLI001, SQLI002, SQLI003, SQLI004,
   NOSQL001, NOSQL002, NOSQL003,
@@ -88,4 +120,8 @@ export const ALL_RULES: Rule[] = [
   SEC001, SEC002, SEC003,
   ERR001, ERR002, ERR003,
   CONF001, CONF002, CONF003, CONF004,
+  DEP001, DEP002, DEP003, DEP004,
+  FASTIFY001, FASTIFY002, FASTIFY003,
+  KOA001, KOA002, KOA003,
+  PRISMA001, PRISMA002,
 ];

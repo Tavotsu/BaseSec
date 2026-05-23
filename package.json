@@ -1,6 +1,6 @@
 {
   "name": "basesec",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "SAST CLI tool for detecting vulnerabilities in Node.js backends",
   "type": "module",
   "main": "dist/index.js",

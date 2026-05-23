@@ -7,6 +7,7 @@ export interface DetectedFramework {
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { logger } from '../utils/logger';
 
 const FRAMEWORK_PACKAGES: Record<string, string[]> = {
   express: ['express'],
@@ -14,6 +15,9 @@ const FRAMEWORK_PACKAGES: Record<string, string[]> = {
   mongoose: ['mongoose', '@nestjs/mongoose'],
   typeorm: ['typeorm', '@nestjs/typeorm'],
   sequelize: ['sequelize'],
+  fastify: ['fastify'],
+  koa: ['koa'],
+  prisma: ['@prisma/client'],
 };
 
 const FRAMEWORK_IMPORTS: Record<string, string[]> = {
@@ -22,6 +26,9 @@ const FRAMEWORK_IMPORTS: Record<string, string[]> = {
   mongoose: ["from 'mongoose'", "from \"mongoose\"", 'require("mongoose")', "require('mongoose')", 'mongoose.model', 'mongoose.connect'],
   typeorm: ["from 'typeorm'", "from \"typeorm\"", "require('typeorm')", "require(\"typeorm\")", '@Entity'],
   sequelize: ["from 'sequelize'", "from \"sequelize\"", 'require("sequelize")', "require('sequelize')"],
+  fastify: ["from 'fastify'", "from \"fastify\"", "require('fastify')", "require(\"fastify\")", "from '@fastify/", "fastify-plugin"],
+  koa: ["from 'koa'", "from \"koa\"", "require('koa')", "require(\"koa\")", "from '@koa/", "koa-router", "@koa/router", "koa-bodyparser"],
+  prisma: ["from '@prisma/client'", "from \"@prisma/client\"", "require('@prisma/client')", "require(\"@prisma/client\")", ".prisma/client", "PrismaClient"],
 };
 
 function isExactImportMatch(content: string, pattern: string): boolean {
@@ -39,7 +46,7 @@ function isExactImportMatch(content: string, pattern: string): boolean {
 }
 
 export function detectFrameworks(
-  framework: 'auto' | 'express' | 'nestjs' | 'mongoose' | 'typeorm',
+  framework: 'auto' | 'express' | 'nestjs' | 'mongoose' | 'typeorm' | 'fastify' | 'koa' | 'prisma',
   parsedFiles: { filePath: string; content: string }[],
   projectRoot?: string,
 ): string[] {
@@ -104,7 +111,7 @@ function detectFromPackageJson(
         }
       }
     }
-  } catch {
-    // Invalid package.json, skip
+  } catch (e) {
+    logger.warn(`Failed to read/parse package.json in ${projectRoot}`, e);
   }
 }

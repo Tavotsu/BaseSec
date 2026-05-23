@@ -1,6 +1,8 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import type { basesecConfig, Severity, OutputFormat, RuleConfigOverride } from '../rules/types';
+import { SENSITIVE_FILE_PATTERNS } from './defaults';
+import { logger } from '../utils/logger';
 
 const CONFIG_FILES = [
   'basesec.config.ts',
@@ -47,8 +49,8 @@ function loadConfigFile(filePath: string): Partial<basesecConfig> {
       const content = fs.readFileSync(filePath, 'utf-8');
       const config = extractConfigFromTs(content);
       if (config) return normalizeConfig(config);
-    } catch {
-      // Fall through to empty config
+    } catch (e) {
+      logger.warn(`Failed to read/parse TS config at ${filePath}`, e);
     }
     return {};
   }
@@ -56,7 +58,8 @@ function loadConfigFile(filePath: string): Partial<basesecConfig> {
   if (ext === '.js') {
     try {
       return loadJsConfig(filePath);
-    } catch {
+    } catch (e) {
+      logger.warn(`Failed to read/parse JS config at ${filePath}`, e);
       return {};
     }
   }
@@ -129,7 +132,8 @@ function safeParseObject(literal: string): Record<string, unknown> | null {
 
   try {
     return JSON.parse(cleaned);
-  } catch {
+  } catch (e) {
+    logger.warn('Failed to parse config object literal', e);
     return null;
   }
 }
@@ -164,13 +168,32 @@ function normalizeConfig(raw: Record<string, unknown>): Partial<basesecConfig> {
   const config: Partial<basesecConfig> = {};
 
   if (raw.target) config.target = raw.target as string[];
-  if (raw.ignore) config.ignore = raw.ignore as string[];
+  if (raw.ignore) {
+    config.ignore = raw.ignore as string[];
+    checkSensitiveFileOverride(raw.ignore as string[]);
+  }
   if (raw.framework) config.framework = raw.framework as basesecConfig['framework'];
   if (raw.severity) config.severity = raw.severity as Severity;
   if (raw.taintAnalysis !== undefined) config.taintAnalysis = raw.taintAnalysis as boolean;
   if (raw.rules) config.rules = raw.rules as string[];
   if (raw.rulesConfig) config.rulesConfig = raw.rulesConfig as Record<string, RuleConfigOverride | false>;
   if (raw.sanitizers) config.sanitizers = raw.sanitizers as string[];
+  if (raw.maxFileSize !== undefined) config.maxFileSize = Number(raw.maxFileSize);
+  if (raw.maxFiles !== undefined) config.maxFiles = Number(raw.maxFiles);
+  if (raw.cache && typeof raw.cache === 'object') {
+    const cache = raw.cache as Record<string, unknown>;
+    config.cache = {
+      maxAge: cache.maxAge !== undefined ? Number(cache.maxAge) : undefined,
+      dir: typeof cache.dir === 'string' ? cache.dir : undefined,
+    };
+  }
+  if (raw.workers && typeof raw.workers === 'object') {
+    const workers = raw.workers as Record<string, unknown>;
+    config.workers = {
+      threshold: workers.threshold !== undefined ? Number(workers.threshold) : undefined,
+      max: workers.max !== undefined ? Number(workers.max) : undefined,
+    };
+  }
   if (raw.output && typeof raw.output === 'object') {
     const output = raw.output as Record<string, unknown>;
     const fmt = typeof output.format === 'string' ? output.format as OutputFormat : undefined;
@@ -181,6 +204,15 @@ function normalizeConfig(raw: Record<string, unknown>): Partial<basesecConfig> {
   }
 
   return config;
+}
+
+function checkSensitiveFileOverride(userIgnore: string[]): void {
+  for (const pattern of SENSITIVE_FILE_PATTERNS) {
+    const hasNegation = userIgnore.some((p) => p === `!${pattern}` || p === `!${pattern.replace(/\*\*/g, '')}`);
+    if (hasNegation) {
+      console.error(`  Warning: Sensitive file pattern "${pattern}" was removed from ignore list. This may expose credentials in scan output.`);
+    }
+  }
 }
 
 export { CONFIG_FILES };

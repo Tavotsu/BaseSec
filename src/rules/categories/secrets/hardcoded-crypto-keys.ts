@@ -1,6 +1,7 @@
 import * as ts from 'typescript';
 import { defineRule } from '../../define-rule';
 import { getLineAndColumn, getCodeSnippet, visit } from '../../../utils/ast-helpers';
+import { redactSecret } from '../../../utils/redact';
 
 const CRYPTO_METHODS = ['createCipheriv', 'createDecipheriv', 'createSign', 'createVerify'];
 const CRYPTO_DEP_METHODS = ['createCipher', 'createDecipher'];
@@ -37,7 +38,7 @@ export const SEC003 = defineRule({
                 endLine: line,
                 endColumn: column + text.length,
                 message: `Deprecated crypto.${methodName}() with hardcoded password. Use ${methodName}iv() with a proper key instead.`,
-                codeSnippet: getCodeSnippet(ctx.content, line),
+                codeSnippet: redactSecret(getCodeSnippet(ctx.content, line), firstArg.text),
                 remediation: 'Use crypto.createCipheriv/createDecipheriv with keys from environment variables.',
                 references: ['https://cwe.mitre.org/data/definitions/321.html'],
                 confidence: 'high',
@@ -61,7 +62,7 @@ export const SEC003 = defineRule({
                   endLine: line,
                   endColumn: column + text.length,
                   message: `Hardcoded ${label} in crypto.${methodName}(). Use environment variables or crypto.randomBytes().`,
-                  codeSnippet: getCodeSnippet(ctx.content, line),
+                  codeSnippet: redactSecret(getCodeSnippet(ctx.content, line), secondArg.text),
                   remediation: CRYPTO_METHODS.includes(methodName)
                     ? 'Generate random IVs using crypto.randomBytes(). Never reuse IVs.'
                     : 'Store encryption keys in environment variables or secret managers.',

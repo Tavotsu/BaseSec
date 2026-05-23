@@ -10,9 +10,10 @@ export type RuleCategory =
   | 'secrets'
   | 'error-handling'
   | 'misconfiguration'
+  | 'dependency-check'
   | 'deprecated';
 
-export type Framework = 'express' | 'nestjs' | 'mongoose' | 'typeorm' | '*';
+export type Framework = 'express' | 'nestjs' | 'mongoose' | 'typeorm' | 'fastify' | 'koa' | 'prisma' | '*';
 
 export type Confidence = 'high' | 'medium' | 'low';
 
@@ -71,12 +72,22 @@ export type RuleConfigOverride = {
 export interface basesecConfig {
   target: string[];
   ignore: string[];
-  framework: 'auto' | 'express' | 'nestjs' | 'mongoose' | 'typeorm';
+  framework: 'auto' | 'express' | 'nestjs' | 'mongoose' | 'typeorm' | 'fastify' | 'koa' | 'prisma';
   severity: Severity;
   taintAnalysis: boolean;
   rules: string[];
   rulesConfig: Record<string, RuleConfigOverride | false>;
   sanitizers: string[];
+  maxFileSize: number;
+  maxFiles: number;
+  cache?: {
+    maxAge?: number;
+    dir?: string;
+  };
+  workers?: {
+    threshold?: number;
+    max?: number;
+  };
   output: {
     format: OutputFormat;
     filePath?: string;
@@ -93,12 +104,17 @@ export interface CliOptions {
   noTaint: boolean;
   quiet: boolean;
   strict: boolean;
-  framework: 'auto' | 'express' | 'nestjs' | 'mongoose' | 'typeorm';
+  framework: 'auto' | 'express' | 'nestjs' | 'mongoose' | 'typeorm' | 'fastify' | 'koa' | 'prisma';
   noColor: boolean;
   noBanner: boolean;
   rulesFilter?: string[];
   workers?: number;
   noCache?: boolean;
+  noDeps?: boolean;
+  maxFileSize?: number;
+  maxFiles?: number;
+  verbose?: boolean;
+  readEnv?: boolean;
 }
 
 export interface ScanResult {

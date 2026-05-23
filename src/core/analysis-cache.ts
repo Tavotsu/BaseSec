@@ -2,6 +2,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as crypto from 'node:crypto';
 import * as os from 'node:os';
+import { logger } from '../utils/logger';
 
 export interface CachedFileResult {
   filePath: string;
@@ -26,7 +27,8 @@ export class AnalysisCache {
         if (!fs.existsSync(this.cacheDir)) {
           fs.mkdirSync(this.cacheDir, { recursive: true });
         }
-      } catch {
+      } catch (e) {
+        logger.warn(`Failed to create cache dir at ${this.cacheDir}`, e);
         this.enabled = false;
       }
     }
@@ -70,7 +72,8 @@ export class AnalysisCache {
         ...f,
         filePath,
       }));
-    } catch {
+    } catch (e) {
+      logger.warn(`Failed to read or parse cache file for ${filePath}`, e);
       return null;
     }
   }
@@ -101,8 +104,8 @@ export class AnalysisCache {
       };
 
       fs.writeFileSync(cacheFile, JSON.stringify(cached));
-    } catch {
-      // Cache write failures are non-critical
+    } catch (e) {
+      logger.warn(`Failed to write cache for ${filePath}`, e);
     }
   }
 
@@ -118,13 +121,13 @@ export class AnalysisCache {
             if (fs.statSync(fullPath).isFile()) {
               fs.unlinkSync(fullPath);
             }
-          } catch {
-            // Skip files we can't delete
+          } catch (e) {
+            logger.warn(`Failed to delete cache file ${fullPath}`, e);
           }
         }
       }
-    } catch {
-      // Clear failures are non-critical
+    } catch (e) {
+      logger.warn(`Failed to clear cache directory ${this.cacheDir}`, e);
     }
   }
 
@@ -152,7 +155,8 @@ export class AnalysisCache {
       }
 
       return { entries, sizeBytes };
-    } catch {
+    } catch (e) {
+      logger.warn(`Failed to calculate cache stats for ${this.cacheDir}`, e);
       return { entries: 0, sizeBytes: 0 };
     }
   }
@@ -165,8 +169,8 @@ export class AnalysisCache {
   private evict(cacheFile: string): void {
     try {
       fs.unlinkSync(cacheFile);
-    } catch {
-      // Ignore eviction errors
+    } catch (e) {
+      logger.warn(`Failed to evict cache file ${cacheFile}`, e);
     }
   }
 }

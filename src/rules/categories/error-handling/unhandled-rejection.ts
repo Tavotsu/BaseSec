@@ -50,7 +50,7 @@ export const ERR003 = defineRule({
         endLine: 1,
         endColumn: 1,
         message: `No process.on('unhandledRejection') handler found. Unhandled promise rejections can crash the process.`,
-        codeSnippet: getCodeSnippet(ctx.content, 1),
+        codeSnippet: '',
         remediation: "Add process.on('unhandledRejection', (reason) => { logger.error(reason); }) at the application entry point.",
         references: ['https://nodejs.org/api/process.html#process_event_unhandledrejection'],
         confidence: 'medium',

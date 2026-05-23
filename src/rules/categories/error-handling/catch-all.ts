@@ -41,7 +41,7 @@ export const ERR002 = defineRule({
         endLine: 1,
         endColumn: 1,
         message: `Express application without a global error handler middleware.`,
-        codeSnippet: getCodeSnippet(ctx.content, 1),
+        codeSnippet: '',
         remediation: 'Add a 4-argument error handler: app.use((err, req, res, next) => { ... })',
         references: ['https://expressjs.com/en/guide/error-handling.html'],
         confidence: 'low',
