@@ -1,6 +1,10 @@
 name: Update Stats & Deploy
 
 on:
+  push:
+    branches: [gh-pages]
+    paths:
+      - 'website/**'
   schedule:
     - cron: '0 */12 * * *'
   workflow_dispatch:
