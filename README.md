@@ -1,6 +1,6 @@
 
 <p align="center">
-  <img src="https://github.com/Tavotsu/BaseSec/blob/gh-pages/logo.png?raw=true" alt="logo" width=300px height=300px>
+  <img src="https://github.com/Tavotsu/BaseSec/blob/gh-pages/website/public/logo.png?raw=true" alt="logo" width=300px height=300px>
 </p>
 Static Application Security Testing (SAST) CLI tool for Node.js backends.  
 Scans JavaScript and TypeScript source files, detects vulnerabilities via AST analysis and taint tracking, and reports findings in terminal, JSON, SARIF, HTML, or Markdown.
