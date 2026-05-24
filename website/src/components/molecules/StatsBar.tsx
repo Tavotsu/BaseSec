@@ -86,13 +86,10 @@ export const StatsBar: React.FC = () => {
 
   return (
     <div ref={ref} className="w-full">
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-px bg-[var(--color-border)]">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-px bg-[var(--color-border)]">
         <StatCard label="npm / week" value={stats.npm.weeklyDownloads} active={visible} />
         <StatCard label="npm / month" value={stats.npm.monthlyDownloads} active={visible} />
         <StatCard label="Stars" value={stats.github.stars} active={visible} />
-        <StatCard label="Forks" value={stats.github.forks} active={visible} />
-        <StatCard label="Page views" value={stats.github.views.count} sublabel="last 14 days" active={visible} />
-        <StatCard label="Unique visitors" value={stats.github.views.uniques} sublabel="last 14 days" active={visible} />
       </div>
       <p className="text-[10px] font-mono text-[var(--color-foreground)]/30 text-right mt-1 pr-1">
         Updated {new Date(stats.updatedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
