@@ -72,35 +72,35 @@ const Landing: React.FC = () => {
             />
             <FeatureCard
               icon={<FileSearch size={28} />}
-              title="30+ Security Rules"
-              description="9 categories: SQLI, NOSQL, XSS, CMDI, PATH, AUTH, SSTI, IDOR, misconfiguration. Each rule maps to a CVE-class and produces actionable remedies."
+              title="34+ Security Rules"
+              description="10 categories including SQLI, NOSQL, XSS, CMDI, and PATH. Each rule maps to a CVE-class and produces actionable remedies for developers."
             />
             <FeatureCard
               icon={<Shield size={28} />}
               title="Framework-Aware"
-              description="Native context resolution for Express, NestJS, Mongoose, TypeORM, and Sequelize. Detects routes, guards, decorators, and schema definitions in context."
-            />
-            <FeatureCard
-              icon={<FileOutput size={28} />}
-              title="5 Report Formats"
-              description="Terminal, JSON, SARIF (GitHub Code Scanning), HTML, and Markdown. Drop SARIF straight into your CI pipeline and surface results in pull requests."
+              description="Native context resolution for Express, NestJS, Fastify, Koa, Prisma, Mongoose, and TypeORM. Detects routes, guards, and raw queries in context."
             />
             <FeatureCard
               icon={<GitBranch size={28} />}
-              title="CI/CD Ready"
-              description="Single binary, zero config required. Supports .basesecrc, basesec.config.ts, and package.json entries. Runs in under 0.5s on most codebases."
+              title="Supply Chain Security"
+              description="Validates package dependencies against known CVEs, flags unused modules, checks lockfile mismatches, and auto-protects .env files from exposure."
+            />
+            <FeatureCard
+              icon={<FileOutput size={28} />}
+              title="CI/CD & Reporting"
+              description="Zero-config CLI with 5 formats (Terminal, JSON, SARIF, HTML, MD). Fine-tune workers via .basesecrc and use --verbose for deep execution tracing."
             />
           </div>
 
           <div className="mt-16 text-center">
-            <div className="inline-flex items-center gap-6 font-mono text-xs text-[var(--color-foreground)]/40 uppercase tracking-widest">
+            <div className="inline-flex items-center gap-6 font-mono text-xs text-[var(--color-foreground)]/40 uppercase tracking-widest flex-wrap justify-center">
               <span><span className="text-[var(--color-primary)]">78</span> files/sec</span>
-              <span className="text-[var(--color-border)]">|</span>
-              <span><span className="text-[var(--color-primary)]">9</span> rule categories</span>
-              <span className="text-[var(--color-border)]">|</span>
+              <span className="text-[var(--color-border)] hidden sm:inline">|</span>
+              <span><span className="text-[var(--color-primary)]">10</span> rule categories</span>
+              <span className="text-[var(--color-border)] hidden sm:inline">|</span>
               <span><span className="text-[var(--color-primary)]">5</span> output formats</span>
-              <span className="text-[var(--color-border)]">|</span>
-              <span><span className="text-[var(--color-primary)]">4</span> frameworks</span>
+              <span className="text-[var(--color-border)] hidden sm:inline">|</span>
+              <span><span className="text-[var(--color-primary)]">7</span> frameworks</span>
             </div>
           </div>
         </div>
