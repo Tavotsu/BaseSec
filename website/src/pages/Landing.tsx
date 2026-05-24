@@ -2,6 +2,7 @@ import React from 'react';
 import { Button } from '../components/atoms/Button';
 import { PackageManager } from '../components/molecules/PackageManager';
 import { FeatureCard } from '../components/molecules/FeatureCard';
+import { StatsBar } from '../components/molecules/StatsBar';
 import { Shield, Cpu, Zap, FileSearch, GitBranch, FileOutput } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
@@ -36,6 +37,14 @@ const Landing: React.FC = () => {
           <Button variant="outline" onClick={() => window.open('https://github.com/tavotsu/BaseSec', '_blank')}>
             GitHub Repository
           </Button>
+        </div>
+      </section>
+
+      {/* Stats Bar */}
+      <section className="relative z-10 border-t border-[var(--color-border)]">
+        <div className="max-w-7xl mx-auto px-4 py-8">
+          <p className="font-mono text-xs text-[var(--color-foreground)]/40 uppercase tracking-[0.3em] mb-4 text-center">Live Stats</p>
+          <StatsBar />
         </div>
       </section>
 
