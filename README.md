@@ -103,4 +103,4 @@ Combined, these deliver **~12x speedup** on rescans. See [PERFORMANCE.md](PERFOR
 
 ## License
 
-MIT © tavotsu
+CC BY-NC 4.0 © tavotsu
