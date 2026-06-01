@@ -11,11 +11,43 @@ const VALID_FORMATS: OutputFormat[] = ['terminal', 'json', 'sarif', 'html', 'mar
 const VALID_SEVERITIES: Severity[] = ['critical', 'high', 'medium', 'low', 'info'];
 const VALID_FRAMEWORKS = ['auto', 'express', 'nestjs', 'mongoose', 'typeorm', 'fastify', 'koa', 'prisma'];
 
+function kebabToCamel(str: string): string {
+  return str.replace(/-([a-z])/g, (_: string, c: string) => c.toUpperCase());
+}
+
+function hasArg(arg: string): boolean {
+  const camel = kebabToCamel(arg);
+  return process.argv.includes('--' + arg) ||
+         process.argv.includes('--' + arg + '=true') ||
+         process.argv.includes('--' + camel) ||
+         process.argv.includes('--' + camel + '=true');
+}
+
+function getArgValue(arg: string): string | undefined {
+  const camel = kebabToCamel(arg);
+  for (let i = 0; i < process.argv.length; i++) {
+    const current = process.argv[i];
+    if (current === '--' + arg && process.argv[i + 1] && !process.argv[i + 1].startsWith('--')) {
+      return process.argv[i + 1];
+    }
+    if (current.startsWith('--' + arg + '=')) {
+      return current.split('=')[1];
+    }
+    if (current === '--' + camel && process.argv[i + 1] && !process.argv[i + 1].startsWith('--')) {
+      return process.argv[i + 1];
+    }
+    if (current.startsWith('--' + camel + '=')) {
+      return current.split('=')[1];
+    }
+  }
+  return undefined;
+}
+
 export async function main(): Promise<void> {
   const cli = cac('basesec');
 
   cli
-    .version('0.1.0')
+    .version('0.1.3')
     .usage('<command> [options]');
 
   cli
@@ -85,10 +117,10 @@ export async function main(): Promise<void> {
         noColor: options.color === false,
         noBanner: options.banner === false,
         workers,
-        noCache: options.cache === false,
-        noDeps: options.deps === false,
-        readEnv: options.readEnv === true,
-        verbose: options.verbose === true,
+        noCache: options.cache === false || hasArg('no-cache'),
+        noDeps: options.deps === false || hasArg('no-deps'),
+        readEnv: options.readEnv === true || hasArg('read-env'),
+        verbose: options.verbose === true || hasArg('verbose'),
       };
 
       if (!cliOptions.noBanner && !cliOptions.quiet) {
