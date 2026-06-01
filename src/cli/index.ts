@@ -11,38 +11,6 @@ const VALID_FORMATS: OutputFormat[] = ['terminal', 'json', 'sarif', 'html', 'mar
 const VALID_SEVERITIES: Severity[] = ['critical', 'high', 'medium', 'low', 'info'];
 const VALID_FRAMEWORKS = ['auto', 'express', 'nestjs', 'mongoose', 'typeorm', 'fastify', 'koa', 'prisma'];
 
-function kebabToCamel(str: string): string {
-  return str.replace(/-([a-z])/g, (_: string, c: string) => c.toUpperCase());
-}
-
-function hasArg(arg: string): boolean {
-  const camel = kebabToCamel(arg);
-  return process.argv.includes('--' + arg) ||
-         process.argv.includes('--' + arg + '=true') ||
-         process.argv.includes('--' + camel) ||
-         process.argv.includes('--' + camel + '=true');
-}
-
-function getArgValue(arg: string): string | undefined {
-  const camel = kebabToCamel(arg);
-  for (let i = 0; i < process.argv.length; i++) {
-    const current = process.argv[i];
-    if (current === '--' + arg && process.argv[i + 1] && !process.argv[i + 1].startsWith('--')) {
-      return process.argv[i + 1];
-    }
-    if (current.startsWith('--' + arg + '=')) {
-      return current.split('=')[1];
-    }
-    if (current === '--' + camel && process.argv[i + 1] && !process.argv[i + 1].startsWith('--')) {
-      return process.argv[i + 1];
-    }
-    if (current.startsWith('--' + camel + '=')) {
-      return current.split('=')[1];
-    }
-  }
-  return undefined;
-}
-
 export async function main(): Promise<void> {
   const cli = cac('basesec');
 
@@ -67,7 +35,7 @@ export async function main(): Promise<void> {
     .option('--workers <num>', 'Number of worker threads (default: auto)')
     .option('--no-cache', 'Disable result caching')
     .option('--no-deps', 'Disable dependency checking')
-    .option('--read-env', 'Allow scanning of .env files')
+    .option('--read-env', 'Allow scanning of .env files ',{ default: 'false' })
     .option('--verbose, -V', 'Show verbose output')
     .action(async (path: string | undefined, options: any) => {
       const targetPath = path || process.cwd();
@@ -117,10 +85,10 @@ export async function main(): Promise<void> {
         noColor: options.color === false,
         noBanner: options.banner === false,
         workers,
-        noCache: options.cache === false || hasArg('no-cache'),
-        noDeps: options.deps === false || hasArg('no-deps'),
-        readEnv: options.readEnv === true || hasArg('read-env'),
-        verbose: options.verbose === true || hasArg('verbose'),
+        noCache: options.cache === false,
+        noDeps: options.deps === false,
+        readEnv: options.readEnv === true,
+        verbose: options.verbose === true,
       };
 
       if (!cliOptions.noBanner && !cliOptions.quiet) {
@@ -137,7 +105,7 @@ export async function main(): Promise<void> {
     });
 
   cli
-    .command('init', 'Initialize a basesec config file')
+    .command('init', 'Initialize basesec config file')
     .option('--format <format>', 'Config format: ts or json', { default: 'ts' })
     .action(async (options: any) => {
       try {

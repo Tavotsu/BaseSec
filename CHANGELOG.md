@@ -2,7 +2,14 @@
 
 All notable changes to BaseSec are documented in this file.
 
-## [0.1.2] — Unreleased
+## [0.1.3] - 2026-06-01
+
+### Fixed
+
+- **Windows didn't recognize flags** — added `hasArg()` and `getArgValue()` helpers to detect both kebab-case (`--read-env`) and camelCase (`--readEnv`) CLI arguments
+- **Flag: --help was outdated** — added `0.1.1` and `0.1.2` flags to `--help`
+
+## [0.1.2] — 2026-05-23
 
 ### Added
 
