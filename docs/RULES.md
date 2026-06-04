@@ -1,6 +1,12 @@
 # Rules Catalog
 
-BaseSec ships with **30 security rules** across **9 categories**. All rules support taint analysis where applicable.
+BaseSec ships with **42 security rules** across **10 categories**. All rules support taint analysis where applicable.
+
+## AI Enhancement (AI)
+
+| ID | Name | Severity | Description |
+|---|---|---|---|
+| `AI-001` | AI-detected Vulnerability | varies | Suspicious taint flows detected by AI analysis that may bypass existing rules |
 
 ## Authentication (AUTH)
 
@@ -19,6 +25,15 @@ BaseSec ships with **30 security rules** across **9 categories**. All rules supp
 | `CMDI-002` | Use of eval() | critical | `eval()` called with user-controlled data |
 | `CMDI-003` | setTimeout/setInterval with String Argument | medium | `setTimeout("code", delay)` — implicit eval |
 
+## Dependency Check (DEP)
+
+| ID | Name | Severity | Description |
+|---|---|---|---|
+| `DEP-001` | Outdated Dependency with Known CVE | critical | Package version has known vulnerabilities |
+| `DEP-002` | Vulnerable Dependency | critical | Vulnerable package detected via audit |
+| `DEP-003` | Unused Dependency | low | Package declared but never imported |
+| `DEP-004` | Lockfile Mismatch | medium | package.json out of sync with lockfile |
+
 ## Error Handling (ERR)
 
 | ID | Name | Severity | Description |
@@ -26,6 +41,22 @@ BaseSec ships with **30 security rules** across **9 categories**. All rules supp
 | `ERR-001` | Exposed Stack Trace | medium | Error responses include stack traces in production |
 | `ERR-002` | Missing Global Error Handler | low | Express app has no centralized error handler |
 | `ERR-003` | Unhandled Promise Rejection | low | Promises without `.catch()` or `try/catch` |
+
+## Fastify (FASTIFY)
+
+| ID | Name | Severity | Description |
+|---|---|---|---|
+| `FASTIFY-001` | Missing Fastify Rate Limiting | high | Fastify app lacks rate limiting middleware |
+| `FASTIFY-002` | Missing Fastify Helmet | medium | Fastify app missing security headers |
+| `FASTIFY-003` | Missing Fastify CORS | medium | Fastify app missing CORS configuration |
+
+## Koa (KOA)
+
+| ID | Name | Severity | Description |
+|---|---|---|---|
+| `KOA-001` | Missing Koa Helmet | medium | Koa app missing security headers |
+| `KOA-002` | Missing Koa CORS | medium | Koa app missing CORS configuration |
+| `KOA-003` | Unsafe ctx.body with User Input | high | `ctx.body` assigned directly from user input |
 
 ## Misconfiguration (CONF)
 
@@ -50,6 +81,13 @@ BaseSec ships with **30 security rules** across **9 categories**. All rules supp
 |---|---|---|---|
 | `PATH-001` | Path Traversal via User Input | critical | `fs.readFile(req.query.file)` without sanitization |
 | `PATH-002` | Insecure Express Static Configuration | medium | `express.static` serves root directory or lacks dotfiles restriction |
+
+## Prisma (PRISMA)
+
+| ID | Name | Severity | Description |
+|---|---|---|---|
+| `PRISMA-001` | Prisma Raw Query Injection | critical | `$queryRaw` with string concatenation |
+| `PRISMA-002` | Unsafe Prisma Raw Query | high | `$executeRaw` with unsafe input |
 
 ## Secrets (SEC)
 

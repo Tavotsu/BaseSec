@@ -1,9 +1,16 @@
 
 <p align="center">
   <img src="https://github.com/Tavotsu/BaseSec/blob/gh-pages/website/public/logo.png?raw=true" alt="logo" width=300px height=300px>
+  <br><br>
+  <img src="https://img.shields.io/npm/v/basesec?logo=npm&style=flat-square" alt="npm version">
+  <img src="https://img.shields.io/badge/License-CC%20BY--NC%204.0-green?style=flat-square" alt="License">
+  <img src="https://img.shields.io/npm/dm/basesec?logo=npm&style=flat-square" alt="downloads">
+  <img src="https://img.shields.io/github/stars/Tavotsu/BaseSec?logo=github&style=flat-square" alt="stars">
+  <br>
+  <h2 align="center">Static Application Security Testing (SAST) CLI tool for Node.js backends.</h2>
 </p>
-Static Application Security Testing (SAST) CLI tool for Node.js backends.  
-Scans JavaScript and TypeScript source files, detects vulnerabilities via AST analysis and taint tracking, and reports findings in terminal, JSON, SARIF, HTML, or Markdown.
+
+
 
 ## Features
 
@@ -12,10 +19,11 @@ Scans JavaScript and TypeScript source files, detects vulnerabilities via AST an
 - **Framework Detection** — auto-detects Express, NestJS, Mongoose, TypeORM, Fastify, Koa, and Prisma
 - **Dependency Checking** — detects outdated packages with known CVEs, vulnerable dependencies (via `pnpm/npm audit`), unused dependencies, and lockfile mismatches
 - **Sensitive File Protection** — `.env` and credential files are completely ignored by default unless explicitly allowed with `--read-env`
-- **Multiple Output Formats** — Terminal (colored tables), JSON, SARIF, HTML, Markdown
+- **Multiple Output Formats** — Terminal (colored tables), JSON, SARIF, HTML, Markdown. Non-terminal formats auto-save to `~/.basesec/`
 - **Analysis Cache** — hash-based per-file caching for 10x speedup on incremental scans
 - **Worker Threads** — multi-core parallel analysis for large codebases
 - **Custom Rules** — load external rule files (MJS/CJS) via `.basesecrc`
+- **AI-Powered Analysis** — enriches findings with AI explanations and detects suspicious taint flows (Ollama or OpenAI)
 - **Zero Configuration** — works out of the box with sensible defaults
 
 ## Quick Start
@@ -39,7 +47,10 @@ basesec scan
 # Scan specific directory
 basesec scan ./src
 
-# JSON output
+# JSON output (auto-saved to ~/.basesec/scan-<timestamp>.json)
+basesec scan ./src --format json
+
+# Custom output path
 basesec scan ./src --format json --output report.json
 
 # Only critical/high findings, strict exit code
@@ -68,10 +79,33 @@ export default {
   framework: 'auto',
   ignore: ['node_modules', 'dist', 'coverage'],
   taintAnalysis: true,
+  sanitizers: [],
   rules: [],
   rulesConfig: {},
   maxFileSize: 512000,
   maxFiles: 10000,
+  cache: {
+    maxAge: 86400000,
+    dir: '.basesec/cache',
+  },
+  workers: {
+    threshold: 50,
+    max: 8,
+  },
+  output: {
+    format: 'terminal',
+    filePath: '',
+  },
+  // AI disabled by default for maximum privacy
+  ai: {
+    enabled: false,
+    provider: 'ollama',
+    model: 'llama3.2',
+    contextLevel: 'minimal',
+    baseUrl: 'http://localhost:11434',
+    maxFindings: 10,
+    timeout: 30000,
+  },
 };
 ```
 

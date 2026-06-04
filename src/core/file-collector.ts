@@ -124,21 +124,21 @@ export class FileCollector {
 
   private isSensitiveFile(filePath: string, readEnv?: boolean): boolean {
     const basename = path.basename(filePath).toLowerCase();
-    const sensitiveNames = ['.env', 'secrets', 'credentials'];
-    const sensitiveExts = ['.pem', '.key', '.p12', '.pfx'];
-
-    if (sensitiveExts.some((ext) => basename.endsWith(ext))) {
-      return true;
-    }
 
     if (readEnv && (basename.startsWith('.env') || basename === '.env')) {
-      return false; // User explicitly allowed scanning .env files
+      return false;
+    }
+
+    const sensitiveExts = ['.pem', '.key', '.p12', '.pfx'];
+    if (sensitiveExts.some((ext) => basename.endsWith(ext))) {
+      return true;
     }
 
     if (basename.startsWith('.env')) {
       return true;
     }
 
+    const sensitiveNames = ['secrets', 'credentials'];
     if (sensitiveNames.some((name) => basename.startsWith(name + '.') || basename === name)) {
       return true;
     }

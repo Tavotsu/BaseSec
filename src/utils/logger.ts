@@ -14,8 +14,6 @@ export const logger = {
   },
 
   error(...args: any[]) {
-    if (this.isVerbose) {
-      console.error('Error:', ...args);
-    }
+    console.error('Error:', ...args);
   }
 };

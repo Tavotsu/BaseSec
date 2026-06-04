@@ -91,6 +91,11 @@ export class HtmlFormatter implements ReportFormatter {
                 <strong>References:</strong>
                 <ul>${f.references.map((r) => `<li><a href="${escapeHtml(r)}" target="_blank">${escapeHtml(r)}</a></li>`).join('')}</ul>
               </div>` : ''}
+              ${f.aiExplanation ? `
+              <details class="ai-explanation">
+                <summary>AI Analysis${f.aiEnhanced ? ' <span class="ai-badge ai-enhanced">AI Enhanced</span>' : ''}${f.aiGenerated ? ' <span class="ai-badge ai-generated">AI Generated</span>' : ''}</summary>
+                <p>${escapeHtml(f.aiExplanation)}</p>
+              </details>` : f.aiGenerated ? `<div class="ai-generated-badge"> <span class="ai-badge ai-generated">AI Generated</span></div>` : ''}
             </div>
           </div>`;
     }).join('\n');
@@ -129,6 +134,13 @@ export class HtmlFormatter implements ReportFormatter {
     .stat-item { margin-bottom: 6px; }
     .empty { color: #22c55e; font-size: 20px; text-align: center; padding: 48px; }
     code { background: #0f172a; padding: 2px 6px; border-radius: 4px; font-size: 13px; }
+    .ai-explanation { background: #1a1040; border: 1px solid #7c3aed; border-radius: 6px; padding: 10px 14px; margin: 10px 0; }
+    .ai-explanation summary { cursor: pointer; color: #a78bfa; font-weight: 600; }
+    .ai-explanation p { margin-top: 8px; color: #e2e8f0; font-size: 14px; }
+    .ai-badge { font-size: 11px; font-weight: bold; padding: 2px 6px; border-radius: 4px; }
+    .ai-enhanced { background: #7c3aed; color: #fff; }
+    .ai-generated { background: #6d28d9; color: #fff; }
+    .ai-generated-badge { margin: 10px 0; }
   </style>
 </head>
 <body>

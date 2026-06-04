@@ -8,7 +8,7 @@ BaseSec is a Static Application Security Testing (SAST) CLI tool for Node.js bac
 
 ### What frameworks are supported?
 
-Express, NestJS, Mongoose, and TypeORM. Auto-detection is enabled by default.
+Express, NestJS, Mongoose, TypeORM, Fastify, Koa, and Prisma. Auto-detection is enabled by default.
 
 ### Does BaseSec modify my code?
 
@@ -62,6 +62,18 @@ basesec scan ./src -i "**/*.test.ts" -i "generated/**"
 
 ## Output
 
+### Where are reports saved?
+
+Non-terminal formats (JSON, SARIF, HTML, Markdown) auto-save to `~/.basesec/scan-<timestamp>.<format>` by default. Use `-o <path>` to specify a custom location:
+
+```bash
+# Auto-save to ~/.basesec/scan-2026-06-03T12-00-00.sarif
+basesec scan ./src --format sarif
+
+# Save to custom path
+basesec scan ./src -f sarif -o ./results.sarif
+```
+
 ### Can I output multiple formats at once?
 
 No. Run BaseSec multiple times:
@@ -79,7 +91,7 @@ Yes. BaseSec generates SARIF 2.1.0 compatible output. Use `github/codeql-action/
 
 ### How many rules are there?
 
-30 rules across 9 categories.
+42 rules across 10 categories, plus AI-001 for AI-enhanced detection.
 
 ### Can I disable specific rules?
 
@@ -102,6 +114,62 @@ basesec scan ./src -r SQLI-001,SQLI-002
 ### What is taint analysis?
 
 Taint analysis tracks data flow from untrusted sources (user input) to dangerous sinks (database queries, command execution). BaseSec marks variables as "tainted" when they originate from `req.query`, `req.body`, `req.params`, etc., and propagates taint through assignments, concatenation, and template literals.
+
+## AI Enhancement
+
+### Does BaseSec require AI?
+
+No. BaseSec is fully functional without AI. All 42 security rules work offline with no external dependencies. AI enhancement is entirely opt-in.
+
+### What does AI enhancement do?
+
+When enabled, AI can:
+- Provide detailed explanations for findings
+- Detect suspicious taint flows that may bypass existing rules (AI-001)
+
+### How do I enable AI?
+
+1. Add AI config to `.basesecrc`:
+   ```js
+   export default {
+     ai: {
+       enabled: true,
+       provider: 'ollama', // or 'openai'
+       model: 'llama3.2',
+     },
+   };
+   ```
+2. Run with `--ai` flag:
+   ```bash
+   basesec scan ./src --ai
+   ```
+
+### Which AI providers are supported?
+
+**Ollama (local, recommended):**
+- Privacy-preserving: data never leaves your machine
+- Requires `ollama serve` running locally
+- Free and open source
+
+**OpenAI:**
+- Requires `OPENAI_API_KEY` environment variable
+- Data is sent to OpenAI's servers — see responsibility notice below
+
+### Who is responsible for data sent to AI providers?
+
+**You are.** BaseSec does not store, log, or retain any code sent to AI providers. However:
+
+- When using OpenAI (or any cloud-based LLM), your code snippets are transmitted to the provider's servers
+- Review the provider's privacy policy before use
+- For maximum privacy, use Ollama (local) — no data leaves your machine
+- BaseSec is not responsible for the privacy practices or data handling of third-party AI providers
+
+### Can I preview what would be sent without actually sending?
+
+Yes:
+```bash
+basesec scan ./src --ai --ai-dry-run
+```
 
 ## CI/CD
 

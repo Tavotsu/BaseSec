@@ -20,12 +20,12 @@ export class AnalysisCache {
   constructor(options: { cacheDir?: string; maxAgeMs?: number; enabled?: boolean } = {}) {
     this.enabled = options.enabled !== false;
     this.maxAge = options.maxAgeMs ?? 24 * 60 * 60 * 1000;
-    this.cacheDir = options.cacheDir ?? path.join(os.tmpdir(), 'basesec-cache');
+    this.cacheDir = options.cacheDir ?? path.join(os.homedir(), '.basesec', 'cache');
 
     if (this.enabled) {
       try {
         if (!fs.existsSync(this.cacheDir)) {
-          fs.mkdirSync(this.cacheDir, { recursive: true });
+          fs.mkdirSync(this.cacheDir, { recursive: true, mode: 0o700 });
         }
       } catch (e) {
         logger.warn(`Failed to create cache dir at ${this.cacheDir}`, e);
@@ -92,7 +92,7 @@ export class AnalysisCache {
       const cacheDir = path.dirname(cacheFile);
 
       if (!fs.existsSync(cacheDir)) {
-        fs.mkdirSync(cacheDir, { recursive: true });
+        fs.mkdirSync(cacheDir, { recursive: true, mode: 0o700 });
       }
 
       const cached: CachedFileResult = {
@@ -103,7 +103,7 @@ export class AnalysisCache {
         findings,
       };
 
-      fs.writeFileSync(cacheFile, JSON.stringify(cached));
+      fs.writeFileSync(cacheFile, JSON.stringify(cached), { encoding: 'utf-8', mode: 0o600 });
     } catch (e) {
       logger.warn(`Failed to write cache for ${filePath}`, e);
     }

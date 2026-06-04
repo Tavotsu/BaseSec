@@ -110,9 +110,10 @@ basesec scan ./src --severity medium --no-cache
 # Fast scan with cache disabled (clean environment)
 basesec scan ./src --no-cache --severity low --strict
 
-# Full report for artifacts
+# Full report for artifacts (auto-saves if no -o specified)
+basesec scan ./src --format sarif
+# or with explicit path:
 basesec scan ./src --format sarif --output security.sarif
-basesec scan ./src --format html --output report.html
 ```
 
 ## SARIF Upload

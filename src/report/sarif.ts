@@ -59,24 +59,36 @@ export class SarifFormatter implements ReportFormatter {
   }
 
   private buildResults(findings: Finding[]): object[] {
-    return findings.map((f) => ({
-      ruleId: f.ruleId,
-      level: SEVERITY_MAP[f.severity] ?? 'warning',
-      message: { text: f.message },
-      locations: [
-        {
-          physicalLocation: {
-            artifactLocation: {
-              uri: f.filePath,
-            },
-            region: {
-              startLine: Math.max(1, f.line),
-              startColumn: Math.max(1, f.column),
-              ...(f.endLine > f.line ? { endLine: f.endLine, endColumn: Math.max(1, f.endColumn) } : {}),
+    return findings.map((f) => {
+      const result: Record<string, unknown> = {
+        ruleId: f.ruleId,
+        level: SEVERITY_MAP[f.severity] ?? 'warning',
+        message: { text: f.message },
+        locations: [
+          {
+            physicalLocation: {
+              artifactLocation: {
+                uri: f.filePath,
+              },
+              region: {
+                startLine: Math.max(1, f.line),
+                startColumn: Math.max(1, f.column),
+                ...(f.endLine > f.line ? { endLine: f.endLine, endColumn: Math.max(1, f.endColumn) } : {}),
+              },
             },
           },
-        },
-      ],
-    }));
+        ],
+      };
+
+      if (f.aiExplanation || f.aiEnhanced || f.aiGenerated) {
+        result['properties'] = {
+          ...(f.aiExplanation ? { aiExplanation: f.aiExplanation } : {}),
+          ...(f.aiEnhanced != null ? { aiEnhanced: f.aiEnhanced } : {}),
+          ...(f.aiGenerated != null ? { aiGenerated: f.aiGenerated } : {}),
+        };
+      }
+
+      return result;
+    });
   }
 }

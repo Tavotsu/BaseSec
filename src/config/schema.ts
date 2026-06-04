@@ -1,9 +1,9 @@
-import type { basesecConfig, Severity, OutputFormat, RuleConfigOverride } from '../rules/types';
+import type { basesecConfig, Severity, OutputFormat, RuleConfigOverride, AiConfig } from '../rules/types';
 
 export interface basesecConfigSchema {
   target?: string[];
   ignore?: string[];
-  framework?: 'auto' | 'express' | 'nestjs' | 'mongoose' | 'typeorm';
+  framework?: 'auto' | 'express' | 'nestjs' | 'mongoose' | 'typeorm' | 'fastify' | 'koa' | 'prisma';
   severity?: Severity;
   taintAnalysis?: boolean;
   rules?: string[];
@@ -22,6 +22,15 @@ export interface basesecConfigSchema {
   output?: {
     format?: OutputFormat;
     filePath?: string;
+  };
+  ai?: {
+    enabled?: boolean;
+    provider?: 'openai' | 'ollama';
+    model?: string;
+    contextLevel?: 'minimal' | 'context' | 'file';
+    baseUrl?: string;
+    maxFindings?: number;
+    timeout?: number;
   };
 }
 

@@ -8,10 +8,18 @@ import { ALL_RULES } from '../rules/index';
 import { detectFrameworks } from '../framework/detector';
 import { RuleRegistry } from '../rules/registry';
 import { loadCustomRules } from '../rules/loader';
+import { loadConfig } from '../config/loader';
 import { AnalysisCache, shouldUseCache } from './analysis-cache';
 import { getWorkerCount, shouldUseWorkers, WorkerPool } from './worker-pool';
 import { severityGte } from '../utils/severity';
 import { logger } from '../utils/logger';
+import { checkConsent, promptConsent } from '../ai/consent';
+import { validateAiConfig, resolveAiOptions } from '../ai/config';
+import { resolveProvider } from '../ai/providers/resolver';
+import { enrichFindings } from '../ai/enricher';
+import { detectSuspiciousFiles, analyzeSuspiciousFiles } from '../ai/parallel-analyzer';
+import { mergeFindings } from '../ai/merger';
+import { formatDryRun } from '../ai/privacy';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import type {
@@ -58,7 +66,14 @@ export class Pipeline {
   ): Promise<ScanResult> {
     const start = Date.now();
 
-    const config = mergeConfigWithDefaults({}, {
+    let fileConfig: Partial<import('../rules/types').basesecConfig> = {};
+    try {
+      fileConfig = loadConfig(undefined, targetPath);
+    } catch {
+      // No config file found, use defaults
+    }
+
+    const config = mergeConfigWithDefaults(fileConfig, {
       framework: cliOptions.framework,
       severity: cliOptions.severity,
       ignore: cliOptions.ignore,
@@ -92,11 +107,85 @@ export class Pipeline {
       );
     }
 
-    const findings = await this.analyzeWithCache(parsedFiles, rulesToRun, config, frameworks);
+    let findings = await this.analyzeWithCache(parsedFiles, rulesToRun, config, frameworks);
 
     if (!cliOptions.noDeps) {
       const depFindings = this.checkDependencies(targetPath, rulesToRun, config);
       findings.push(...depFindings);
+    }
+
+    const hasAiFlag = cliOptions.ai === true;
+    const hasAiConfig = config.ai?.enabled === true;
+
+    if (hasAiFlag && !hasAiConfig) {
+      throw new Error(
+        'AI flag detected but ai.enabled is not set in your config. ' +
+        "Run 'basesec init' or add ai.enabled: true to your config file."
+      );
+    }
+
+    if (hasAiFlag && hasAiConfig) {
+      const validation = validateAiConfig(config.ai, cliOptions);
+      if (!validation.valid) {
+        throw new Error(validation.errors.join('\n'));
+      }
+
+      const aiOptions = resolveAiOptions(config.ai, cliOptions)!;
+
+      let consentOk = checkConsent();
+      if (!consentOk) {
+        consentOk = await promptConsent(aiOptions.provider, aiOptions.contextLevel);
+        if (!consentOk) {
+          logger.warn('AI analysis skipped: user declined consent.');
+        }
+      }
+
+      if (consentOk) {
+        if (aiOptions.dryRun) {
+          console.log(formatDryRun(findings, aiOptions.contextLevel));
+        } else {
+          const provider = await resolveProvider(config.ai!);
+
+          const fileContents = new Map<string, string>();
+          for (const f of parsedFiles) {
+            fileContents.set(f.filePath, f.content);
+          }
+
+          findings = await enrichFindings(findings, provider, {
+            contextLevel: aiOptions.contextLevel,
+            maxFindings: aiOptions.maxFindings,
+            model: aiOptions.model,
+            timeout: aiOptions.timeout,
+            fileContents,
+          });
+
+          const taintGraphs = this.analyzer.getTaintGraphs();
+          const suspiciousFiles = detectSuspiciousFiles(parsedFiles, taintGraphs, findings);
+          if (suspiciousFiles.length > 0) {
+            const aiFindings = await analyzeSuspiciousFiles(
+              suspiciousFiles,
+              taintGraphs,
+              provider,
+              {
+                contextLevel: aiOptions.contextLevel,
+                model: aiOptions.model,
+                timeout: aiOptions.timeout,
+              }
+            );
+            findings = mergeFindings(findings, aiFindings);
+          }
+        }
+      }
+    } else {
+      const taintGraphs = this.analyzer.getTaintGraphs();
+      const suspicious = detectSuspiciousFiles(parsedFiles, taintGraphs, findings);
+      if (suspicious.length > 0) {
+        logger.warn(
+          `Suspicious taint flows detected in ${suspicious.length} file(s) with no matching rules.\n` +
+          `   To deep-analyze these files, enable AI: basesec scan ./src --ai\n` +
+          `   Verify all AI conditions are met (config + consent).`
+        );
+      }
     }
 
     this.store.addMany(findings);
@@ -169,6 +258,9 @@ export class Pipeline {
           for (const res of results) {
             freshFindings.push(...res.findings);
           }
+          if (config.taintAnalysis) {
+            this.analyzer.analyze(filesToAnalyze, [], config, frameworks);
+          }
         } finally {
           await pool.close();
         }
@@ -205,7 +297,6 @@ export class Pipeline {
 
       if (depRules.length === 0) return findings;
 
-      const { Parser } = require('./parser');
       const parser = new Parser();
       const [parsedFile] = parser.parseFiles([packageJsonPath]);
 

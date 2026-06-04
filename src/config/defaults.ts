@@ -62,6 +62,7 @@ export const DEFAULT_CONFIG: basesecConfig = {
   output: {
     format: 'terminal',
   },
+  ai: undefined,
 };
 
 export function mergeConfigWithDefaults(
@@ -105,5 +106,6 @@ export function mergeConfigWithDefaults(
       format: cliOverrides.output?.format ?? fileConfig.output?.format ?? DEFAULT_CONFIG.output.format,
       filePath: cliOverrides.output?.filePath ?? fileConfig.output?.filePath ?? DEFAULT_CONFIG.output.filePath,
     },
+    ai: cliOverrides.ai ?? fileConfig.ai ?? DEFAULT_CONFIG.ai,
   };
 }

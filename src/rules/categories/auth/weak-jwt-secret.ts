@@ -44,7 +44,7 @@ export const AUTH002 = defineRule({
               endLine: line,
               endColumn: column + text.length,
               message: isWeak
-                ? `Hardcoded weak JWT secret: "${secretValue.length > 20 ? secretValue.substring(0, 20) + '...' : secretValue}". Use environment variables.`
+                ? `Hardcoded weak JWT secret detected. Use environment variables.`
                 : `Hardcoded JWT secret found. Use environment variables instead.`,
               codeSnippet: redactSecret(getCodeSnippet(ctx.content, line), secretValue),
               remediation: 'Use environment variables for JWT secrets: jwt.sign(payload, process.env.JWT_SECRET)',
@@ -69,7 +69,7 @@ export const AUTH002 = defineRule({
                   column,
                   endLine: line,
                   endColumn: column + text.length,
-                  message: `JWT secret with hardcoded fallback: \`${redactSecret(fallbackMatch[1], fallbackMatch[1])}\`. Use environment variables without fallbacks.`,
+                  message: `JWT secret uses a hardcoded fallback value. Use environment variables without fallbacks.`,
                   codeSnippet: redactSecret(getCodeSnippet(ctx.content, line), fallbackMatch[1]),
                   remediation: 'Use process.env.JWT_SECRET without fallback values.',
                   references: ['https://cwe.mitre.org/data/definitions/798.html'],

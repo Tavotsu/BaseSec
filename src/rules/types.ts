@@ -32,6 +32,10 @@ export interface Finding {
   remediation: string;
   references: string[];
   confidence: Confidence;
+  aiEnhanced?: boolean;
+  aiExplanation?: string;
+  aiGenerated?: boolean;
+  originalConfidence?: Confidence;
 }
 
 export interface Rule {
@@ -69,6 +73,16 @@ export type RuleConfigOverride = {
   confidence?: Confidence;
 };
 
+export interface AiConfig {
+  enabled: boolean;
+  provider: 'openai' | 'ollama';
+  model?: string;
+  contextLevel: 'minimal' | 'context' | 'file';
+  baseUrl?: string;
+  maxFindings?: number;
+  timeout?: number;
+}
+
 export interface basesecConfig {
   target: string[];
   ignore: string[];
@@ -92,6 +106,7 @@ export interface basesecConfig {
     format: OutputFormat;
     filePath?: string;
   };
+  ai?: AiConfig;
 }
 
 export interface CliOptions {
@@ -115,6 +130,11 @@ export interface CliOptions {
   maxFiles?: number;
   verbose?: boolean;
   readEnv?: boolean;
+  ai?: boolean;
+  aiProvider?: string;
+  aiModel?: string;
+  aiDryRun?: boolean;
+  aiContext?: string;
 }
 
 export interface ScanResult {

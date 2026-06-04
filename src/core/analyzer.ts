@@ -6,6 +6,10 @@ import { logger } from '../utils/logger';
 export class Analyzer {
   private taintGraphs: Map<string, TaintGraph> = new Map();
 
+  getTaintGraphs(): Map<string, TaintGraph> {
+    return this.taintGraphs;
+  }
+
   analyze(
     parsedFiles: ParsedFile[],
     rules: Rule[],

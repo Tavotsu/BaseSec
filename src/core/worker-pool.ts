@@ -3,8 +3,8 @@ import { Worker } from 'node:worker_threads';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { logger } from '../utils/logger';
-import type { Finding, basesecConfig, ParsedFile } from '../rules/types';
-import type { WorkerInput, WorkerOutput } from '../worker/analyzer';
+import type { Finding, basesecConfig } from '../rules/types';
+import type { WorkerInput } from '../worker/analyzer';
 
 export interface WorkerTask {
   filePath: string;
@@ -115,7 +115,6 @@ export class WorkerPool {
   }
 
   private setupWorkerEvents(worker: Worker) {
-    // Same as constructor setup
     worker.on('message', (msg) => {
       const task = this.activeTasks.get(worker);
       if (!task) return;
@@ -126,6 +125,15 @@ export class WorkerPool {
         task.reject(new Error(msg.error));
       }
       this.pumpQueue();
+    });
+
+    worker.on('error', (err) => {
+      logger.warn('Worker thread crashed', err);
+      const task = this.activeTasks.get(worker);
+      if (task) {
+        this.activeTasks.delete(worker);
+        task.reject(err instanceof Error ? err : new Error(String(err)));
+      }
     });
   }
 
@@ -140,9 +148,9 @@ export class WorkerPool {
     if (this.taskQueue.length === 0) return;
     
     for (const worker of this.workers) {
+      if (this.taskQueue.length === 0) return;
       if (!this.activeTasks.has(worker)) {
-        const task = this.taskQueue.shift();
-        if (!task) return;
+        const task = this.taskQueue.shift()!;
         
         this.activeTasks.set(worker, {
           filePath: task.input.file.filePath,
@@ -152,7 +160,6 @@ export class WorkerPool {
         });
         
         worker.postMessage(task.input);
-        return; // Break out, check queue later
       }
     }
   }

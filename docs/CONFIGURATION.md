@@ -109,3 +109,53 @@ ignore: [
   'migrations/**',
 ];
 ```
+
+## AI Enhancement
+
+Enable AI-powered analysis to get detailed explanations and detect suspicious taint flows that may bypass existing rules.
+
+```js
+export default {
+  ai: {
+    enabled: true,
+    provider: 'ollama',       // 'ollama' or 'openai'
+    model: 'llama3.2',        // model name (optional for Ollama)
+    contextLevel: 'minimal',   // 'minimal', 'context', or 'file'
+    maxFindings: 50,           // max findings to enrich (default: 50)
+    timeout: 30000,           // timeout in ms (default: 30000)
+  },
+};
+```
+
+### AI Providers
+
+**Ollama (local):**
+```js
+ai: {
+  enabled: true,
+  provider: 'ollama',
+  model: 'llama3.2',  // must be running: `ollama serve`
+}
+```
+
+**OpenAI:**
+```js
+ai: {
+  enabled: true,
+  provider: 'openai',
+  model: 'gpt-4o-mini',
+  // Requires OPENAI_API_KEY environment variable
+}
+```
+
+### Context Levels
+
+| Level | Description |
+|-------|-------------|
+| `minimal` | Only the specific tainted expression (default) |
+| `context` | Surrounding function/block for context |
+| `file` | Full file content for complete context |
+
+### Privacy
+
+On first use, BaseSec displays a privacy notice and prompts for consent. Consent is stored in `~/.basesec/ai-consent`. Use `basesec init --revoke-ai-consent` to revoke.

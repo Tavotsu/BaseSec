@@ -78,9 +78,17 @@ class TerminalFormatter implements ReportFormatter {
         colorFn(`  [${label}] ${finding.ruleId}: ${finding.ruleName}`),
       );
       lines.push(pc.gray(`    File: ${finding.filePath}:${finding.line}`));
-      lines.push(pc.white(`    Code: ${finding.codeSnippet}`));
+      if (finding.codeSnippet) {
+        lines.push(pc.white(`    Code: ${finding.codeSnippet}`));
+      }
       lines.push(pc.gray(`    ${finding.message}`));
       lines.push(pc.green(`    Remedy: ${finding.remediation}`));
+      if (finding.aiExplanation) {
+        lines.push(pc.magenta(`    🤖 AI: ${finding.aiExplanation}`));
+      }
+      if (finding.aiGenerated) {
+        lines.push(pc.magenta(`    [AI-generated finding]`));
+      }
       lines.push('');
     }
 

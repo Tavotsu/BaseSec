@@ -202,6 +202,20 @@ function normalizeConfig(raw: Record<string, unknown>): Partial<basesecConfig> {
       config.output = { format: fmt, filePath: fpath };
     }
   }
+  if (raw.ai && typeof raw.ai === 'object') {
+    const ai = raw.ai as Record<string, unknown>;
+    config.ai = {
+      enabled: ai.enabled === true,
+      provider: (ai.provider as 'openai' | 'ollama') ?? 'ollama',
+      model: typeof ai.model === 'string' ? ai.model : undefined,
+      contextLevel: (['minimal', 'context', 'file'].includes(ai.contextLevel as string)
+        ? (ai.contextLevel as 'minimal' | 'context' | 'file')
+        : 'minimal'),
+      baseUrl: typeof ai.baseUrl === 'string' ? ai.baseUrl : undefined,
+      maxFindings: ai.maxFindings !== undefined ? Number(ai.maxFindings) : undefined,
+      timeout: ai.timeout !== undefined ? Number(ai.timeout) : undefined,
+    };
+  }
 
   return config;
 }

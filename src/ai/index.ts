@@ -1,0 +1,15 @@
+export { checkConsent, saveConsent, revokeConsent, promptConsent, getConsentPath } from './consent';
+export { validateAiConfig, resolveAiOptions } from './config';
+export type { ResolvedAiOptions, AiValidationResult } from './config';
+export { enrichFindings } from './enricher';
+export type { EnricherOptions } from './enricher';
+export { analyzeSuspiciousFiles, detectSuspiciousFiles } from './parallel-analyzer';
+export type { ParallelAnalyzerOptions } from './parallel-analyzer';
+export { mergeFindings } from './merger';
+export { prepareContext, redactForLlm, formatDryRun } from './privacy';
+export { buildEnrichmentPrompt, buildAnalysisPrompt, parseEnrichmentResponse, parseAnalysisResponse } from './prompt';
+export type { EnrichmentPromptData, AnalysisPromptData, EnrichmentResponse, AnalysisFindingResponse } from './prompt';
+export { resolveProvider } from './providers/resolver';
+export { OllamaProvider } from './providers/ollama';
+export { OpenAIProvider } from './providers/openai';
+export type { LlmProvider, LlmCallOptions } from './providers/types';

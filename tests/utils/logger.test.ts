@@ -16,14 +16,14 @@ describe('logger', () => {
     vi.restoreAllMocks();
   });
 
-  it('does not log when isVerbose is false', () => {
+  it('does not log/warn when isVerbose is false, but error always prints', () => {
     logger.isVerbose = false;
     logger.log('test');
     logger.warn('test');
     logger.error('test');
     expect(logSpy).not.toHaveBeenCalled();
     expect(warnSpy).not.toHaveBeenCalled();
-    expect(errorSpy).not.toHaveBeenCalled();
+    expect(errorSpy).toHaveBeenCalledWith('Error:', 'test');
   });
 
   it('logs when isVerbose is true', () => {

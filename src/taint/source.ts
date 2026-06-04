@@ -63,7 +63,6 @@ export function findSources(
     }
 
     if (ts.isVariableDeclaration(node) && node.initializer) {
-      const varName = ts.isIdentifier(node.name) ? node.name.text : undefined;
       const initText = node.initializer.getText(sourceFile);
 
       if (!ts.isObjectBindingPattern(node.name) && isTaintExpression(initText, allDefs, frameworks)) {

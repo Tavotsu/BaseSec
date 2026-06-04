@@ -3,9 +3,13 @@ import { getFormatter } from '../../report/formatter';
 import { loadConfig } from '../../config/loader';
 import type { CliOptions, ScanResult, basesecConfig } from '../../rules/types';
 import { severityGte } from '../../utils/severity';
+import { getDefaultReportPath } from '../../utils/basesec-dir';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { logger } from '../../utils/logger';
+import prompts from 'prompts';
+
+const TERMINAL_FORMATS = ['terminal'];
 
 export async function runScan(
   targetPath: string,
@@ -72,6 +76,11 @@ export async function runScan(
     rulesFilter: ruleFilter,
     noDeps: options.noDeps,
     readEnv: options.readEnv,
+    ai: options.ai,
+    aiProvider: options.aiProvider,
+    aiModel: options.aiModel,
+    aiDryRun: options.aiDryRun,
+    aiContext: options.aiContext,
   });
 
   const filtered = filterBySeverity(result, options.severity);
@@ -86,13 +95,36 @@ export async function runScan(
   const formatter = getFormatter(options.format);
   const output = formatter.format(filteredResult, targetPath);
 
+  const isTerminalFormat = TERMINAL_FORMATS.includes(options.format);
+
   if (options.output) {
-    const dir = path.dirname(options.output);
+    const resolvedOutput = path.resolve(options.output);
+    const cwd = process.cwd();
+
+    if (!resolvedOutput.startsWith(cwd)) {
+      const response = await prompts({
+        type: 'confirm',
+        name: 'value',
+        message: `The output is configured to be generated outside the default path: ${resolvedOutput}, Are you sure you want to continue? (yes/no)`,
+        initial: false
+      });
+
+      if (!response.value) {
+        console.log('Operation cancelled by user.');
+        return 0;
+      }
+    }
+
+    const dir = path.dirname(resolvedOutput);
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
     }
-    fs.writeFileSync(options.output, output, 'utf-8');
-    console.log(`Report written to ${options.output}`);
+    fs.writeFileSync(resolvedOutput, output, 'utf-8');
+    console.log(`Report written to ${resolvedOutput}`);
+  } else if (!isTerminalFormat) {
+    const defaultPath = getDefaultReportPath(options.format);
+    fs.writeFileSync(defaultPath, output, 'utf-8');
+    console.log(`Report written to ${defaultPath}`);
   } else {
     console.log(output);
   }

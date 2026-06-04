@@ -2,6 +2,25 @@
 
 All notable changes to BaseSec are documented in this file.
 
+## [0.1.4] - 2026-06-04
+
+### Added
+
+- **AI-powered analysis enhancement** — enriches findings with AI-generated explanations and detects suspicious taint flows that may bypass existing rules
+  - `--ai` flag to enable AI analysis
+  - `--ai-provider` for Ollama (local) or OpenAI
+  - `--ai-model` to specify model
+  - `--ai-context` for context level: `minimal`, `context`, or `file`
+  - `--ai-dry-run` to preview what would be sent to the LLM without sending
+  - Privacy consent prompt before any data is sent
+  - Stores consent in `~/.basesec/ai-consent`
+- **Auto-save reports to `~/.basesec/`** — when using `--format` with a non-terminal format (`json`, `sarif`, `html`, `markdown`) without an explicit `--output` path, reports are automatically saved to `~/.basesec/scan-<timestamp>.<format>`
+- **`--output` accepts optional argument** — `-o` without a path saves to `~/.basesec/`; `-o <path>` saves to the specified location
+
+### Changed
+
+- **Default behavior for non-terminal formats** — no longer requires `-o` flag to save reports; using `--format sarif` alone will save the report
+
 ## [0.1.3] - 2026-06-01
 
 ### Fixed

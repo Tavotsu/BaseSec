@@ -5,6 +5,7 @@ import { runScan } from './commands/scan';
 import { runInit } from './commands/init';
 import { ALL_RULES } from '../rules/index';
 import pc from 'picocolors';
+import { revokeConsent } from '../ai/consent';
 import type { CliOptions, OutputFormat, Severity, RuleCategory } from '../rules/types';
 
 const VALID_FORMATS: OutputFormat[] = ['terminal', 'json', 'sarif', 'html', 'markdown'];
@@ -15,13 +16,13 @@ export async function main(): Promise<void> {
   const cli = cac('basesec');
 
   cli
-    .version('0.1.3')
+    .version('0.1.4')
     .usage('<command> [options]');
 
   cli
     .command('scan [path]', 'Scan a directory for vulnerabilities')
     .option('--format <format>, -f', 'Output format: terminal|json|sarif|html|markdown', { default: 'terminal' })
-    .option('--output <file>, -o', 'Output file path')
+    .option('--output [file], -o', 'Output file path (default: ~/.basesec/scan-<timestamp>.<format>)')
     .option('--severity <level>, -s', 'Minimum severity: critical|high|medium|low|info', { default: 'low' })
     .option('--rules <rules>, -r', 'Comma-separated rule IDs to run')
     .option('--ignore <patterns>, -i', 'Glob patterns to ignore', { type: [] })
@@ -37,6 +38,11 @@ export async function main(): Promise<void> {
     .option('--no-deps', 'Disable dependency checking')
     .option('--read-env', 'Allow scanning of .env files ',{ default: 'false' })
     .option('--verbose, -V', 'Show verbose output')
+    .option('--ai', 'Enable AI-powered analysis enhancement')
+    .option('--ai-provider <provider>', 'LLM provider: ollama|openai')
+    .option('--ai-model <model>', 'LLM model to use')
+    .option('--ai-dry-run', 'Show what would be sent to the LLM without sending')
+    .option('--ai-context <level>', 'Context level: minimal|context|file', { default: 'minimal' })
     .action(async (path: string | undefined, options: any) => {
       const targetPath = path || process.cwd();
 
@@ -89,6 +95,11 @@ export async function main(): Promise<void> {
         noDeps: options.deps === false,
         readEnv: options.readEnv === true,
         verbose: options.verbose === true,
+        ai: options.ai === true,
+        aiProvider: options.aiProvider,
+        aiModel: options.aiModel,
+        aiDryRun: options.aiDryRun === true,
+        aiContext: options.aiContext,
       };
 
       if (!cliOptions.noBanner && !cliOptions.quiet) {
@@ -107,7 +118,13 @@ export async function main(): Promise<void> {
   cli
     .command('init', 'Initialize basesec config file')
     .option('--format <format>', 'Config format: ts or json', { default: 'ts' })
+    .option('--revoke-ai-consent', 'Revoke AI consent')
     .action(async (options: any) => {
+      if (options.revokeAiConsent) {
+        revokeConsent();
+        console.log('  AI consent revoked. You will be prompted again on next AI-enabled scan.');
+        return;
+      }
       try {
         await runInit(options.format ?? 'ts');
       } catch (e) {
