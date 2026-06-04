@@ -3,7 +3,7 @@ import { Button } from '../components/atoms/Button';
 import { PackageManager } from '../components/molecules/PackageManager';
 import { FeatureCard } from '../components/molecules/FeatureCard';
 import { StatsBar } from '../components/molecules/StatsBar';
-import { Shield, Cpu, Zap, FileSearch, GitBranch, FileOutput } from 'lucide-react';
+import { Shield, Cpu, Zap, FileSearch, GitBranch, FileOutput, Brain } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 const Landing: React.FC = () => {
@@ -59,7 +59,7 @@ const Landing: React.FC = () => {
             <div className="h-px w-32 bg-gradient-to-r from-transparent via-[var(--color-primary)]/60 to-transparent mx-auto"></div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-px bg-[var(--color-border)]">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-px bg-[var(--color-border)]">
             <FeatureCard
               icon={<Cpu size={28} />}
               title="AST Analysis Engine"
@@ -72,8 +72,8 @@ const Landing: React.FC = () => {
             />
             <FeatureCard
               icon={<FileSearch size={28} />}
-              title="34+ Security Rules"
-              description="10 categories including SQLI, NOSQL, XSS, CMDI, and PATH. Each rule maps to a CVE-class and produces actionable remedies for developers."
+              title="42 Security Rules"
+              description="10 categories including SQLI, NOSQL, XSS, CMDI, PATH, AUTH, SEC, ERR, CONF, and DEP. Each rule maps to a CVE-class and produces actionable remedies for developers."
             />
             <FeatureCard
               icon={<Shield size={28} />}
@@ -86,15 +86,27 @@ const Landing: React.FC = () => {
               description="Validates package dependencies against known CVEs, flags unused modules, checks lockfile mismatches, and auto-protects .env files from exposure."
             />
             <FeatureCard
-              icon={<FileOutput size={28} />}
-              title="CI/CD & Reporting"
-              description="Zero-config CLI with 5 formats (Terminal, JSON, SARIF, HTML, MD). Fine-tune workers via .basesecrc and use --verbose for deep execution tracing."
+              icon={<Brain size={28} />}
+              title="AI-Powered Analysis"
+              description="Opt-in AI enrichment via Ollama (local, no data leaves your machine) or OpenAI. Detects suspicious taint flows that may bypass existing rules with AI-001."
             />
+          </div>
+
+          <div className="mt-px">
+            <div className="flex justify-center">
+              <FeatureCard
+                icon={<FileOutput size={28} />}
+                title="CI/CD & Reporting"
+                description="Zero-config CLI with 5 formats (Terminal, JSON, SARIF, HTML, MD). Fine-tune workers via .basesecrc and use --verbose for deep execution tracing."
+              />
+            </div>
           </div>
 
           <div className="mt-16 text-center">
             <div className="inline-flex items-center gap-6 font-mono text-xs text-[var(--color-foreground)]/40 uppercase tracking-widest flex-wrap justify-center">
               <span><span className="text-[var(--color-primary)]">78</span> files/sec</span>
+              <span className="text-[var(--color-border)] hidden sm:inline">|</span>
+              <span><span className="text-[var(--color-primary)]">42</span> security rules</span>
               <span className="text-[var(--color-border)] hidden sm:inline">|</span>
               <span><span className="text-[var(--color-primary)]">10</span> rule categories</span>
               <span className="text-[var(--color-border)] hidden sm:inline">|</span>

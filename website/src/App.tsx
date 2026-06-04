@@ -1,6 +1,7 @@
 import { Routes, Route, Link } from 'react-router-dom';
 import Landing from './pages/Landing';
 import Features from './pages/Features';
+import Changelog from './pages/Changelog';
 
 
 function App() {
@@ -28,7 +29,8 @@ function App() {
             </Link>
             <nav className="flex gap-6">
               <Link to="/" className="text-sm uppercase tracking-widest hover:text-[var(--color-primary)] glitch-hover transition-colors">Home</Link>
-              <Link to="/features" className="text-sm uppercase tracking-widest hover:text-[var(--color-primary)] glitch-hover transition-colors">Features</Link>
+              <Link to="/features" className="text-sm uppercase tracking-widest hover:text-[var(--color-primary)] glitch-hover transition-colors">Live Demo</Link>
+              <Link to="/changelog" className="text-sm uppercase tracking-widest hover:text-[var(--color-primary)] glitch-hover transition-colors">Changelog</Link>
               <a href="https://github.com/tavotsu/BaseSec" target="_blank" rel="noreferrer" className="text-sm uppercase tracking-widest hover:text-[var(--color-primary)] glitch-hover transition-colors">GitHub</a>
             </nav>
           </div>
@@ -39,14 +41,29 @@ function App() {
         <Routes>
           <Route path="/" element={<Landing />} />
           <Route path="/features" element={<Features />} />
+          <Route path="/changelog" element={<Changelog />} />
         </Routes>
       </main>
 
-      <footer className="border-t border-[var(--color-border)] py-8 mt-auto bg-[var(--color-background)]/90 backdrop-blur-sm z-10">
-        <div className="max-w-7xl mx-auto px-4 text-center">
-          <p className="text-[var(--color-muted)] text-xs uppercase tracking-widest">
-            By Tavotsu - {new Date().getFullYear()}. Security first, questions later.
-          </p>
+      <footer className="border-t border-[var(--color-border)] py-10 mt-auto bg-[var(--color-background)]/90 backdrop-blur-sm z-10">
+        <div className="max-w-7xl mx-auto px-4">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+            <div className="flex items-center gap-3">
+              <img src="./solologo.png" alt="BaseSec" className="w-7 h-7" />
+              <span className="font-heading text-sm tracking-wider text-[var(--color-muted)] uppercase">BaseSec</span>
+            </div>
+
+            <nav className="flex items-center gap-8">
+              <Link to="/" className="text-[10px] uppercase tracking-widest text-[var(--color-muted)] hover:text-[var(--color-primary)] transition-colors">Home</Link>
+              <Link to="/changelog" className="text-[10px] uppercase tracking-widest text-[var(--color-muted)] hover:text-[var(--color-primary)] transition-colors">Changelog</Link>
+              <a href="https://github.com/tavotsu/BaseSec" target="_blank" rel="noreferrer" className="text-[10px] uppercase tracking-widest text-[var(--color-muted)] hover:text-[var(--color-primary)] transition-colors">GitHub</a>
+              <a href="https://github.com/Tavotsu/BaseSec/issues" target="_blank" rel="noreferrer" className="text-[10px] uppercase tracking-widest text-[var(--color-muted)] hover:text-[var(--color-primary)] transition-colors">Issues</a>
+            </nav>
+
+            <p className="text-[10px] text-[var(--color-muted)] tracking-widest uppercase font-mono">
+              {new Date().getFullYear()} — Tavotsu
+            </p>
+          </div>
         </div>
       </footer>
     </div>
