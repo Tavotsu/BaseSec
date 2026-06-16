@@ -14,7 +14,7 @@ logs/
 *.swo
 audit
 bench-files
-pnpm-workspace.yaml
+pnpm-workspace.yaml.bak
 .DS_Store
 Thumbs.db
 .agents
