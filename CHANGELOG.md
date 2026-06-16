@@ -2,6 +2,34 @@
 
 All notable changes to BaseSec are documented in this file.
 
+## [0.1.6] - 2026-06-15
+
+### Security
+
+- **Resolved all open Dependabot alerts** by pinning patched versions via `pnpm.overrides` in `pnpm-workspace.yaml`:
+  - **#1 GHSA-g7r4-m6w7-qqqr** (esbuild, low) — CWE-22 path traversal on Windows dev server
+  - **#2 GHSA-gv7w-rqvm-qjhr** (esbuild, high) — CWE-426 untrusted search path + CWE-494 download of code without integrity check (Deno binary)
+  - **#3 GHSA-fx2h-pf6j-xcff** (vite, high) — CWE-22 + CWE-200 `server.fs.deny` bypass on Windows
+  - **#4 GHSA-v6wh-96g9-6wx3** (vite, medium) — CWE-73 + CWE-522 NTLMv2 hash disclosure via `launch-editor`
+
+### Changed
+
+- `esbuild` pinned to `0.28.1` across the whole dependency tree (was still being pulled transitively at `0.27.7` through `vitest` → `vite` chain)
+- `vite` pinned to `8.0.16` (transitive, via vitest)
+- `pnpm-workspace.yaml` is now tracked in git (no longer gitignored) so overrides are reproducible across clones
+- Removed obsolete `pnpm.onlyBuiltDependencies` from `package.json` (pnpm 11 reads it from `pnpm-workspace.yaml > allowBuilds`)
+
+## [0.1.5] - 2026-06-15
+
+### Security
+
+- **esbuild upgraded to `0.28.1`** to address CWE-426 (Untrusted Search Path) and CWE-494 (Download of Code Without Integrity Check) reported in `0.27.x`
+- `tsconfig.json`: added `ignoreDeprecations: "6.0"` to silence the `baseUrl` deprecation warning under TypeScript 6.0
+
+### Changed
+
+- `package.json` description rewritten with richer SEO keywords and 158 keywords added across security, framework, vulnerability, AI, and CI/CD categories for improved discoverability on npm and GitHub
+
 ## [0.1.4] - 2026-06-04
 
 ### Added
