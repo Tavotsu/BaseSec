@@ -1,6 +1,6 @@
 {
   "name": "basesec",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "Fast, zero-config SAST CLI for Node.js backends. Detects SQLi, NoSQLi, XSS, RCE, path traversal, secrets, and 40+ other vulnerabilities via AST + taint analysis. Supports Express, NestJS, Fastify, Koa, Mongoose, TypeORM, Prisma.",
   "type": "module",
   "main": "dist/index.js",
