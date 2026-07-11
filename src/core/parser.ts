@@ -63,8 +63,9 @@ export class Parser {
   private getScriptKind(ext: string): ts.ScriptKind {
     switch (ext) {
       case '.ts':
-      case '.tsx':
         return ts.ScriptKind.TS;
+      case '.tsx':
+        return ts.ScriptKind.TSX;
       case '.js':
         return ts.ScriptKind.JS;
       case '.jsx':

@@ -3,7 +3,7 @@ import type { basesecConfig, Severity, OutputFormat, RuleConfigOverride, AiConfi
 export interface basesecConfigSchema {
   target?: string[];
   ignore?: string[];
-  framework?: 'auto' | 'express' | 'nestjs' | 'mongoose' | 'typeorm' | 'fastify' | 'koa' | 'prisma';
+  framework?: 'auto' | 'express' | 'nestjs' | 'mongoose' | 'typeorm' | 'fastify' | 'koa' | 'prisma' | 'react' | 'nextjs' | 'vue' | 'angular' | 'svelte';
   severity?: Severity;
   taintAnalysis?: boolean;
   rules?: string[];

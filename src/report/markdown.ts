@@ -1,3 +1,4 @@
+import { VERSION } from '../version';
 import type { ScanResult, Finding, Severity } from '../rules/types';
 import type { ReportFormatter } from './formatter';
 
@@ -19,7 +20,7 @@ export class MarkdownFormatter implements ReportFormatter {
 
     lines.push('# basesec Security Report');
     lines.push('');
-    lines.push(`**Version:** 0.1.0`);
+    lines.push(`**Version:** ${VERSION}`);
     lines.push(`**Target:** ${target}`);
     if (result.stats.frameworks.length > 0) {
       lines.push(`**Frameworks:** ${result.stats.frameworks.join(', ')}`);

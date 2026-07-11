@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { getFormatter } from '../../src/report/formatter';
+import { VERSION } from '../../src/version';
 import type { ScanResult } from '../../src/rules/types';
 
 function makeScanResult(overrides: Partial<ScanResult> = {}): ScanResult {
@@ -64,7 +65,7 @@ describe('JSON Formatter', () => {
     });
     const output = formatter.format(result, './src');
     const parsed = JSON.parse(output);
-    expect(parsed.version).toBe('0.1.0');
+    expect(parsed.version).toBe(VERSION);
     expect(parsed.findings).toHaveLength(1);
     expect(parsed.findings[0].ruleId).toBe('TEST-001');
   });

@@ -69,8 +69,8 @@ export class Pipeline {
     let fileConfig: Partial<import('../rules/types').basesecConfig> = {};
     try {
       fileConfig = loadConfig(undefined, targetPath);
-    } catch {
-      // No config file found, use defaults
+    } catch (e) {
+      logger.warn('Failed to load config file, using defaults', e);
     }
 
     const config = mergeConfigWithDefaults(fileConfig, {
@@ -95,7 +95,7 @@ export class Pipeline {
     const parsedFiles = this.parser.parseFiles(collectResult.files);
 
     const frameworks = detectFrameworks(
-      cliOptions.framework ?? 'auto',
+      (cliOptions.framework ?? 'auto') as Parameters<typeof detectFrameworks>[0],
       parsedFiles,
       targetPath,
     );

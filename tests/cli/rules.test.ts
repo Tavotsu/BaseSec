@@ -41,7 +41,7 @@ describe('CLI: rules command data', () => {
   });
 
   it('framework values are valid', () => {
-    const validFrameworks = ['express', 'nestjs', 'mongoose', 'typeorm', 'fastify', 'koa', 'prisma', '*'];
+    const validFrameworks = ['express', 'nestjs', 'mongoose', 'typeorm', 'fastify', 'koa', 'prisma', 'react', 'nextjs', 'vue', 'angular', 'svelte', '*'];
     for (const rule of ALL_RULES) {
       for (const fw of rule.frameworks) {
         expect(validFrameworks).toContain(fw);

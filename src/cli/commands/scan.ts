@@ -35,8 +35,8 @@ export async function runScan(
   } else {
     try {
       fileConfig = loadConfig(undefined, targetPath);
-    } catch {
-      // No config file found, use defaults
+    } catch (e) {
+      logger.warn('Failed to load config file, using defaults', e);
     }
   }
 
@@ -71,7 +71,7 @@ export async function runScan(
     output: options.output,
     severity: options.severity,
     ignore: mergedConfig.ignore,
-    framework: (mergedConfig.framework as 'auto' | 'express' | 'nestjs' | 'mongoose' | 'typeorm' | 'fastify' | 'koa' | 'prisma') ?? options.framework,
+    framework: (mergedConfig.framework as 'auto' | 'express' | 'nestjs' | 'mongoose' | 'typeorm' | 'fastify' | 'koa' | 'prisma' | 'react' | 'nextjs' | 'vue' | 'angular' | 'svelte') ?? options.framework,
     noTaint: options.noTaint,
     rulesFilter: ruleFilter,
     noDeps: options.noDeps,

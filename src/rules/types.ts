@@ -13,7 +13,7 @@ export type RuleCategory =
   | 'dependency-check'
   | 'deprecated';
 
-export type Framework = 'express' | 'nestjs' | 'mongoose' | 'typeorm' | 'fastify' | 'koa' | 'prisma' | '*';
+export type Framework = 'express' | 'nestjs' | 'mongoose' | 'typeorm' | 'fastify' | 'koa' | 'prisma' | 'react' | 'nextjs' | 'vue' | 'angular' | 'svelte' | '*';
 
 export type Confidence = 'high' | 'medium' | 'low';
 
@@ -86,7 +86,7 @@ export interface AiConfig {
 export interface basesecConfig {
   target: string[];
   ignore: string[];
-  framework: 'auto' | 'express' | 'nestjs' | 'mongoose' | 'typeorm' | 'fastify' | 'koa' | 'prisma';
+  framework: 'auto' | 'express' | 'nestjs' | 'mongoose' | 'typeorm' | 'fastify' | 'koa' | 'prisma' | 'react' | 'nextjs' | 'vue' | 'angular' | 'svelte';
   severity: Severity;
   taintAnalysis: boolean;
   rules: string[];
@@ -119,7 +119,7 @@ export interface CliOptions {
   noTaint: boolean;
   quiet: boolean;
   strict: boolean;
-  framework: 'auto' | 'express' | 'nestjs' | 'mongoose' | 'typeorm' | 'fastify' | 'koa' | 'prisma';
+  framework: 'auto' | 'express' | 'nestjs' | 'mongoose' | 'typeorm' | 'fastify' | 'koa' | 'prisma' | 'react' | 'nextjs' | 'vue' | 'angular' | 'svelte';
   noColor: boolean;
   noBanner: boolean;
   rulesFilter?: string[];
@@ -150,11 +150,20 @@ export interface ScanStats {
   frameworks: string[];
 }
 
+export interface TemplateFinding {
+  kind: string;
+  expression: string;
+  line: number;
+  column: number;
+}
+
 export interface ParsedFile {
   filePath: string;
   sourceFile: import('typescript').SourceFile;
   content: string;
   size: number;
+  lineOffset?: number;
+  templateFindings?: TemplateFinding[];
 }
 
 export type ParseError = {

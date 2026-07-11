@@ -1,8 +1,23 @@
 import { describe, it, expect } from 'vitest';
+import * as ts from 'typescript';
 import { Parser } from '../../src/core/parser';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
+
+function hasJsxElement(sourceFile: ts.SourceFile): boolean {
+  let found = false;
+  const visit = (node: ts.Node) => {
+    if (found) return;
+    if (ts.isJsxElement(node) || ts.isJsxSelfClosingElement(node)) {
+      found = true;
+      return;
+    }
+    ts.forEachChild(node, visit);
+  };
+  ts.forEachChild(sourceFile, visit);
+  return found;
+}
 
 describe('Parser', () => {
   let tmpDir: string;
@@ -50,6 +65,26 @@ describe('Parser', () => {
 
     expect('sourceFile' in result).toBe(true);
     cleanup();
+  });
+
+  it('parses JSX in .tsx files as JSX (ScriptKind.TSX)', () => {
+    const parser = new Parser();
+    const result = parser.parseContent('/virtual/component.tsx', 'const X = () => <div className="a">hi</div>;');
+
+    expect('sourceFile' in result).toBe(true);
+    if ('sourceFile' in result) {
+      expect(hasJsxElement(result.sourceFile)).toBe(true);
+    }
+  });
+
+  it('does not parse the same content as JSX in a .ts file', () => {
+    const parser = new Parser();
+    const result = parser.parseContent('/virtual/component.ts', 'const X = () => <div className="a">hi</div>;');
+
+    expect('sourceFile' in result).toBe(true);
+    if ('sourceFile' in result) {
+      expect(hasJsxElement(result.sourceFile)).toBe(false);
+    }
   });
 
   it('returns ParseError for non-existent files', () => {
