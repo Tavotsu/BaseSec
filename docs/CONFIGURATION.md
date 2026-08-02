@@ -76,12 +76,20 @@ module.exports = {
 
 ## Framework Option
 
-- `'auto'` — Detect framework from imports
+- `'auto'` — Detect framework from imports and `package.json`
 - `'express'` — Force Express detection
 - `'nestjs'` — Force NestJS detection
 - `'mongoose'` — Force Mongoose detection
 - `'typeorm'` — Force TypeORM detection
+- `'fastify'`, `'koa'`, `'prisma'` — Force the respective backend framework
+- `'react'` — Force React detection (also enabled automatically for `'nextjs'`)
+- `'nextjs'` — Force Next.js detection (implies `react`)
+- `'vue'` — Force Vue/Nuxt detection
+- `'angular'` — Force Angular detection
+- `'svelte'` — Force Svelte/SvelteKit detection
 - `'*'` — Enable all framework-specific rules
+
+`.vue` and `.svelte` single-file components are scanned by default (script + template); no extra dependency is required.
 
 ## Custom Rules
 

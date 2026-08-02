@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { cac } from 'cac';
 import { printBanner, printError } from './output';
+import { VERSION } from '../version';
 import { runScan } from './commands/scan';
 import { runInit } from './commands/init';
 import { ALL_RULES } from '../rules/index';
@@ -10,13 +11,13 @@ import type { CliOptions, OutputFormat, Severity, RuleCategory } from '../rules/
 
 const VALID_FORMATS: OutputFormat[] = ['terminal', 'json', 'sarif', 'html', 'markdown'];
 const VALID_SEVERITIES: Severity[] = ['critical', 'high', 'medium', 'low', 'info'];
-const VALID_FRAMEWORKS = ['auto', 'express', 'nestjs', 'mongoose', 'typeorm', 'fastify', 'koa', 'prisma'];
+const VALID_FRAMEWORKS = ['auto', 'express', 'nestjs', 'mongoose', 'typeorm', 'fastify', 'koa', 'prisma', 'react', 'nextjs', 'vue', 'angular', 'svelte'];
 
 export async function main(): Promise<void> {
   const cli = cac('basesec');
 
   cli
-    .version('0.1.4')
+    .version(VERSION)
     .usage('<command> [options]');
 
   cli
@@ -30,7 +31,7 @@ export async function main(): Promise<void> {
     .option('--no-taint', 'Disable taint analysis')
     .option('--quiet, -q', 'Only show summary')
     .option('--strict', 'Exit with code 1 on any finding')
-    .option('--framework <fw>', 'Force framework: express|nestjs|mongoose|typeorm|fastify|koa|prisma|auto', { default: 'auto' })
+    .option('--framework <fw>', 'Force framework: express|nestjs|mongoose|typeorm|fastify|koa|prisma|react|nextjs|vue|angular|svelte|auto', { default: 'auto' })
     .option('--no-color', 'Disable colored output')
     .option('--no-banner', 'Disable banner')
     .option('--workers <num>', 'Number of worker threads (default: auto)')
@@ -87,7 +88,7 @@ export async function main(): Promise<void> {
         noTaint: options.taint === false,
         quiet: options.quiet ?? false,
         strict: options.strict ?? false,
-        framework: framework as 'auto' | 'express' | 'nestjs' | 'mongoose' | 'typeorm' | 'fastify' | 'koa' | 'prisma',
+        framework: framework as 'auto' | 'express' | 'nestjs' | 'mongoose' | 'typeorm' | 'fastify' | 'koa' | 'prisma' | 'react' | 'nextjs' | 'vue' | 'angular' | 'svelte',
         noColor: options.color === false,
         noBanner: options.banner === false,
         workers,

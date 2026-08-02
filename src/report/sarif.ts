@@ -1,3 +1,4 @@
+import { VERSION } from '../version';
 import type { ScanResult, Finding } from '../rules/types';
 import type { ReportFormatter } from './formatter';
 
@@ -22,7 +23,7 @@ export class SarifFormatter implements ReportFormatter {
           tool: {
             driver: {
               name: 'basesec',
-              version: '0.1.0',
+              version: VERSION,
               informationUri: 'https://github.com/basesec/basesec',
               rules,
             },

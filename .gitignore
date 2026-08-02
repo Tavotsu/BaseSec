@@ -18,6 +18,9 @@ pnpm-workspace.yaml.bak
 .DS_Store
 Thumbs.db
 .agents
+.tokensave
+.claude
+CLAUDE.md
 skills-lock.json
 docs/dev_files
 AGENTS.md

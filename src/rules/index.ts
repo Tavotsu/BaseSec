@@ -55,6 +55,34 @@ export { KOA003 } from './categories/koa/unsafe-ctx-body';
 export { PRISMA001 } from './categories/prisma/raw-query-injection';
 export { PRISMA002 } from './categories/prisma/unsafe-raw-query';
 
+export { DOM001 } from './categories/dom/innerhtml-assignment';
+export { DOM002 } from './categories/dom/document-write';
+export { DOM003 } from './categories/dom/location-assignment';
+export { DOM004 } from './categories/dom/postmessage-wildcard';
+export { DOM005 } from './categories/dom/message-origin';
+export { DOM006 } from './categories/dom/storage-secrets';
+export { DOM007 } from './categories/dom/eval-network';
+export { DOM008 } from './categories/dom/prototype-pollution';
+
+export { REACT001 } from './categories/react/dangerously-set-innerhtml';
+export { REACT002 } from './categories/react/jsx-url-injection';
+export { REACT003 } from './categories/react/ref-innerhtml';
+export { NEXT001 } from './categories/react/next-public-secret';
+export { NEXT002 } from './categories/react/next-redirect';
+
+export { VUE001 } from './categories/vue/v-html';
+export { VUE002 } from './categories/vue/v-bind-url';
+export { VUE003 } from './categories/vue/render-innerhtml';
+
+export { NG001 } from './categories/angular/bypass-security-trust';
+export { NG002 } from './categories/angular/native-innerhtml';
+export { NG003 } from './categories/angular/binding-innerhtml';
+export { NG004 } from './categories/angular/jsonp-injection';
+export { NG005 } from './categories/angular/navigate-open-redirect';
+export { NG006 } from './categories/angular/unguarded-route';
+
+export { SVELTE001 } from './categories/svelte/html-tag';
+
 import { SQLI001 } from './categories/sql-injection/string-concat';
 import { SQLI002 } from './categories/sql-injection/template-literal';
 import { SQLI003 } from './categories/sql-injection/raw-query';
@@ -110,6 +138,34 @@ import { KOA003 } from './categories/koa/unsafe-ctx-body';
 import { PRISMA001 } from './categories/prisma/raw-query-injection';
 import { PRISMA002 } from './categories/prisma/unsafe-raw-query';
 
+import { DOM001 } from './categories/dom/innerhtml-assignment';
+import { DOM002 } from './categories/dom/document-write';
+import { DOM003 } from './categories/dom/location-assignment';
+import { DOM004 } from './categories/dom/postmessage-wildcard';
+import { DOM005 } from './categories/dom/message-origin';
+import { DOM006 } from './categories/dom/storage-secrets';
+import { DOM007 } from './categories/dom/eval-network';
+import { DOM008 } from './categories/dom/prototype-pollution';
+
+import { REACT001 } from './categories/react/dangerously-set-innerhtml';
+import { REACT002 } from './categories/react/jsx-url-injection';
+import { REACT003 } from './categories/react/ref-innerhtml';
+import { NEXT001 } from './categories/react/next-public-secret';
+import { NEXT002 } from './categories/react/next-redirect';
+
+import { VUE001 } from './categories/vue/v-html';
+import { VUE002 } from './categories/vue/v-bind-url';
+import { VUE003 } from './categories/vue/render-innerhtml';
+
+import { NG001 } from './categories/angular/bypass-security-trust';
+import { NG002 } from './categories/angular/native-innerhtml';
+import { NG003 } from './categories/angular/binding-innerhtml';
+import { NG004 } from './categories/angular/jsonp-injection';
+import { NG005 } from './categories/angular/navigate-open-redirect';
+import { NG006 } from './categories/angular/unguarded-route';
+
+import { SVELTE001 } from './categories/svelte/html-tag';
+
 export const ALL_RULES: Rule[] = [
   SQLI001, SQLI002, SQLI003, SQLI004,
   NOSQL001, NOSQL002, NOSQL003,
@@ -124,4 +180,9 @@ export const ALL_RULES: Rule[] = [
   FASTIFY001, FASTIFY002, FASTIFY003,
   KOA001, KOA002, KOA003,
   PRISMA001, PRISMA002,
+  DOM001, DOM002, DOM003, DOM004, DOM005, DOM006, DOM007, DOM008,
+  REACT001, REACT002, REACT003, NEXT001, NEXT002,
+  VUE001, VUE002, VUE003,
+  NG001, NG002, NG003, NG004, NG005, NG006,
+  SVELTE001,
 ];

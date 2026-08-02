@@ -1,4 +1,5 @@
 import pc from 'picocolors';
+import { VERSION } from '../version';
 import type { Finding, ScanResult, OutputFormat, Severity } from '../rules/types';
 import { SarifFormatter } from './sarif';
 import { MarkdownFormatter } from './markdown';
@@ -125,7 +126,7 @@ class TerminalFormatter implements ReportFormatter {
 class JsonFormatter implements ReportFormatter {
   format(result: ScanResult, target: string): string {
     const output = {
-      version: '0.1.0',
+      version: VERSION,
       timestamp: new Date().toISOString(),
       target,
       frameworks: result.stats.frameworks,

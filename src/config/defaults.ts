@@ -38,6 +38,8 @@ export const DEFAULT_EXTENSIONS: string[] = [
   '.cjs',
   '.jsx',
   '.tsx',
+  '.vue',
+  '.svelte',
 ];
 
 export const DEFAULT_CONFIG: basesecConfig = {
