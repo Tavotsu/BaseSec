@@ -16,7 +16,7 @@ export interface ExtractedScript {
 // <script>, <script setup>, <script context="module">, lang="ts"/"tsx". Edge it
 // won't parse: a "</script>" inside a script string literal (non-greedy cut).
 // Upgrade path: swap in the framework compilers if template-AST precision is needed.
-const SCRIPT_BLOCK = /<script\b([^>]*)>([\s\S]*?)<\/script>/gi;
+const SCRIPT_BLOCK = /<script\b([^>]*)>([\s\S]*?)<\/script\b[^>]*>/gi;
 const LANG_TS = /lang\s*=\s*["']ts["']/i;
 const LANG_TSX = /lang\s*=\s*["']tsx["']/i;
 
