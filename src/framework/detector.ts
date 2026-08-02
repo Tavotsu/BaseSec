@@ -8,6 +8,7 @@ export interface DetectedFramework {
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { logger } from '../utils/logger';
+import type { CliOptions } from '../rules/types';
 
 const FRAMEWORK_PACKAGES: Record<string, string[]> = {
   express: ['express'],
@@ -18,6 +19,11 @@ const FRAMEWORK_PACKAGES: Record<string, string[]> = {
   fastify: ['fastify'],
   koa: ['koa'],
   prisma: ['@prisma/client'],
+  react: ['react'],
+  nextjs: ['next'],
+  vue: ['vue', 'nuxt', '@nuxt/core'],
+  angular: ['@angular/core'],
+  svelte: ['svelte', '@sveltejs/kit'],
 };
 
 const FRAMEWORK_IMPORTS: Record<string, string[]> = {
@@ -29,7 +35,25 @@ const FRAMEWORK_IMPORTS: Record<string, string[]> = {
   fastify: ["from 'fastify'", "from \"fastify\"", "require('fastify')", "require(\"fastify\")", "from '@fastify/", "fastify-plugin"],
   koa: ["from 'koa'", "from \"koa\"", "require('koa')", "require(\"koa\")", "from '@koa/", "koa-router", "@koa/router", "koa-bodyparser"],
   prisma: ["from '@prisma/client'", "from \"@prisma/client\"", "require('@prisma/client')", "require(\"@prisma/client\")", ".prisma/client", "PrismaClient"],
+  react: ["from 'react'", "from \"react\"", "require('react')", "require(\"react\")", "from 'react-dom'", "from \"react-dom\""],
+  nextjs: ["from 'next/", "from \"next/", "from 'next'", "from \"next\"", "getServerSideProps", "getStaticProps"],
+  vue: ["from 'vue'", "from \"vue\"", "require('vue')", "require(\"vue\")", "defineComponent", "defineNuxtConfig", "from '#app'"],
+  angular: ["from '@angular/", "@Component(", "@NgModule("],
+  svelte: ["from 'svelte'", "from \"svelte\"", "from 'svelte/", "from \"svelte/", "from '$app/", "from '$lib/"],
 };
+
+// nextjs projects are also react projects — REACT-* rules must run there too.
+const IMPLIED_FRAMEWORKS: Record<string, string[]> = {
+  nextjs: ['react'],
+};
+
+function expandImplied(frameworks: string[]): string[] {
+  const set = new Set(frameworks);
+  for (const fwk of frameworks) {
+    for (const implied of IMPLIED_FRAMEWORKS[fwk] ?? []) set.add(implied);
+  }
+  return [...set];
+}
 
 function isExactImportMatch(content: string, pattern: string): boolean {
   if (pattern.startsWith('from ') || pattern.startsWith('import ')) {
@@ -46,18 +70,18 @@ function isExactImportMatch(content: string, pattern: string): boolean {
 }
 
 export function detectFrameworks(
-  framework: 'auto' | 'express' | 'nestjs' | 'mongoose' | 'typeorm' | 'fastify' | 'koa' | 'prisma',
+  framework: CliOptions['framework'],
   parsedFiles: { filePath: string; content: string }[],
   projectRoot?: string,
 ): string[] {
-  if (framework !== 'auto') return [framework];
+  if (framework !== 'auto') return expandImplied([framework]);
 
   const detected = new Map<string, DetectedFramework>();
 
   detectFromPackageJson(projectRoot ?? process.cwd(), detected);
   detectFromImports(parsedFiles, detected);
 
-  return [...detected.keys()];
+  return expandImplied([...detected.keys()]);
 }
 
 function detectFromImports(

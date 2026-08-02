@@ -150,20 +150,11 @@ export interface ScanStats {
   frameworks: string[];
 }
 
-export interface TemplateFinding {
-  kind: string;
-  expression: string;
-  line: number;
-  column: number;
-}
-
 export interface ParsedFile {
   filePath: string;
   sourceFile: import('typescript').SourceFile;
   content: string;
   size: number;
-  lineOffset?: number;
-  templateFindings?: TemplateFinding[];
 }
 
 export type ParseError = {

@@ -221,3 +221,119 @@ app.get('/users', (req, res) => {
   User.find({ name: req.query.name });
 });
 ```
+
+## DOM-based XSS (innerHTML)
+
+### Vulnerable
+
+```ts
+const bio = new URLSearchParams(location.search).get('bio');
+document.getElementById('bio').innerHTML = bio; // DOM-001
+```
+
+### Secure
+
+```ts
+const bio = new URLSearchParams(location.search).get('bio');
+document.getElementById('bio').textContent = bio;
+```
+
+## React: dangerouslySetInnerHTML
+
+### Vulnerable
+
+```tsx
+function Bio() {
+  const params = useSearchParams();
+  return <div dangerouslySetInnerHTML={{ __html: params.get('bio') }} />; // REACT-001
+}
+```
+
+### Secure
+
+```tsx
+import DOMPurify from 'dompurify';
+
+function Bio() {
+  const params = useSearchParams();
+  const clean = DOMPurify.sanitize(params.get('bio') ?? '');
+  return <div dangerouslySetInnerHTML={{ __html: clean }} />;
+}
+```
+
+## Next.js: secret exposed via NEXT_PUBLIC_
+
+### Vulnerable
+
+```ts
+// Inlined into the browser bundle — anyone can read it
+const stripe = new Stripe(process.env.NEXT_PUBLIC_STRIPE_SECRET); // NEXT-001
+```
+
+### Secure
+
+```ts
+// Server-only env var (no NEXT_PUBLIC_ prefix), used server-side
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+```
+
+## Vue: v-html
+
+### Vulnerable
+
+```vue
+<template>
+  <div v-html="userBio"></div> <!-- VUE-001 -->
+</template>
+```
+
+### Secure
+
+```vue
+<template>
+  <div>{{ userBio }}</div>
+</template>
+```
+
+## Angular: DomSanitizer bypass
+
+### Vulnerable
+
+```ts
+this.trusted = this.sanitizer.bypassSecurityTrustHtml(userInput); // NG-001
+```
+
+### Secure
+
+```ts
+// Let Angular sanitize by default — bind with [innerHTML] and don't bypass
+this.safe = userInput; // template: <div [innerHTML]="safe"></div>
+```
+
+## Svelte: {@html}
+
+### Vulnerable
+
+```svelte
+<div>{@html userContent}</div> <!-- SVELTE-001 -->
+```
+
+### Secure
+
+```svelte
+<div>{userContent}</div>
+```
+
+## Insecure token storage
+
+### Vulnerable
+
+```ts
+localStorage.setItem('authToken', jwt); // DOM-006 — readable by any XSS
+```
+
+### Secure
+
+```ts
+// Keep the token in an httpOnly, Secure cookie set by the server; never in Web Storage
+```

@@ -7,16 +7,17 @@
   <img src="https://img.shields.io/npm/dm/basesec?logo=npm&style=flat-square" alt="downloads">
   <img src="https://img.shields.io/github/stars/Tavotsu/BaseSec?logo=github&style=flat-square" alt="stars">
   <br>
-  <h2 align="center">Static Application Security Testing (SAST) CLI tool for Node.js backends.</h2>
+  <h2 align="center">Static Application Security Testing (SAST) CLI for JavaScript &amp; TypeScript — Node.js backends and frontend frameworks.</h2>
 </p>
 
 
 
 ## Features
 
-- **42 Security Rules** across 10 categories (SQL Injection, XSS, NoSQL Injection, Command Injection, Path Traversal, Authentication, Secrets, Error Handling, Misconfiguration, Dependency Checking)
-- **Taint Analysis** — tracks data flow from user input (`req.query`, `req.body`, etc.) to dangerous sinks
-- **Framework Detection** — auto-detects Express, NestJS, Mongoose, TypeORM, Fastify, Koa, and Prisma
+- **65 Security Rules** across 10 categories (SQL Injection, XSS, NoSQL Injection, Command Injection, Path Traversal, Authentication, Secrets, Error Handling, Misconfiguration, Dependency Checking) — including frontend DOM-based XSS, client-side secrets, open redirect, `postMessage`/insecure-storage, and framework rules for React/Next, Vue/Nuxt, Angular, and Svelte
+- **Taint Analysis** — tracks data flow from user input (`req.query`, `req.body`, `useSearchParams()`, `location.search`, route params, etc.) to dangerous sinks
+- **Framework Detection** — auto-detects Express, NestJS, Mongoose, TypeORM, Fastify, Koa, Prisma, React, Next.js, Vue, Nuxt, Angular, and Svelte
+- **Single-File Components** — parses `.vue` and `.svelte` files (script + template) with no extra dependencies
 - **Dependency Checking** — detects outdated packages with known CVEs, vulnerable dependencies (via `pnpm/npm audit`), unused dependencies, and lockfile mismatches
 - **Sensitive File Protection** — `.env` and credential files are completely ignored by default unless explicitly allowed with `--read-env`
 - **Multiple Output Formats** — Terminal (colored tables), JSON, SARIF, HTML, Markdown. Non-terminal formats auto-save to `~/.basesec/`
@@ -68,6 +69,10 @@ basesec scan ./src --severity high --strict
 | Mongoose | Yes | Query chains, `$where`, `lean()` |
 | TypeORM | Yes | Query builder, raw queries |
 | Prisma | Yes | Raw queries (`$queryRaw`, `$executeRaw`) |
+| React / Next.js | Yes | `dangerouslySetInnerHTML`, JSX `href`/`src`, refs, `NEXT_PUBLIC_` secrets, `redirect()` |
+| Vue / Nuxt | Yes | `v-html`, `:href`/`:src`, render-function `innerHTML` (`.vue` SFCs) |
+| Angular | Yes | `bypassSecurityTrust*`, `nativeElement.innerHTML`, `[innerHTML]`, `jsonp`, router redirects, unguarded routes |
+| Svelte | Yes | `{@html}` (`.svelte` SFCs) |
 
 ## Configuration
 

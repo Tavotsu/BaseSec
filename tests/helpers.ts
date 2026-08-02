@@ -1,13 +1,20 @@
 import * as ts from 'typescript';
 import type { Finding, Rule, RuleContext, basesecConfig, TaintGraph } from '../../src/rules/types';
 
+function scriptKindFor(fileName: string): ts.ScriptKind {
+  if (fileName.endsWith('.tsx')) return ts.ScriptKind.TSX;
+  if (fileName.endsWith('.jsx')) return ts.ScriptKind.JSX;
+  if (fileName.endsWith('.js')) return ts.ScriptKind.JS;
+  return ts.ScriptKind.TS;
+}
+
 export function createSourceFile(code: string, fileName = 'test.ts'): ts.SourceFile {
   return ts.createSourceFile(
     fileName,
     code,
     ts.ScriptTarget.Latest,
     true,
-    fileName.endsWith('.js') ? ts.ScriptKind.JS : ts.ScriptKind.TS,
+    scriptKindFor(fileName),
   );
 }
 

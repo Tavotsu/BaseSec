@@ -1,6 +1,7 @@
 import * as ts from 'typescript';
 import * as fs from 'node:fs';
 import type { ParsedFile, ParseError } from '../rules/types';
+import { extractSfcScript } from './sfc-extractor';
 
 export class Parser {
   parseContent(filePath: string, content: string): ParsedFile | ParseError {
@@ -13,11 +14,22 @@ export class Parser {
         };
       }
       const ext = filePath.substring(dotIdx);
-      const scriptKind = this.getScriptKind(ext);
+
+      // SFCs: parse the extracted <script> as TS; keep `content` raw so template
+      // rules and getCodeSnippet see the whole file at real line numbers.
+      let scriptText = content;
+      let scriptKind: ts.ScriptKind;
+      if (ext === '.vue' || ext === '.svelte') {
+        const extracted = extractSfcScript(content);
+        scriptText = extracted.scriptText;
+        scriptKind = extracted.scriptKind;
+      } else {
+        scriptKind = this.getScriptKind(ext);
+      }
 
       const sourceFile = ts.createSourceFile(
         filePath,
-        content,
+        scriptText,
         ts.ScriptTarget.Latest,
         true,
         scriptKind,

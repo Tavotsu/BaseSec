@@ -1,6 +1,6 @@
 # Rules Catalog
 
-BaseSec ships with **42 security rules** across **10 categories**. All rules support taint analysis where applicable.
+BaseSec ships with **65 security rules** across **10 categories**, covering both Node.js backends and frontend frameworks (React/Next, Vue/Nuxt, Angular, Svelte). All rules support taint analysis where applicable.
 
 ## AI Enhancement (AI)
 
@@ -114,6 +114,56 @@ BaseSec ships with **42 security rules** across **10 categories**. All rules sup
 | `XSS-002` | Missing Helmet Middleware | medium | Express app missing Helmet security headers |
 | `XSS-003` | Unsafe Response Header with User Input | medium | `res.setHeader()` with user-controlled value |
 | `XSS-004` | Open Redirect | medium | `res.redirect(req.query.url)` without allowlist |
+
+## DOM / Client-Side (DOM)
+
+Framework-agnostic browser rules. Run on any JS/TS; the DOM-specific ones (`window`, `document`, `localStorage`) are inert on backend code.
+
+| ID | Name | Severity | Description |
+|---|---|---|---|
+| `DOM-001` | Unsafe innerHTML/outerHTML/insertAdjacentHTML | high | Dynamic value assigned to `innerHTML`/`outerHTML` or `insertAdjacentHTML()` |
+| `DOM-002` | Unsafe document.write() | medium | `document.write()`/`writeln()` with dynamic input |
+| `DOM-003` | Open Redirect via location/window.open | high | Dynamic `location.href =` or `window.open()` (open redirect / `javascript:` URI) |
+| `DOM-004` | postMessage with Wildcard Target Origin | medium | `postMessage(data, "*")` sends data to any origin |
+| `DOM-005` | message Listener Without Origin Check | high | `message` event handler that never validates `event.origin` |
+| `DOM-006` | Sensitive Data in localStorage/sessionStorage | medium | Tokens/JWTs/credentials stored in Web Storage |
+| `DOM-007` | Dynamic Code Execution with Network/URL Data | critical | `eval`/`new Function`/`setTimeout(string)` fed network/URL data (frontend files) |
+| `DOM-008` | Prototype Pollution via URL Parameters | high | Recursive merge/assign of URL-derived data into objects (frontend files) |
+
+## React / Next.js (REACT / NEXT)
+
+| ID | Name | Severity | Description |
+|---|---|---|---|
+| `REACT-001` | dangerouslySetInnerHTML with Dynamic Value | critical | `dangerouslySetInnerHTML={{ __html: nonLiteral }}` |
+| `REACT-002` | Unvalidated URL in JSX href/src | high | JSX `href`/`src` bound to a dynamic expression (`javascript:` URI) |
+| `REACT-003` | innerHTML via React ref | high | `ref.current.innerHTML =` bypasses JSX escaping |
+| `NEXT-001` | Secret Exposed via Public Env Prefix | critical | `NEXT_PUBLIC_`/`VITE_`/`REACT_APP_` env var that looks like a secret (inlined into the bundle) |
+| `NEXT-002` | Open Redirect via Next redirect() | high | `redirect()` destination derived from `searchParams`/query without validation |
+
+## Vue / Nuxt (VUE)
+
+| ID | Name | Severity | Description |
+|---|---|---|---|
+| `VUE-001` | v-html with Dynamic Binding | critical | `v-html` renders raw HTML, bypassing escaping (`.vue` template) |
+| `VUE-002` | Unvalidated URL in Vue :href/:src | high | `:href`/`:src` bound to route/props/URL data without validation |
+| `VUE-003` | innerHTML in Vue Render Function | high | `innerHTML` passed via props to `h()`/`createElement()` |
+
+## Angular (NG)
+
+| ID | Name | Severity | Description |
+|---|---|---|---|
+| `NG-001` | DomSanitizer bypassSecurityTrust with Dynamic Value | critical | `bypassSecurityTrustHtml/Script/Style/Url/ResourceUrl()` with a non-literal |
+| `NG-002` | innerHTML via ElementRef.nativeElement | high | `nativeElement.innerHTML =` bypasses the sanitizer |
+| `NG-003` | Tainted [innerHTML] Binding | medium | `[innerHTML]` template binding (sanitized by default; risky with a bypass) |
+| `NG-004` | HttpClient.jsonp with Dynamic URL | high | `HttpClient.jsonp()` with a dynamic URL/callback (JSONP script injection) |
+| `NG-005` | Open Redirect via Router.navigate | high | `navigateByUrl()`/`navigate()` destination from route/query params |
+| `NG-006` | Sensitive Route Without Guard | medium | Route for `admin`/`dashboard`/`settings`… with no `canActivate`/`canMatch` |
+
+## Svelte (SVELTE)
+
+| ID | Name | Severity | Description |
+|---|---|---|---|
+| `SVELTE-001` | {@html} with Dynamic Expression | critical | `{@html expr}` renders raw HTML, bypassing escaping (`.svelte` template) |
 
 ## Severity Scale
 

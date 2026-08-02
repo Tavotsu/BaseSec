@@ -95,7 +95,7 @@ export class Pipeline {
     const parsedFiles = this.parser.parseFiles(collectResult.files);
 
     const frameworks = detectFrameworks(
-      (cliOptions.framework ?? 'auto') as Parameters<typeof detectFrameworks>[0],
+      cliOptions.framework ?? 'auto',
       parsedFiles,
       targetPath,
     );

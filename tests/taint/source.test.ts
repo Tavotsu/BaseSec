@@ -63,8 +63,38 @@ describe('findSources', () => {
     `;
     const sourceFile = createSourceFile(code);
     const expressSources = findSources(sourceFile, code, ['express']);
-    
+
     expect(expressSources).toHaveLength(2);
     expect(expressSources[0].kind).toBe('req.body');
+  });
+
+  it('detects browser-global sources for any framework', () => {
+    const code = 'const bio = location.search; const c = document.cookie;';
+    const sourceFile = createSourceFile(code);
+    const sources = findSources(sourceFile, code, ['react']);
+    expect(sources.find(s => s.kind === 'location.search')).toBeDefined();
+    expect(sources.find(s => s.kind === 'document.cookie')).toBeDefined();
+  });
+
+  it('gates React hook sources to react/nextjs', () => {
+    const code = 'const params = useSearchParams();';
+    const sourceFile = createSourceFile(code);
+    expect(findSources(sourceFile, code, ['react']).find(s => s.variableName === 'params')).toBeDefined();
+    expect(findSources(sourceFile, code, ['express']).find(s => s.variableName === 'params')).toBeUndefined();
+  });
+
+  it('does not double-register React hooks when nextjs implies react', () => {
+    const code = 'const q = useSearchParams().get("q");';
+    const sourceFile = createSourceFile(code);
+    const react = findSources(sourceFile, code, ['react']);
+    const nextjs = findSources(sourceFile, code, ['react', 'nextjs']);
+    expect(nextjs).toHaveLength(react.length);
+  });
+
+  it('does not add browser sources to a pure backend scan', () => {
+    const code = 'const x = req.body;';
+    const sourceFile = createSourceFile(code);
+    const sources = findSources(sourceFile, code, ['express']);
+    expect(sources.every(s => !s.kind.startsWith('location') && !s.kind.startsWith('document'))).toBe(true);
   });
 });

@@ -2,6 +2,26 @@
 
 All notable changes to BaseSec are documented in this file.
 
+## [0.1.7] - 2026-07-17
+
+### Added
+
+- **Frontend framework support** — detection for React, Next.js, Vue, Nuxt, Angular, and Svelte (imports + `package.json`); `nextjs` implies `react`. `--framework` accepts the new values.
+- **Single-file components** — `.vue` and `.svelte` files are scanned by default; the `<script>` block is parsed as TS/TSX and the template is scanned, with no extra dependency (string-based extraction, real line numbers).
+- **23 new rules (42 → 65)**:
+  - **DOM (`DOM-001`…`DOM-008`)** — `innerHTML`/`insertAdjacentHTML`, `document.write`, `location`/`window.open` open redirect, wildcard `postMessage`, `message` listener without origin check, tokens in `localStorage`/`sessionStorage`, `eval`/`Function` with network data, prototype pollution via URL params.
+  - **React/Next (`REACT-001`…`003`, `NEXT-001`…`002`)** — `dangerouslySetInnerHTML`, JSX `href`/`src`, ref `innerHTML`, `NEXT_PUBLIC_`/`VITE_`/`REACT_APP_` secret exposure, `redirect()` open redirect.
+  - **Vue (`VUE-001`…`003`)** — `v-html`, `:href`/`:src`, render-function `innerHTML`.
+  - **Angular (`NG-001`…`006`)** — `bypassSecurityTrust*`, `nativeElement.innerHTML`, `[innerHTML]`, `HttpClient.jsonp`, router open redirect, unguarded sensitive routes.
+  - **Svelte (`SVELTE-001`)** — `{@html}`.
+- **Frontend taint sources & sinks** — browser globals (`location`, `document.URL/cookie/referrer`, `localStorage`/`sessionStorage`) and framework hooks/routes (`useSearchParams`, `$route`, `ActivatedRoute.snapshot`, `$page`) as taint sources; DOM navigation/HTML sinks.
+
+### Fixed
+
+- `.tsx` files were parsed as `ts.ScriptKind.TS` instead of `TSX`, so JSX was not parsed as JSX.
+- Version string was hardcoded and out of sync across the CLI banner, `--version`, and report formatters; now sourced from a single `VERSION` constant.
+- Silent `catch {}` when loading a malformed config file — now surfaced via `logger.warn`.
+
 ## [0.1.6] - 2026-06-15
 
 ### Security

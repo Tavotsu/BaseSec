@@ -35,13 +35,45 @@ const NESTJS_DECORATOR_SOURCES: SourceDefinition[] = [
   { pattern: '@Req()', framework: 'nestjs' },
 ];
 
+// Browser-global sources are safe as `*` because a Node backend never has
+// `window`/`document`/`localStorage`; framework-specific hooks/routes are gated
+// so they only taint when that frontend framework is actually detected.
+const FRONTEND_SOURCES: SourceDefinition[] = [
+  { pattern: 'window.location', framework: '*' },
+  { pattern: 'document.location', framework: '*' },
+  { pattern: 'location.search', framework: '*' },
+  { pattern: 'location.hash', framework: '*' },
+  { pattern: 'document.URL', framework: '*' },
+  { pattern: 'document.referrer', framework: '*' },
+  { pattern: 'document.cookie', framework: '*' },
+  { pattern: 'localStorage.getItem', framework: '*' },
+  { pattern: 'sessionStorage.getItem', framework: '*' },
+  // nextjs implies react (see IMPLIED_FRAMEWORKS), so a 'nextjs' duplicate of these
+  // would register the same expression twice in a Next.js project.
+  { pattern: 'useSearchParams()', framework: 'react' },
+  { pattern: 'useParams()', framework: 'react' },
+  { pattern: 'useRouter().query', framework: 'react' },
+  { pattern: 'useRoute().params', framework: 'vue' },
+  { pattern: 'useRoute().query', framework: 'vue' },
+  { pattern: '$route.params', framework: 'vue' },
+  { pattern: '$route.query', framework: 'vue' },
+  { pattern: 'route.snapshot.params', framework: 'angular' },
+  { pattern: 'route.snapshot.queryParams', framework: 'angular' },
+  { pattern: 'this.route.snapshot.params', framework: 'angular' },
+  { pattern: 'this.route.snapshot.queryParams', framework: 'angular' },
+  { pattern: 'activatedRoute.snapshot.params', framework: 'angular' },
+  { pattern: 'activatedRoute.snapshot.queryParams', framework: 'angular' },
+  { pattern: '$page.url', framework: 'svelte' },
+  { pattern: '$page.params', framework: 'svelte' },
+];
+
 export function findSources(
   sourceFile: ts.SourceFile,
   content: string,
   frameworks: string[],
 ): TaintSourceInfo[] {
   const sources: TaintSourceInfo[] = [];
-  const allDefs = [...SOURCE_DEFINITIONS, ...NESTJS_DECORATOR_SOURCES];
+  const allDefs = [...SOURCE_DEFINITIONS, ...NESTJS_DECORATOR_SOURCES, ...FRONTEND_SOURCES];
 
   visit(sourceFile, (node) => {
     if (ts.isPropertyAccessExpression(node)) {

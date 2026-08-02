@@ -117,4 +117,50 @@ describe('detectFrameworks', () => {
     expect(detected).toContain('express');
     cleanup();
   });
+
+  it('detects react from imports', () => {
+    const content = "import React from 'react';";
+    const detected = detectFrameworks('auto', [{ filePath: 'App.tsx', content }], '/nonexistent');
+    expect(detected).toContain('react');
+  });
+
+  it('detects react from react-dom but not from react-query', () => {
+    const dom = detectFrameworks('auto', [{ filePath: 'index.tsx', content: "import { render } from 'react-dom';" }], '/nonexistent');
+    expect(dom).toContain('react');
+    const query = detectFrameworks('auto', [{ filePath: 'hook.ts', content: "import { useQuery } from 'react-query';" }], '/nonexistent');
+    expect(query).not.toContain('react');
+  });
+
+  it('detects nextjs and implies react', () => {
+    const detected = detectFrameworks('auto', [{ filePath: 'page.tsx', content: "import Link from 'next/link';" }], '/nonexistent');
+    expect(detected).toContain('nextjs');
+    expect(detected).toContain('react');
+  });
+
+  it('does not detect nextjs from next-auth', () => {
+    const detected = detectFrameworks('auto', [{ filePath: 'auth.ts', content: "import NextAuth from 'next-auth';" }], '/nonexistent');
+    expect(detected).not.toContain('nextjs');
+  });
+
+  it('detects vue from imports and nuxt config', () => {
+    const vue = detectFrameworks('auto', [{ filePath: 'C.ts', content: "import { defineComponent } from 'vue';" }], '/nonexistent');
+    expect(vue).toContain('vue');
+    const nuxt = detectFrameworks('auto', [{ filePath: 'nuxt.config.ts', content: 'export default defineNuxtConfig({});' }], '/nonexistent');
+    expect(nuxt).toContain('vue');
+  });
+
+  it('detects angular from @angular imports', () => {
+    const detected = detectFrameworks('auto', [{ filePath: 'app.component.ts', content: "import { Component } from '@angular/core';" }], '/nonexistent');
+    expect(detected).toContain('angular');
+  });
+
+  it('detects svelte from imports', () => {
+    const detected = detectFrameworks('auto', [{ filePath: 'App.svelte', content: "import { onMount } from 'svelte';" }], '/nonexistent');
+    expect(detected).toContain('svelte');
+  });
+
+  it('expands implied react when nextjs is forced', () => {
+    const detected = detectFrameworks('nextjs', [], '/tmp');
+    expect(detected).toEqual(['nextjs', 'react']);
+  });
 });

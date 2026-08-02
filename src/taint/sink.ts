@@ -30,6 +30,15 @@ const SINK_DEFINITIONS: SinkDefinition[] = [
   { pattern: 'unlinkSync', category: 'path-traversal' },
   { pattern: 'createReadStream', category: 'path-traversal' },
   { pattern: 'sign', category: 'auth' },
+  { pattern: 'insertAdjacentHTML', category: 'xss' },
+  { pattern: 'navigateByUrl', category: 'xss' },
+  { pattern: 'navigate', category: 'xss' },
+  { pattern: 'jsonp', category: 'xss' },
+  { pattern: 'bypassSecurityTrustHtml', category: 'xss' },
+  { pattern: 'bypassSecurityTrustScript', category: 'xss' },
+  { pattern: 'bypassSecurityTrustStyle', category: 'xss' },
+  { pattern: 'bypassSecurityTrustUrl', category: 'xss' },
+  { pattern: 'bypassSecurityTrustResourceUrl', category: 'xss' },
 ];
 
 const DANGEROUS_STANDALONE = new Set([
@@ -116,6 +125,9 @@ function getSinkCategory(name: string): SinkDefinition['category'] {
 const ALWAYS_DANGEROUS_METHODS = new Set([
   'readFile', 'readFileSync', 'writeFile', 'writeFileSync',
   'unlink', 'unlinkSync', 'readdir', 'createReadStream',
+  'insertAdjacentHTML', 'navigateByUrl', 'navigate', 'jsonp',
+  'bypassSecurityTrustHtml', 'bypassSecurityTrustScript', 'bypassSecurityTrustStyle',
+  'bypassSecurityTrustUrl', 'bypassSecurityTrustResourceUrl',
 ]);
 
 function isDangerousMethod(

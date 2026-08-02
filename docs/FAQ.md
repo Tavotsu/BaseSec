@@ -4,11 +4,11 @@
 
 ### What is BaseSec?
 
-BaseSec is a Static Application Security Testing (SAST) CLI tool for Node.js backends. It scans JavaScript and TypeScript code for security vulnerabilities using AST analysis and taint tracking.
+BaseSec is a Static Application Security Testing (SAST) CLI for JavaScript and TypeScript — covering Node.js backends and frontend frameworks. It scans your code for security vulnerabilities using AST analysis and taint tracking.
 
 ### What frameworks are supported?
 
-Express, NestJS, Mongoose, TypeORM, Fastify, Koa, and Prisma. Auto-detection is enabled by default.
+Backend: Express, NestJS, Mongoose, TypeORM, Fastify, Koa, and Prisma. Frontend: React, Next.js, Vue, Nuxt, Angular, and Svelte (including `.vue` and `.svelte` single-file components). Auto-detection is enabled by default.
 
 ### Does BaseSec modify my code?
 
@@ -91,7 +91,7 @@ Yes. BaseSec generates SARIF 2.1.0 compatible output. Use `github/codeql-action/
 
 ### How many rules are there?
 
-42 rules across 10 categories, plus AI-001 for AI-enhanced detection.
+65 rules across 10 categories, plus AI-001 for AI-enhanced detection.
 
 ### Can I disable specific rules?
 
@@ -119,7 +119,7 @@ Taint analysis tracks data flow from untrusted sources (user input) to dangerous
 
 ### Does BaseSec require AI?
 
-No. BaseSec is fully functional without AI. All 42 security rules work offline with no external dependencies. AI enhancement is entirely opt-in.
+No. BaseSec is fully functional without AI. All 65 security rules work offline with no external dependencies. AI enhancement is entirely opt-in.
 
 ### What does AI enhancement do?
 

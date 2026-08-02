@@ -25,7 +25,7 @@ basesec scan ./src --format json --output report.json
 | `--no-taint` | | Disable taint analysis | enabled |
 | `--quiet` | `-q` | Only show summary | disabled |
 | `--strict` | | Exit with code 1 if any finding | disabled |
-| `--framework <fw>` | | Force framework: `express`, `nestjs`, `mongoose`, `typeorm`, `fastify`, `koa`, `prisma`, `auto` | `auto` |
+| `--framework <fw>` | | Force framework: `express`, `nestjs`, `mongoose`, `typeorm`, `fastify`, `koa`, `prisma`, `react`, `nextjs`, `vue`, `angular`, `svelte`, `auto` | `auto` |
 | `--no-color` | | Disable colored output | enabled |
 | `--no-banner` | | Disable banner | enabled |
 | `--workers <num>` | | Worker threads (0=disabled, auto=auto-scale) | auto |
