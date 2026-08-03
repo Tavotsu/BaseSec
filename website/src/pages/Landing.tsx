@@ -20,7 +20,7 @@ const Landing: React.FC = () => {
           <span className="text-white">Base</span><span className="text-[var(--color-primary)]">Sec</span>
         </h1>
         <p className="text-lg md:text-xl text-[var(--color-foreground)] max-w-2xl mx-auto mb-3 font-body opacity-90 leading-relaxed">
-          CLI SAST tool for Node.js backends.
+          CLI SAST tool for JavaScript &amp; TypeScript — backends and frontends.
         </p>
         <p className="text-sm text-[var(--color-foreground)]/60 max-w-xl mx-auto mb-10 font-mono leading-relaxed">
           Detect vulnerabilities via AST analysis and taint tracking — before they reach production.
@@ -63,22 +63,22 @@ const Landing: React.FC = () => {
             <FeatureCard
               icon={<Cpu size={28} />}
               title="AST Analysis Engine"
-              description="Parses JS/TS files with the TypeScript Compiler API (ts.createSourceFile). Inspects syntax trees at the node level — no regex, no heuristics."
+              description="Parses JS/TS/JSX files with the TypeScript Compiler API (ts.createSourceFile). Single-file components (.vue, .svelte) are scanned too, with real line numbers and zero extra dependencies."
             />
             <FeatureCard
               icon={<Zap size={28} />}
               title="Taint Tracking"
-              description="Tracks untrusted data from sources (req.query, req.body, req.params) through assignments and function calls to dangerous sinks like db.query or exec()."
+              description="Tracks untrusted data from sources — req.query, req.body, or browser globals like location and localStorage — through assignments and calls into dangerous sinks like db.query, exec() or innerHTML."
             />
             <FeatureCard
               icon={<FileSearch size={28} />}
-              title="42 Security Rules"
-              description="10 categories including SQLI, NOSQL, XSS, CMDI, PATH, AUTH, SEC, ERR, CONF, and DEP. Each rule maps to a CVE-class and produces actionable remedies for developers."
+              title="65 Security Rules"
+              description="11 categories including SQLI, NOSQL, XSS, CMDI, PATH, AUTH, SEC, ERR, CONF, DEP, and DOM. Each rule maps to a CVE-class and produces actionable remedies for developers."
             />
             <FeatureCard
               icon={<Shield size={28} />}
               title="Framework-Aware"
-              description="Native context resolution for Express, NestJS, Fastify, Koa, Prisma, Mongoose, and TypeORM. Detects routes, guards, and raw queries in context."
+              description="Native context resolution for Express, NestJS, Fastify, Koa, Prisma, Mongoose, TypeORM — plus React/Next, Vue/Nuxt, Angular and Svelte. Detects routes, guards, raw queries and unsafe DOM sinks in context."
             />
             <FeatureCard
               icon={<GitBranch size={28} />}
@@ -106,13 +106,13 @@ const Landing: React.FC = () => {
             <div className="inline-flex items-center gap-6 font-mono text-xs text-[var(--color-foreground)]/40 uppercase tracking-widest flex-wrap justify-center">
               <span><span className="text-[var(--color-primary)]">78</span> files/sec</span>
               <span className="text-[var(--color-border)] hidden sm:inline">|</span>
-              <span><span className="text-[var(--color-primary)]">42</span> security rules</span>
+              <span><span className="text-[var(--color-primary)]">65</span> security rules</span>
               <span className="text-[var(--color-border)] hidden sm:inline">|</span>
-              <span><span className="text-[var(--color-primary)]">10</span> rule categories</span>
+              <span><span className="text-[var(--color-primary)]">11</span> rule categories</span>
               <span className="text-[var(--color-border)] hidden sm:inline">|</span>
               <span><span className="text-[var(--color-primary)]">5</span> output formats</span>
               <span className="text-[var(--color-border)] hidden sm:inline">|</span>
-              <span><span className="text-[var(--color-primary)]">7</span> frameworks</span>
+              <span><span className="text-[var(--color-primary)]">12</span> frameworks</span>
             </div>
           </div>
         </div>

@@ -5,6 +5,36 @@ import { Button } from '../components/atoms/Button';
 
 const VERSIONS = [
   {
+    version: '0.1.7',
+    date: '2026-07-17',
+    type: 'major',
+    changes: [
+      { label: 'Frontend framework support', detail: 'Detection for React, Next.js, Vue, Nuxt, Angular and Svelte via imports and package.json — nextjs implies react. --framework accepts the new values', type: 'added' },
+      { label: 'Single-file components', detail: '.vue and .svelte files are scanned by default: the <script> block is parsed as TS/TSX and the template scanned, with real line numbers and no extra dependency', type: 'added' },
+      { label: '23 new rules (42 → 65)', detail: 'DOM-001…008, REACT-001…003, NEXT-001…002, VUE-001…003, NG-001…006 and SVELTE-001 — innerHTML, document.write, open redirect, wildcard postMessage, tokens in localStorage, dangerouslySetInnerHTML, v-html, bypassSecurityTrust*, {@html} and more', type: 'added' },
+      { label: 'Frontend taint sources & sinks', detail: 'Browser globals (location, document.URL/cookie/referrer, localStorage) and framework hooks (useSearchParams, $route, ActivatedRoute.snapshot, $page) flow into DOM navigation and HTML sinks', type: 'added' },
+      { label: '527 tests', detail: 'Backend regression baseline unchanged; precision hardening on NEXT-001, DOM-005, REACT-002, NG-006 and VUE-001 to keep false positives out', type: 'added' },
+    ],
+  },
+  {
+    version: '0.1.6',
+    date: '2026-06-15',
+    type: 'patch',
+    changes: [
+      { label: 'Dependabot alerts resolved', detail: 'Four dev-scope advisories (GHSA-g7r4-m6w7-qqqr, GHSA-gv7w-rqvm-qjhr, GHSA-fx2h-pf6j-xcff, GHSA-v6wh-96g9-6wx3) pinned away via pnpm.overrides', type: 'fixed' },
+      { label: 'pnpm-workspace.yaml tracked in git', detail: 'Overrides are now reproducible across clones; the obsolete pnpm.onlyBuiltDependencies block was removed from package.json', type: 'fixed' },
+    ],
+  },
+  {
+    version: '0.1.5',
+    date: '2026-06-15',
+    type: 'patch',
+    changes: [
+      { label: 'esbuild upgraded to 0.28.1', detail: 'Addresses CWE-426 (untrusted search path) and CWE-494 (download of code without integrity check) reported in 0.27.x', type: 'fixed' },
+      { label: 'npm discoverability', detail: 'package.json description rewritten and 158 keywords added across security, framework, vulnerability, AI and CI/CD categories', type: 'added' },
+    ],
+  },
+  {
     version: '0.1.4',
     date: '2026-06-04',
     type: 'major',
@@ -88,10 +118,10 @@ const Changelog: React.FC = () => {
             <h1 className="text-5xl md:text-6xl font-heading font-bold uppercase tracking-wide text-white">
               <span style={{ color: 'var(--color-primary)' }}>Change</span>log
             </h1>
-            <span className="text-sm text-[var(--color-muted)] mb-2 tracking-widest font-mono">v0.0.9 → v0.1.4</span>
+            <span className="text-sm text-[var(--color-muted)] mb-2 tracking-widest font-mono">v0.0.9 → v0.1.7</span>
           </div>
           <p className="mt-4 text-[var(--color-foreground)] text-sm opacity-50 max-w-xl leading-relaxed">
-            Complete version history of BaseSec — from initial scaffold to AI-powered analysis.
+            Complete version history of BaseSec — from initial scaffold to full-stack JS/TS coverage.
           </p>
         </div>
 

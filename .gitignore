@@ -19,5 +19,8 @@ Thumbs.db
 .agents
 skills-lock.json
 AGENTS.md
+.claude/*.json
+.tokensave
+CLAUDE.md
 DESIGN.md
 docs/dev_files

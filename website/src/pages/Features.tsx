@@ -10,7 +10,7 @@ const Features: React.FC = () => {
             <span className="text-[var(--color-primary)]">System</span> Diagnostics
           </h1>
           <p className="mt-4 text-[var(--color-foreground)] font-mono max-w-2xl mx-auto opacity-80">
-            Witness the engine in action. BaseSec scans files, builds AST representations, and runs deep taint-tracking analysis to catch vulnerabilities before they reach production.
+            Witness the engine in action. BaseSec scans your JS/TS files — including .vue and .svelte components — builds AST representations, and runs deep taint-tracking analysis to catch vulnerabilities before they reach production.
           </p>
         </div>
 
