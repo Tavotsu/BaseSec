@@ -20,7 +20,7 @@ const Landing: React.FC = () => {
           <span className="text-white">Base</span><span className="text-[var(--color-primary)]">Sec</span>
         </h1>
         <p className="text-lg md:text-xl text-[var(--color-foreground)] max-w-2xl mx-auto mb-3 font-body opacity-90 leading-relaxed">
-          CLI SAST tool for JavaScript &amp; TypeScript — backends and frontends.
+          CLI SAST & DAST tool for JavaScript &amp; TypeScript — backends and frontends.
         </p>
         <p className="text-sm text-[var(--color-foreground)]/60 max-w-xl mx-auto mb-10 font-mono leading-relaxed">
           Detect vulnerabilities via AST analysis and taint tracking — before they reach production.
