@@ -1,20 +1,25 @@
 @import "tailwindcss";
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Orbitron:wght@700;900&display=swap');
 
 @theme {
   --color-primary: #00FF41;
-  --color-on-primary: #0F172A;
-  --color-secondary: #0D0D0D;
+  --color-primary-hover: #1aff53;
+  --color-primary-dim: rgba(0, 255, 65, 0.12);
+  --color-primary-glow: rgba(0, 255, 65, 0.25);
+  --color-secondary: #111317;
   --color-accent: #FF3333;
-  --color-background: #191919;
-  --color-foreground: #E0E0E0;
-  --color-muted: #808080;
-  --color-border: #2a2a2a;
+  --color-background: #090A0C;
+  --color-surface: #111317;
+  --color-surface-hover: #171A21;
+  --color-foreground: #F1F5F9;
+  --color-muted: #94A3B8;
+  --color-border: #1E232B;
+  --color-border-subtle: #161A20;
   --color-destructive: #EF4444;
   --color-ring: #00FF41;
 
-  --font-heading: 'Orbitron', sans-serif;
-  --font-body: 'JetBrains Mono', monospace;
+  --font-heading: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  --font-body: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
 }
 
 :root {
@@ -28,123 +33,96 @@ body {
   overflow-x: hidden;
   margin: 0;
   padding: 0;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-h1, h2, h3, h4, h5, h6 {
-  font-family: var(--font-heading);
-  letter-spacing: 0.05em;
+::selection {
+  background-color: rgba(0, 255, 65, 0.25);
+  color: #FFFFFF;
 }
 
-/* ───── Animated background ───── */
-/* Layer 1: drifting particle field using CSS counter + custom properties */
-.cyber-bg {
+/* ───── Ambient Developer Grid Background ───── */
+.dev-bg {
   position: fixed;
   inset: 0;
   z-index: -1;
   overflow: hidden;
   pointer-events: none;
-  background: var(--color-background);
+  background-color: var(--color-background);
 }
 
-/* Subtle hex/grid overlay */
-.cyber-bg::before {
+.dev-bg::before {
   content: '';
   position: absolute;
   inset: 0;
   background-image:
-    linear-gradient(var(--color-border) 1px, transparent 1px),
-    linear-gradient(90deg, var(--color-border) 1px, transparent 1px);
-  background-size: 48px 48px;
-  opacity: 0.25;
-  /* Math: perspective warp + infinite scroll */
-  transform: perspective(600px) rotateX(55deg) scale(2) translateZ(0);
-  animation: gridScroll 18s linear infinite;
-  transform-origin: center bottom;
+    linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+  background-size: 32px 32px;
+  mask-image: radial-gradient(ellipse 70% 60% at 50% 20%, #000 40%, transparent 100%);
+  -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 20%, #000 40%, transparent 100%);
 }
 
-/* Radial glow pulse */
-.cyber-bg::after {
+.dev-bg::after {
   content: '';
   position: absolute;
-  inset: 0;
-  background: radial-gradient(
-    ellipse 60% 40% at 50% 100%,
-    rgba(0, 255, 65, 0.03) 0%,
-    transparent 70%
-  );
-  animation: glowPulse 6s ease-in-out infinite;
+  top: -10%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 900px;
+  height: 480px;
+  background: radial-gradient(circle, rgba(0, 255, 65, 0.08) 0%, rgba(0, 255, 65, 0.02) 40%, transparent 70%);
+  filter: blur(40px);
 }
 
-@keyframes gridScroll {
-  from { background-position: center 0; }
-  to   { background-position: center 48px; }
-}
-
-@keyframes glowPulse {
-  0%, 100% { opacity: 0.4; }
-  50%       { opacity: 0.7; }
-}
-
-/* Floating particles (6 pseudo-independent orbs via animation-delay math) */
-.cyber-particles {
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-}
-
-.cyber-particles span {
-  position: absolute;
-  border-radius: 50%;
-  background: var(--color-primary);
-  filter: blur(1px);
-  opacity: 0;
-  animation: floatUp var(--dur, 12s) calc(var(--d, 0s)) linear infinite;
-  width: var(--sz, 2px);
-  height: var(--sz, 2px);
-  left: var(--x, 50%);
-}
-
-@keyframes floatUp {
-  0%   { transform: translateY(100vh) scale(0); opacity: 0; }
-  10%  { opacity: 0.6; }
-  90%  { opacity: 0.3; }
-  100% { transform: translateY(-10vh) scale(1.5); opacity: 0; }
-}
-
-/* ───── Glitch hover ───── */
-.glitch-hover {
-  transition: color 0.2s ease;
-}
-
-.glitch-hover:hover {
-  color: var(--color-primary);
-  animation: glitchSkew 0.3s steps(1) both 1;
-  text-shadow: 1px 0 var(--color-accent), -1px 0 #0ff;
-}
-
-@keyframes glitchSkew {
-  0%   { transform: skewX(0deg); }
-  25%  { transform: skewX(-8deg); }
-  50%  { transform: skewX(8deg); }
-  75%  { transform: skewX(-4deg); }
-  100% { transform: skewX(0deg); }
-}
-
-/* ───── Utilities ───── */
+/* ───── Sophisticated Glow & Glass Utilities ───── */
 .text-glow {
-  text-shadow: 0 0 8px rgba(0, 255, 65, 0.4), 0 0 16px rgba(0, 255, 65, 0.15);
+  text-shadow: 0 0 20px rgba(0, 255, 65, 0.4);
 }
 
-.neon-border {
-  box-shadow: 0 0 4px rgba(0, 255, 65, 0.35), inset 0 0 3px rgba(0, 255, 65, 0.15);
-  border: 1px solid rgba(0, 255, 65, 0.6);
+.subtle-border {
+  border: 1px solid var(--color-border);
+}
+
+.subtle-card {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.subtle-card:hover {
+  border-color: rgba(0, 255, 65, 0.35);
+  background-color: var(--color-surface-hover);
+}
+
+/* ───── Clean Code block & Terminal ───── */
+.code-window {
+  border: 1px solid var(--color-border);
+  background: #0B0D11;
+  box-shadow: 0 16px 40px -10px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.03);
+}
+
+/* ───── Custom Scrollbar ───── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #090A0C;
+}
+::-webkit-scrollbar-thumb {
+  background: #1E232B;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #2D3441;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .cyber-bg::before,
-  .cyber-bg::after,
-  .cyber-particles span {
-    animation: none;
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }

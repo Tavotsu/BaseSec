@@ -1,48 +1,87 @@
 import React, { useState } from 'react';
+import { Check, Copy, Terminal } from 'lucide-react';
 
-type PM = 'npm' | 'pnpm' | 'bun' | 'yarn';
+type CommandType = 'npx' | 'npm' | 'pnpm' | 'bun';
 
 export const PackageManager: React.FC = () => {
-  const [pm, setPm] = useState<PM>('npm');
+  const [activeTab, setActiveTab] = useState<CommandType>('npx');
+  const [copied, setCopied] = useState(false);
 
-  const commands: Record<PM, string> = {
+  const commands: Record<CommandType, string> = {
+    npx: 'npx basesec scan ./src',
+    pnpm: 'pnpm dlx basesec scan ./src',
     npm: 'npm install -g basesec',
-    pnpm: 'pnpm add -g basesec',
-    bun: 'bun add -g basesec',
-    yarn: 'yarn global add basesec'
+    bun: 'bunx basesec scan ./src'
+  };
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(commands[activeTab]);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Fallback
+    }
   };
 
   return (
-    <div className="w-full max-w-md mx-auto border border-[var(--color-border)] bg-[var(--color-secondary)]/80 rounded-md overflow-hidden mt-8 text-left shadow-[0_0_15px_rgba(0,255,65,0.1)] transition-all hover:shadow-[0_0_20px_rgba(0,255,65,0.2)]">
-      <div className="flex bg-[#121212] border-b border-[var(--color-border)] relative">
-        {(['npm', 'pnpm', 'bun', 'yarn'] as PM[]).map((manager) => (
-          <button
-            key={manager}
-            onClick={() => setPm(manager)}
-            className={`flex-1 py-3 text-xs font-mono font-bold uppercase transition-all duration-300 relative ${
-              pm === manager 
-                ? 'text-[var(--color-primary)] bg-[var(--color-primary)]/5' 
-                : 'text-[var(--color-foreground)]/50 hover:text-[var(--color-foreground)] hover:bg-[var(--color-muted)]/50'
-            }`}
-          >
-            {manager}
-            {pm === manager && (
-              <div className="absolute bottom-0 left-0 w-full h-[2px] bg-[var(--color-primary)] shadow-[0_0_8px_var(--color-primary)]" />
-            )}
-          </button>
-        ))}
-      </div>
-      <div className="p-5 font-mono text-sm flex justify-between items-center group bg-[#0A0A0A]">
-        <div className="flex gap-3 items-center">
-          <span className="text-[var(--color-primary)] select-none">❯</span>
-          <span className="text-[var(--color-foreground)]">{commands[pm]}</span>
+    <div className="w-full max-w-xl mx-auto rounded-xl border border-[var(--color-border)] bg-[#0C0E12] shadow-2xl overflow-hidden text-left transition-all">
+      {/* Tab Header */}
+      <div className="flex items-center justify-between px-3 pt-2 pb-0 bg-[#0E1116] border-b border-[var(--color-border)]">
+        <div className="flex gap-1">
+          {(['npx', 'pnpm', 'npm', 'bun'] as CommandType[]).map((tab) => (
+            <button
+              key={tab}
+              onClick={() => {
+                setActiveTab(tab);
+                setCopied(false);
+              }}
+              className={`px-3 py-1.5 text-xs font-mono font-medium rounded-t-md transition-all duration-150 relative ${
+                activeTab === tab
+                  ? 'text-[var(--color-primary)] bg-[#0C0E12] border-t border-x border-[var(--color-border)]'
+                  : 'text-[var(--color-muted)] hover:text-white hover:bg-white/[0.03]'
+              }`}
+            >
+              {tab === 'npx' ? '⚡ npx (zero-install)' : tab}
+              {activeTab === tab && (
+                <span className="absolute -bottom-px left-0 right-0 h-px bg-[#0C0E12]" />
+              )}
+            </button>
+          ))}
         </div>
-        <button 
-          onClick={() => navigator.clipboard.writeText(commands[pm])}
-          className="text-[var(--color-foreground)]/30 hover:text-[var(--color-primary)] transition-colors opacity-0 group-hover:opacity-100"
+
+        <div className="flex items-center gap-1.5 text-[11px] font-mono text-[var(--color-muted)] pb-2 pr-2">
+          <Terminal size={12} className="text-[var(--color-primary)] opacity-80" />
+          <span>v0.1.7</span>
+        </div>
+      </div>
+
+      {/* Command Bar */}
+      <div className="p-4 font-mono text-sm flex items-center justify-between gap-4 bg-[#0C0E12]">
+        <div className="flex items-center gap-3 overflow-x-auto py-1 scrollbar-none min-w-0">
+          <span className="text-[var(--color-primary)] font-bold select-none text-base">❯</span>
+          <span className="text-[#E2E8F0] tracking-wide whitespace-nowrap">
+            {commands[activeTab]}
+          </span>
+        </div>
+
+        <button
+          onClick={handleCopy}
+          aria-label="Copy command to clipboard"
+          className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-[#1E232B] bg-[#14171E] hover:bg-[#1C202A] text-xs font-medium text-[var(--color-foreground)] transition-colors hover:text-white active:scale-95"
           title="Copy to clipboard"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+          {copied ? (
+            <>
+              <Check size={14} className="text-[var(--color-primary)]" />
+              <span className="text-[var(--color-primary)] font-mono text-xs">Copied</span>
+            </>
+          ) : (
+            <>
+              <Copy size={14} className="text-[var(--color-muted)]" />
+              <span className="font-mono text-xs text-[var(--color-muted)]">Copy</span>
+            </>
+          )}
         </button>
       </div>
     </div>

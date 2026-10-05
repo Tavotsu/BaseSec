@@ -108,20 +108,23 @@ const VERSION_COLORS: Record<string, { bg: string; border: string; badge: string
 
 const Changelog: React.FC = () => {
   return (
-    <div className="flex-1 py-12 px-4 relative z-10">
-      <div className="max-w-5xl mx-auto">
-        <div className="mb-16 pb-8">
-          <Link to="/" className="inline-flex items-center gap-2 text-[var(--color-primary)] hover:underline mb-6 text-sm tracking-widest uppercase font-medium">
-            <ArrowLeft size={12} /> Home
+    <div className="flex-1 py-12 lg:py-16 px-4 relative z-10">
+      <div className="max-w-4xl mx-auto">
+        <div className="mb-12">
+          <Link 
+            to="/" 
+            className="inline-flex items-center gap-1.5 text-xs font-mono text-[var(--color-muted)] hover:text-white mb-6 px-3 py-1 rounded-full bg-[#12151D] border border-[#1E232B] transition-colors"
+          >
+            <ArrowLeft size={12} /> Back to Overview
           </Link>
-          <div className="flex items-end gap-6">
-            <h1 className="text-5xl md:text-6xl font-heading font-bold uppercase tracking-wide text-white">
-              <span style={{ color: 'var(--color-primary)' }}>Change</span>log
+          <div className="flex items-baseline gap-4 flex-wrap">
+            <h1 className="text-3xl sm:text-5xl font-heading font-extrabold text-white tracking-tight">
+              Change<span className="text-[var(--color-primary)]">log</span>
             </h1>
-            <span className="text-sm text-[var(--color-muted)] mb-2 tracking-widest font-mono">v0.0.9 → v0.1.7</span>
+            <span className="text-xs text-[var(--color-muted)] font-mono">v0.0.9 → v0.1.7</span>
           </div>
-          <p className="mt-4 text-[var(--color-foreground)] text-sm opacity-50 max-w-xl leading-relaxed">
-            Complete version history of BaseSec — from initial scaffold to full-stack JS/TS coverage.
+          <p className="mt-3 text-sm text-[var(--color-muted)] max-w-xl leading-relaxed">
+            Detailed version history of BaseSec — from initial AST engine to full-stack JS/TS framework coverage.
           </p>
         </div>
 
@@ -205,10 +208,10 @@ const Changelog: React.FC = () => {
           })}
         </div>
 
-        <div className="mt-20 pb-24 text-center">
+        <div className="mt-16 pb-20 text-center">
           <Link to="/features">
-            <Button variant="primary" className="tracking-widest uppercase text-xs px-8 py-3">
-              See it in action →
+            <Button variant="primary" size="lg">
+              Explore Live Demo →
             </Button>
           </Link>
         </div>
