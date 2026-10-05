@@ -1,5 +1,5 @@
 import { defineRule } from '../../define-rule';
-import { execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 
@@ -43,16 +43,20 @@ export const DEP004 = defineRule({
     }
 
     try {
-      let cmd: string;
+      let command: string;
+      let args: string[];
       if (hasPnpmLock) {
-        cmd = 'pnpm install --frozen-lockfile --dry-run';
+        command = getCliCommand('pnpm');
+        args = ['install', '--frozen-lockfile', '--dry-run', '--ignore-scripts'];
       } else if (hasYarnLock) {
-        cmd = 'yarn install --frozen-lockfile --check-files';
+        command = getCliCommand('yarn');
+        args = ['install', '--frozen-lockfile', '--check-files', '--ignore-scripts'];
       } else {
-        cmd = 'npm install --package-lock-only --dry-run';
+        command = getCliCommand('npm');
+        args = ['install', '--package-lock-only', '--dry-run', '--ignore-scripts'];
       }
 
-      execSync(cmd, {
+      execFileSync(command, args, {
         cwd: projectDir,
         encoding: 'utf-8',
         timeout: 30000,
@@ -80,3 +84,8 @@ export const DEP004 = defineRule({
     return findings;
   },
 });
+
+function getCliCommand(baseName: 'pnpm' | 'npm' | 'yarn'): string {
+  if (process.platform === 'win32') return `${baseName}.cmd`;
+  return baseName;
+}
