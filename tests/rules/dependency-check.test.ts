@@ -44,7 +44,7 @@ describe('DEP002: Vulnerable Dependencies', () => {
   });
 
   it('detects vulnerabilities from pnpm audit', () => {
-    vi.spyOn(child_process, 'execSync').mockReturnValue(JSON.stringify({
+    vi.spyOn(child_process, 'execFileSync').mockReturnValue(JSON.stringify({
       advisories: {
         "123": {
           title: "Vuln",
@@ -76,7 +76,7 @@ describe('DEP002: Vulnerable Dependencies', () => {
         }
       }
     });
-    vi.spyOn(child_process, 'execSync').mockImplementation(() => { throw error; });
+    vi.spyOn(child_process, 'execFileSync').mockImplementation(() => { throw error; });
     
     const code = JSON.stringify({ dependencies: { "test-pkg": "1.0.0" } }, null, 2);
     const findings = runRule(DEP002, code, 'package.json');
@@ -111,12 +111,12 @@ describe('DEP004: Lockfile Mismatch', () => {
     vi.mocked(fs.existsSync).mockRestore();
   });
 
-  it('detects out of sync lockfile by catching execSync error', () => {
+  it('detects out of sync lockfile by catching execFileSync error', () => {
     vi.mocked(fs.existsSync).mockImplementation((file) => {
         return file.toString().includes('pnpm-lock.yaml');
     });
     
-    vi.mocked(child_process.execSync).mockImplementation(() => { 
+    vi.mocked(child_process.execFileSync).mockImplementation(() => { 
         throw new Error('sync error'); 
     });
     
