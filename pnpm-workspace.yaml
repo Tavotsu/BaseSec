@@ -3,5 +3,7 @@ allowBuilds:
 
 overrides:
   esbuild: 0.28.1
-  vite: 8.0.16
+  vite: 8.1.6
   postcss: 8.5.25
+  source-map-js: 1.2.2
+  "@vitest/mocker": 4.1.12

@@ -2,6 +2,23 @@
 
 All notable changes to BaseSec are documented in this file.
 
+## [0.1.8] - 2026-10-29
+
+### Security
+
+- **Resolved all open Dependabot alerts (#11–#18)**, all in dev/transitive dependencies:
+  - **GHSA-68fv-2mgg-jv7q** (source-map-js, high) — event-loop DoS via indexed source-map section offsets
+  - **GHSA-9jrq-w75r-8gcw** (vite, high) — cross-origin script execution through custom middleware
+  - **GHSA-rq7h-c2jc-7f22** (vite, medium) — files outside `server.fs.allow` served when project paths match system paths
+  - **GHSA-qxg6-89mg-rqv8** (vitest/@vitest/mocker, medium) — code injection via unauthenticated manual mock registration
+  - **GHSA-xp26-3454-mjgp** (@vitest/mocker, medium) — Windows backslash traversal bypasses redirect allowlist
+  - **GHSA-587h-7wmj-h5pm**, **GHSA-698v-4r3x-3vcv**, **GHSA-r825-w8mm-5pxw** (launch-editor, vite chain) — Windows existence-check bypass, missing `%` escaping, editor CLI flag misinterpretation
+
+### Changed
+
+- `vite` override bumped to `8.1.6`; added overrides for `source-map-js` (`1.2.2`) and `@vitest/mocker` (`4.1.12`)
+- `vitest` and `@vitest/coverage-v8` bumped to `^4.1.12`
+
 ## [0.1.7] - 2026-07-17
 
 ### Added
