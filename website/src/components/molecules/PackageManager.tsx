@@ -52,7 +52,7 @@ export const PackageManager: React.FC = () => {
 
         <div className="flex items-center gap-1.5 text-[11px] font-mono text-[var(--color-muted)] pb-2 pr-2">
           <Terminal size={12} className="text-[var(--color-primary)] opacity-80" />
-          <span>v0.1.7</span>
+          <span>v0.1.8</span>
         </div>
       </div>
 

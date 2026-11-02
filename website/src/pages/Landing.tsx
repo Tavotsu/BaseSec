@@ -22,7 +22,7 @@ const Landing: React.FC = () => {
             {/* Version indicator */}
             <div className="inline-flex items-center gap-2 text-xs font-mono text-[#94A3B8] mb-5">
               <span className="w-2 h-2 rounded-full bg-[var(--color-primary)]" />
-              <span>basesec v0.1.7</span>
+              <span>basesec v0.1.8</span>
               <span className="text-[#334155]">•</span>
               <span>Node.js, React, Vue, Svelte, Angular</span>
             </div>

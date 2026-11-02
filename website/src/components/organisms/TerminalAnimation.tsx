@@ -16,7 +16,7 @@ interface LineItem {
 const lines: LineItem[] = [
   { text: "user@host:~$ basesec scan ./src", delay: 200, type: "cmd" },
   { text: ASCII, delay: 50, type: "ascii" },
-  { text: "[INFO] Initializing BaseSec Engine v0.1.7...", delay: 500, type: "info" },
+  { text: "[INFO] Initializing BaseSec Engine v0.1.8...", delay: 500, type: "info" },
   { text: "[INFO] Discovering source files...", delay: 800, type: "info" },
   { text: "[INFO] Frameworks detected: express, nestjs, mongoose, react, vue", delay: 1100, type: "info" },
   { text: "[INFO] Files: 78 (.ts, .tsx, .vue) | Skipped: 0", delay: 1400, type: "info" },

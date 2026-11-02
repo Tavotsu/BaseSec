@@ -5,6 +5,15 @@ import { Button } from '../components/atoms/Button';
 
 const VERSIONS = [
   {
+    version: '0.1.8',
+    date: '2026-10-29',
+    type: 'patch',
+    changes: [
+      { label: 'Dependabot alerts #11–#18 resolved', detail: 'Eight dev/transitive advisories closed: source-map-js event-loop DoS (GHSA-68fv-2mgg-jv7q), vite cross-origin script execution and fs.allow bypass (GHSA-9jrq-w75r-8gcw, GHSA-rq7h-c2jc-7f22), vitest mock injection and Windows traversal (GHSA-qxg6-89mg-rqv8, GHSA-xp26-3454-mjgp) and launch-editor (GHSA-587h-7wmj-h5pm, GHSA-698v-4r3x-3vcv, GHSA-r825-w8mm-5pxw)', type: 'fixed' },
+      { label: 'Dependency overrides updated', detail: 'vite pinned to 8.1.6, plus new overrides for source-map-js 1.2.2 and @vitest/mocker 4.1.12; vitest and @vitest/coverage-v8 bumped to ^4.1.12', type: 'fixed' },
+    ],
+  },
+  {
     version: '0.1.7',
     date: '2026-07-17',
     type: 'major',
@@ -121,7 +130,7 @@ const Changelog: React.FC = () => {
             <h1 className="text-3xl sm:text-5xl font-heading font-extrabold text-white tracking-tight">
               Change<span className="text-[var(--color-primary)]">log</span>
             </h1>
-            <span className="text-xs text-[var(--color-muted)] font-mono">v0.0.9 → v0.1.7</span>
+            <span className="text-xs text-[var(--color-muted)] font-mono">v0.0.9 → v0.1.8</span>
           </div>
           <p className="mt-3 text-sm text-[var(--color-muted)] max-w-xl leading-relaxed">
             Detailed version history of BaseSec — from initial AST engine to full-stack JS/TS framework coverage.

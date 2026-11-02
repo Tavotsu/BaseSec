@@ -63,7 +63,7 @@ function App() {
                 className="hidden sm:inline-flex items-center gap-1.5 text-xs font-mono text-[var(--color-muted)] hover:text-white px-2.5 py-1.5 rounded-md hover:bg-white/[0.04] transition-colors"
               >
                 <Terminal size={13} className="text-[var(--color-primary)]" />
-                <span>CLI v0.1.7</span>
+                <span>CLI v0.1.8</span>
               </Link>
               
               <a
