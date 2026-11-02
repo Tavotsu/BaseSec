@@ -1,17 +1,30 @@
-# <h1 align="center">BaseSec</h1>
 
-Static Application Security Testing (SAST) CLI tool for Node.js backends.  
-Scans JavaScript and TypeScript source files, detects vulnerabilities via AST analysis and taint tracking, and reports findings in terminal, JSON, SARIF, HTML, or Markdown.
+<p align="center">
+  <img src="https://github.com/Tavotsu/BaseSec/blob/gh-pages/website/public/logo.png?raw=true" alt="logo" width=300px height=300px>
+  <br><br>
+  <img src="https://img.shields.io/npm/v/basesec?logo=npm&style=flat-square" alt="npm version">
+  <img src="https://img.shields.io/badge/License-CC%20BY--NC%204.0-green?style=flat-square" alt="License">
+  <img src="https://img.shields.io/npm/dm/basesec?logo=npm&style=flat-square" alt="downloads">
+  <img src="https://img.shields.io/github/stars/Tavotsu/BaseSec?logo=github&style=flat-square" alt="stars">
+  <br>
+  <h2 align="center">Static Application Security Testing (SAST) CLI for JavaScript &amp; TypeScript — Node.js backends and frontend frameworks.</h2>
+</p>
+
+
 
 ## Features
 
-- **30 Security Rules** across 9 categories (SQL Injection, XSS, NoSQL Injection, Command Injection, Path Traversal, Authentication, Secrets, Error Handling, Misconfiguration)
-- **Taint Analysis** — tracks data flow from user input (`req.query`, `req.body`, etc.) to dangerous sinks
-- **Framework Detection** — auto-detects Express, NestJS, Mongoose, and TypeORM
-- **Multiple Output Formats** — Terminal (colored tables), JSON, SARIF, HTML, Markdown
+- **65 Security Rules** across 10 categories (SQL Injection, XSS, NoSQL Injection, Command Injection, Path Traversal, Authentication, Secrets, Error Handling, Misconfiguration, Dependency Checking) — including frontend DOM-based XSS, client-side secrets, open redirect, `postMessage`/insecure-storage, and framework rules for React/Next, Vue/Nuxt, Angular, and Svelte
+- **Taint Analysis** — tracks data flow from user input (`req.query`, `req.body`, `useSearchParams()`, `location.search`, route params, etc.) to dangerous sinks
+- **Framework Detection** — auto-detects Express, NestJS, Mongoose, TypeORM, Fastify, Koa, Prisma, React, Next.js, Vue, Nuxt, Angular, and Svelte
+- **Single-File Components** — parses `.vue` and `.svelte` files (script + template) with no extra dependencies
+- **Dependency Checking** — detects outdated packages with known CVEs, vulnerable dependencies (via `pnpm/npm audit`), unused dependencies, and lockfile mismatches
+- **Sensitive File Protection** — `.env` and credential files are completely ignored by default unless explicitly allowed with `--read-env`
+- **Multiple Output Formats** — Terminal (colored tables), JSON, SARIF, HTML, Markdown. Non-terminal formats auto-save to `~/.basesec/`
 - **Analysis Cache** — hash-based per-file caching for 10x speedup on incremental scans
 - **Worker Threads** — multi-core parallel analysis for large codebases
 - **Custom Rules** — load external rule files (MJS/CJS) via `.basesecrc`
+- **AI-Powered Analysis** — enriches findings with AI explanations and detects suspicious taint flows (Ollama or OpenAI)
 - **Zero Configuration** — works out of the box with sensible defaults
 
 ## Quick Start
@@ -35,7 +48,10 @@ basesec scan
 # Scan specific directory
 basesec scan ./src
 
-# JSON output
+# JSON output (auto-saved to ~/.basesec/scan-<timestamp>.json)
+basesec scan ./src --format json
+
+# Custom output path
 basesec scan ./src --format json --output report.json
 
 # Only critical/high findings, strict exit code
@@ -48,8 +64,15 @@ basesec scan ./src --severity high --strict
 |---|---|---|
 | Express | Yes | Route handlers, middleware, `res.send()`, `res.set()` |
 | NestJS | Yes | Decorators (`@Controller`, `@Get`, etc.), guards |
+| Fastify | Yes | Route handlers, rate limit, helmet, CORS |
+| Koa | Yes | Context assignments (`ctx.body`), middleware |
 | Mongoose | Yes | Query chains, `$where`, `lean()` |
 | TypeORM | Yes | Query builder, raw queries |
+| Prisma | Yes | Raw queries (`$queryRaw`, `$executeRaw`) |
+| React / Next.js | Yes | `dangerouslySetInnerHTML`, JSX `href`/`src`, refs, `NEXT_PUBLIC_` secrets, `redirect()` |
+| Vue / Nuxt | Yes | `v-html`, `:href`/`:src`, render-function `innerHTML` (`.vue` SFCs) |
+| Angular | Yes | `bypassSecurityTrust*`, `nativeElement.innerHTML`, `[innerHTML]`, `jsonp`, router redirects, unguarded routes |
+| Svelte | Yes | `{@html}` (`.svelte` SFCs) |
 
 ## Configuration
 
@@ -61,12 +84,37 @@ export default {
   framework: 'auto',
   ignore: ['node_modules', 'dist', 'coverage'],
   taintAnalysis: true,
+  sanitizers: [],
   rules: [],
   rulesConfig: {},
+  maxFileSize: 512000,
+  maxFiles: 10000,
+  cache: {
+    maxAge: 86400000,
+    dir: '.basesec/cache',
+  },
+  workers: {
+    threshold: 50,
+    max: 8,
+  },
+  output: {
+    format: 'terminal',
+    filePath: '',
+  },
+  // AI disabled by default for maximum privacy
+  ai: {
+    enabled: false,
+    provider: 'ollama',
+    model: 'llama3.2',
+    contextLevel: 'minimal',
+    baseUrl: 'http://localhost:11434',
+    maxFindings: 10,
+    timeout: 30000,
+  },
 };
 ```
 
-See [CONFIGURATION.md](CONFIGURATION.md) for full options.
+See [CONFIGURATION.md](docs/CONFIGURATION.md) for full options.
 
 ## Performance
 
@@ -79,19 +127,19 @@ Combined, these deliver **~12x speedup** on rescans. See [PERFORMANCE.md](PERFOR
 
 ## Documentation
 
-- [INSTALLATION.md](INSTALLATION.md) — Detailed installation options
-- [USAGE.md](USAGE.md) — CLI commands and flags
-- [CONFIGURATION.md](CONFIGURATION.md) — Configuration file reference
-- [RULES.md](RULES.md) — Complete rule catalog
+- [INSTALLATION.md](docs/INSTALLATION.md) — Detailed installation options
+- [USAGE.md](docs/USAGE.md) — CLI commands and flags
+- [CONFIGURATION.md](docs/CONFIGURATION.md) — Configuration file reference
+- [RULES.md](docs/RULES.md) — Complete rule catalog
 - [PERFORMANCE.md](PERFORMANCE.md) — Benchmarks and optimization guide
-- [CI_CD.md](CI_CD.md) — CI/CD integration examples
-- [TROUBLESHOOTING.md](TROUBLESHOOTING.md) — Common issues and fixes
-- [FAQ.md](FAQ.md) — Frequently asked questions
-- [EXAMPLES.md](EXAMPLES.md) — Vulnerable vs. secure code examples
+- [CI_CD.md](docs/CI_CD.md) — CI/CD integration examples
+- [TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) — Common issues and fixes
+- [FAQ.md](docs/FAQ.md) — Frequently asked questions
+- [EXAMPLES.md](docs/EXAMPLES.md) — Vulnerable vs. secure code examples
 - [CONTRIBUTING.md](CONTRIBUTING.md) — How to contribute
 - [CHANGELOG.md](CHANGELOG.md) — Version history
 - [SECURITY.md](SECURITY.md) — Security policy
 
 ## License
 
-MIT © tavotsu
+CC BY-NC 4.0 © tavotsu
