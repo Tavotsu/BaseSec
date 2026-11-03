@@ -2,6 +2,13 @@
 
 All notable changes to BaseSec are documented in this file.
 
+## [0.1.9] - 2026-11-03
+
+### Security
+- **Removed `fast-glob`** (replaced by `tinyglobby`) to eliminate its vulnerable transitive chain, which had no upstream remediation path:
+  - **CVE-2026-112366** (picomatch 2.3.2, high) — ReDoS via `analyzeRepeatedExtglob`
+  - **CVE-2026-93687** (braces 3.0.3, high) — uncontrolled recursion
+
 ## [0.1.8] - 2026-10-29
 
 ### Security

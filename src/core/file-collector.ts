@@ -1,4 +1,4 @@
-import fg from 'fast-glob';
+import { globSync } from 'tinyglobby';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { DEFAULT_EXTENSIONS, DEFAULT_IGNORE_PATTERNS, SENSITIVE_FILE_PATTERNS } from '../config/defaults';
@@ -53,13 +53,13 @@ export class FileCollector {
       patterns.push('**/.env', '**/.env.*');
     }
 
-    const entries = fg.sync(patterns, {
+    const entries = globSync(patterns, {
       cwd: absRoot,
       ignore: mergedIgnore,
       absolute: true,
       onlyFiles: true,
       dot: false,
-    }) as string[];
+    });
 
     const result: string[] = [];
     let skippedBySize = 0;

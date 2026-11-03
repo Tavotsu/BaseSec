@@ -51,7 +51,7 @@ node dist/index.js scan ./src
 
 ```bash
 basesec --version
-# outputs: basesec/0.1.8
+# outputs: basesec/0.1.9
 
 basesec scan --help
 ```
