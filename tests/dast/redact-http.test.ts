@@ -128,3 +128,66 @@ describe('redactHeaders', () => {
     expect(input.authorization).toBe('Basic zzz');
   });
 });
+
+describe('redactHttp endurecimiento (revisión de seguridad)', () => {
+  it('con secretos conocidos anidados redacta el largo completo (sin restos)', () => {
+    const out = redactHttp('body: tok123456789 y tok', { knownSecrets: ['tok', 'tok123456789'] });
+    expect(out).not.toContain('123456789');
+  });
+
+  it('el truncado cuenta bytes y no parte un carácter multibyte', () => {
+    const body = 'ñ'.repeat(100); // 200 bytes
+    const out = redactHttp(`HTTP/1.1 200 OK\r\n\r\n${body}`, { maxBodyBytes: 51 });
+    expect(out).toContain('…[truncado]');
+    expect(out).not.toContain('�');
+    const kept = out.split('\r\n\r\n')[1].replace(' …[truncado]', '');
+    expect(Buffer.byteLength(kept)).toBeLessThanOrEqual(51);
+    expect(kept).toBe('ñ'.repeat(25));
+  });
+
+  it('una emoji de 4 bytes en el corte no deja basura', () => {
+    const out = redactHttp(`x\n\n${'😀'.repeat(10)}`, { maxBodyBytes: 6 });
+    expect(out).not.toContain('�');
+    expect(out.startsWith('x\n\n😀 …[truncado]')).toBe(true);
+  });
+
+  it('un cuerpo hostil de varios MB no dispara el coste de las regex', () => {
+    const hostile = `x\n\n${'eyJ'.repeat(1_000_000)}${'mongodb://:'.repeat(100_000)}`;
+    const started = Date.now();
+    const out = redactHttp(hostile);
+    expect(Date.now() - started).toBeLessThan(3000);
+    expect(Buffer.byteLength(out)).toBeLessThan(8192 + 100);
+  });
+
+  it('un token que cae justo en el corte queda redactado en la parte visible', () => {
+    const jwt = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.firmaDeEjemplo123';
+    const out = redactHttp(`h: v\n\n${'a'.repeat(10)}${jwt}`, { maxBodyBytes: 30 });
+    expect(out).not.toContain('eyJhbGci');
+  });
+
+  it('un Bearer en minúsculas dentro del body se redacta', () => {
+    expect(redactHttp('x\n\nauth bearer abc.def.ghi fin')).not.toContain('abc.def.ghi');
+  });
+
+  it('credenciales en la URL (user:pass@host) se redactan y conservan el usuario y el host', () => {
+    const out = redactHttp('GET https://admin:hunter2@app.local/x HTTP/1.1');
+    expect(out).not.toContain('hunter2');
+    expect(out).toContain('admin:[REDACTED]@app.local');
+  });
+
+  it('parámetros api_key / refresh_token / client_secret se redactan; q y id no', () => {
+    const out = redactHttp('GET /s?q=hola&api_key=AAA&id=7&refresh_token=BBB&client_secret=CCC HTTP/1.1');
+    expect(out).not.toMatch(/AAA|BBB|CCC/);
+    expect(out).toContain('q=hola');
+    expect(out).toContain('id=7');
+  });
+
+  it('un id numérico largo en JSON no se redacta', () => {
+    expect(redactHttp('x\n\n{"id":12345678901234567890}')).toContain('12345678901234567890');
+  });
+
+  it('maxBodyBytes inválido (negativo o NaN) cae al valor por defecto', () => {
+    expect(redactHttp('x\n\nhola', { maxBodyBytes: -1 })).toBe('x\n\nhola');
+    expect(redactHttp('x\n\nhola', { maxBodyBytes: Number.NaN })).toBe('x\n\nhola');
+  });
+});

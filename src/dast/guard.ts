@@ -78,27 +78,62 @@ function parseIPv6(ip: string): number[] | null {
 }
 
 /** Clasifica una IP. Lo que no se puede interpretar se trata como pública (cierre por defecto). */
-function classifyIp(ip: string): IpClass {
+function classifyIp(rawIp: string): IpClass {
+  const ip = rawIp.replace(/%.*$/, ''); // quita el zone id (fe80::1%eth0)
   const v4 = canonicalIPv4(ip);
   if (v4) return classifyOctets(v4);
   if (!ip.includes(':')) return 'public';
   const groups = parseIPv6(ip);
   if (!groups) return 'public';
+  const low = [groups[6] >> 8, groups[6] & 0xff, groups[7] >> 8, groups[7] & 0xff];
   const isMapped = groups.slice(0, 5).every((group) => group === 0) && groups[5] === 0xffff;
-  if (isMapped) {
-    return classifyOctets([groups[6] >> 8, groups[6] & 0xff, groups[7] >> 8, groups[7] & 0xff]);
-  }
+  if (isMapped) return classifyOctets(low);
   if (groups.every((group) => group === 0)) return 'loopback';
   if (groups.slice(0, 7).every((group) => group === 0) && groups[7] === 1) return 'loopback';
+  // Formas que incrustan una IPv4 (compatible ::a.b.c.d, NAT64 64:ff9b::/96, 6to4 2002::/16):
+  // no se confía en ellas como locales, pero una metadata incrustada se bloquea siempre.
+  const isCompat = groups.slice(0, 6).every((group) => group === 0);
+  const isNat64 = groups[0] === 0x64 && groups[1] === 0xff9b && groups.slice(2, 6).every((group) => group === 0);
+  if (isCompat || isNat64) {
+    if (classifyOctets(low) === 'link-local') return 'link-local';
+  } else if (groups[0] === 0x2002) {
+    const embedded = [groups[1] >> 8, groups[1] & 0xff, groups[2] >> 8, groups[2] & 0xff];
+    if (classifyOctets(embedded) === 'link-local') return 'link-local';
+  }
   if ((groups[0] & 0xffc0) === 0xfe80) return 'link-local';
   if ((groups[0] & 0xfe00) === 0xfc00) return 'private';
   return 'public';
 }
 
-/** Host tal como aparece en el texto de la URL, antes de que el parser lo normalice. */
+/**
+ * Host tal como aparece en el texto de la URL, antes de que el parser lo normalice.
+ * Imita lo que hace WHATWG: quita espacios/control de los extremos y tab/CR/LF internos,
+ * trata `\\` como `/`, y el host es lo que sigue a la última `@` de la autoridad.
+ */
 function extractRawHost(url: string): string | null {
-  const match = /^[a-z][a-z0-9+.-]*:\/\/(?:[^@/?#]*@)?(\[[^\]]*\]|[^/?#:]*)/i.exec(url);
-  return match ? match[1] : null;
+  // eslint-disable-next-line no-control-regex
+  const clean = url.replace(/^[\u0000-\u0020]+|[\u0000-\u0020]+$/g, '').replace(/[\t\n\r]/g, '');
+  const match = /^[a-z][a-z0-9+.-]*:[\\/]*([^/\\?#]*)/i.exec(clean);
+  if (!match) return null;
+  const authority = match[1].slice(match[1].lastIndexOf('@') + 1);
+  if (authority.startsWith('[')) {
+    const end = authority.indexOf(']');
+    return end === -1 ? authority : authority.slice(0, end + 1);
+  }
+  const colon = authority.indexOf(':');
+  return colon === -1 ? authority : authority.slice(0, colon);
+}
+
+/** Decodifica %xx y normaliza (NFKC) como hace el parser de URL antes de interpretar el host. */
+function decodeRawHost(host: string): string {
+  let decoded = host;
+  try {
+    decoded = decodeURIComponent(host);
+  } catch {
+    // Percent-encoding inválido: se compara el texto tal cual (cierra por defecto).
+    decoded = host;
+  }
+  return decoded.normalize('NFKC').toLowerCase();
 }
 
 function isNumericLikeHost(host: string): boolean {
@@ -145,10 +180,19 @@ export class Guard {
       throw new GuardError('invalid-url', `Protocolo no soportado: ${parsed.protocol}`);
     }
     const rawHost = extractRawHost(url);
-    if (rawHost !== null && isNumericLikeHost(rawHost) && !canonicalIPv4(rawHost)) {
-      throw new GuardError('non-canonical-ip', `IPv4 no canónica en la URL: ${rawHost}`);
+    if (rawHost === null) {
+      throw new GuardError('invalid-url', `No se pudo extraer el host de: ${url}`);
     }
     const hostname = parsed.hostname.replace(/^\[|\]$/g, '');
+    const textHost = decodeRawHost(rawHost).replace(/\.$/, '');
+    // Dos redes: lo que el texto parece una IPv4 no canónica, o lo que el parser convirtió en
+    // IPv4 y no coincide con lo escrito (octal, hex, decimal, abreviada, percent-encoded...).
+    if (
+      (isNumericLikeHost(textHost) && !canonicalIPv4(textHost)) ||
+      (isIP(hostname) === 4 && textHost !== hostname)
+    ) {
+      throw new GuardError('non-canonical-ip', `IPv4 no canónica en la URL: ${rawHost}`);
+    }
     const ips = await this.resolveHost(hostname);
     return this.checkIps(hostname, ips, opts.isTTY);
   }
@@ -160,16 +204,22 @@ export class Guard {
   // Node llama al hook con la forma (hostname, options, callback) y options puede ser número u objeto.
   lookup(hostname: string, options: any, callback: (...a: any[]) => void): void {
     const wantAll = typeof options === 'object' && options !== null && options.all === true;
+    const rawFamily: unknown = typeof options === 'object' && options !== null ? options.family : options;
+    const family = rawFamily === 4 || rawFamily === 'IPv4' ? 4 : rawFamily === 6 || rawFamily === 'IPv6' ? 6 : 0;
     this.resolveHost(hostname)
-      .then((ips) => {
-        const allowed = this.checkIps(hostname, ips);
-        if (wantAll) {
-          callback(null, allowed.map((address) => ({ address, family: isIP(address) })));
-        } else {
-          callback(null, allowed[0], isIP(allowed[0]));
+      .then((ips): unknown[] => {
+        // Se valida TODA la lista devuelta por el DNS, antes de filtrar por familia.
+        const allowed = this.checkIps(hostname, ips).filter((ip) => family === 0 || isIP(ip) === family);
+        if (allowed.length === 0) {
+          throw new GuardError('dns', `El host no tiene direcciones IPv${family}: ${hostname}`);
         }
+        return wantAll
+          ? [null, allowed.map((address) => ({ address, family: isIP(address) }))]
+          : [null, allowed[0], isIP(allowed[0])];
       })
-      .catch((err: unknown) => callback(err));
+      .catch((err: unknown): unknown[] => [err])
+      // El callback se invoca fuera de la cadena de promesas: si lanza, no se llama dos veces.
+      .then((args) => process.nextTick(() => callback(...args)));
   }
 
   /** true si el método está permitido (GET/HEAD/OPTIONS siempre; el resto solo con allowMutations). */
@@ -180,14 +230,19 @@ export class Guard {
   /** Valida un Location de redirect. Devuelve false sin lanzar si no debe seguirse. */
   async canFollowRedirect(location: string, baseUrl: string): Promise<boolean> {
     try {
-      const base = new URL(baseUrl);
-      const isAbsolute = /^[a-z][a-z0-9+.-]*:/i.test(location);
-      const isProtocolRelative = /^[\\/]{2}/.test(location);
-      if (!isAbsolute && !isProtocolRelative) {
-        return true;
+      // El parser de URL ignora tab/CR/LF y espacios de los extremos: se decide sobre el texto limpio.
+      // eslint-disable-next-line no-control-regex
+      const clean = location.replace(/^[\u0000-\u0020]+|[\u0000-\u0020]+$/g, '').replace(/[\t\n\r]/g, '');
+      const resolved = new URL(clean, baseUrl);
+      const isAbsolute = /^[a-z][a-z0-9+.-]*:/i.test(clean);
+      const isProtocolRelative = /^[\\/]{2}/.test(clean);
+      if (isAbsolute || isProtocolRelative) {
+        // Se valida el texto crudo (detecta IPv4 no canónicas) ...
+        await this.assertTargetAllowed(isAbsolute ? clean : `${new URL(baseUrl).protocol}${clean.replace(/^[\\/]{2}/, '//')}`);
       }
-      const raw = isAbsolute ? location : `${base.protocol}//${location.replace(/^[\\/]{2}/, '')}`;
-      await this.assertTargetAllowed(raw);
+      // ... y siempre la URL ya resuelta, también para Location relativos (nunca cambian de host,
+      // pero así no depende de cómo se clasifique el texto).
+      await this.assertTargetAllowed(resolved.href);
       return true;
     } catch (e) {
       logger.warn(`Redirect no seguido hacia ${location}`, e);

@@ -260,3 +260,280 @@ describe('HttpClient cookie jar', () => {
     expect(res.body).toBe('');
   });
 });
+
+describe('HttpClient endurecimiento (revisión de seguridad)', () => {
+  interface Seen {
+    method?: string;
+    headers: http.IncomingHttpHeaders;
+    url?: string;
+  }
+  const startProbe = async (
+    handler: (req: http.IncomingMessage, res: http.ServerResponse) => void,
+  ): Promise<{ server: http.Server; origin: string; close: () => Promise<void> }> => {
+    const probe = http.createServer(handler);
+    await new Promise<void>((resolve) => probe.listen(0, '127.0.0.1', resolve));
+    return {
+      server: probe,
+      origin: `http://127.0.0.1:${(probe.address() as AddressInfo).port}`,
+      close: () => {
+        probe.closeAllConnections();
+        return new Promise<void>((resolve) => probe.close(() => resolve()));
+      },
+    };
+  };
+
+  it('un body identity enorme se corta en 8 MB sin acumularlo entero', async () => {
+    let sentMb = 0;
+    const big = await startProbe((_req, res) => {
+      res.writeHead(200, { 'content-type': 'text/plain' });
+      const chunk = Buffer.alloc(1024 * 1024, 0x62);
+      let sent = 0;
+      const pump = (): void => {
+        while (sent < 200) {
+          sent++;
+          sentMb = sent;
+          if (!res.write(chunk)) {
+            res.once('drain', pump);
+            return;
+          }
+        }
+        res.end();
+      };
+      res.on('close', () => {
+        sent = 200;
+      });
+      pump();
+    });
+    try {
+      const res = await makeClient().request('GET', `${big.origin}/`);
+      expect(res.status).toBe(200);
+      expect(res.bodyDecoded).toBe(true);
+      expect(Buffer.byteLength(res.body)).toBe(EIGHT_MB);
+      // El cliente cerró la conexión: el servidor no llegó a enviar los 200 MB.
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      expect(sentMb).toBeLessThan(150);
+    } finally {
+      await big.close();
+    }
+  });
+
+  it('un gzip comprimido enorme también se corta (límite de lectura) sin lanzar', async () => {
+    const probe = await startProbe((_req, res) => {
+      res.writeHead(200, { 'content-encoding': 'gzip' });
+      const gz = zlib.createGzip();
+      gz.pipe(res);
+      const chunk = Buffer.from(Array.from({ length: 1024 * 1024 }, (_v, i) => 33 + ((i * 2654435761) % 90)));
+      let n = 0;
+      const pump = (): void => {
+        while (n < 40) {
+          n++;
+          if (!gz.write(chunk)) {
+            gz.once('drain', pump);
+            return;
+          }
+        }
+        gz.end();
+      };
+      res.on('close', () => {
+        n = 40;
+      });
+      pump();
+    });
+    try {
+      const res = await makeClient().request('GET', `${probe.origin}/`);
+      expect(res.status).toBe(200);
+      expect(Buffer.byteLength(res.body)).toBeLessThanOrEqual(EIGHT_MB);
+      expect(res.body.length).toBeGreaterThan(0);
+    } finally {
+      await probe.close();
+    }
+  });
+
+  it('un redirect a otro origen NO reenvía auth, cookies ni claves (solo cabeceras inocuas)', async () => {
+    const seenB: Seen[] = [];
+    const b = await startProbe((req, res) => {
+      seenB.push({ method: req.method, headers: req.headers, url: req.url });
+      res.writeHead(200).end('b');
+    });
+    const a = await startProbe((req, res) => {
+      res.writeHead(302, { location: `${b.origin}/landing` }).end();
+    });
+    try {
+      const client = makeClient({ defaultHeaders: { authorization: 'Bearer SECRET', 'x-api-key': 'K', accept: 'text/html' } });
+      const res = await client.request('GET', `${a.origin}/go`, { headers: { cookie: 'manual=1' } });
+      expect(res.status).toBe(200);
+      expect(res.redirects).toHaveLength(1);
+      expect(seenB).toHaveLength(1);
+      const headers = seenB[0].headers;
+      expect(headers.authorization).toBeUndefined();
+      expect(headers['x-api-key']).toBeUndefined();
+      expect(headers.cookie).toBeUndefined();
+      expect(headers.accept).toBe('text/html');
+    } finally {
+      await a.close();
+      await b.close();
+    }
+  });
+
+  it('un redirect al mismo origen conserva la autenticación del usuario', async () => {
+    const seen: Seen[] = [];
+    const a = await startProbe((req, res) => {
+      seen.push({ headers: req.headers, url: req.url });
+      if (req.url === '/go') res.writeHead(302, { location: '/final' }).end();
+      else res.writeHead(200).end('ok');
+    });
+    try {
+      await makeClient({ defaultHeaders: { authorization: 'Bearer T' } }).request('GET', `${a.origin}/go`);
+      expect(seen[1].url).toBe('/final');
+      expect(seen[1].headers.authorization).toBe('Bearer T');
+    } finally {
+      await a.close();
+    }
+  });
+
+  it('302 sobre POST se degrada a GET sin body ni content-length (no cuelga al servidor)', async () => {
+    const seen: Seen[] = [];
+    const a = await startProbe((req, res) => {
+      seen.push({ method: req.method, headers: req.headers, url: req.url });
+      if (req.url === '/post') res.writeHead(302, { location: '/after' }).end();
+      else res.writeHead(200).end('done');
+    });
+    try {
+      const client = makeClient({ guard: new Guard({ allowMutations: true }) });
+      const res = await client.request('POST', `${a.origin}/post`, {
+        body: 'a=1',
+        headers: { 'content-length': '3', 'content-type': 'application/x-www-form-urlencoded' },
+      });
+      expect(res.status).toBe(200);
+      expect(seen[1].method).toBe('GET');
+      expect(seen[1].headers['content-length']).toBeUndefined();
+      expect(seen[1].headers['content-type']).toBeUndefined();
+    } finally {
+      await a.close();
+    }
+  });
+
+  it('307 con body hacia otro origen no se sigue', async () => {
+    const seenB: Seen[] = [];
+    const b = await startProbe((req, res) => {
+      seenB.push({ headers: req.headers });
+      res.writeHead(200).end();
+    });
+    const a = await startProbe((_req, res) => {
+      res.writeHead(307, { location: `${b.origin}/x` }).end();
+    });
+    try {
+      const client = makeClient({ guard: new Guard({ allowMutations: true }) });
+      const res = await client.request('POST', `${a.origin}/`, { body: 'secret=1' });
+      expect(res.status).toBe(307);
+      expect(res.redirects).toEqual([]);
+      expect(seenB).toHaveLength(0);
+    } finally {
+      await a.close();
+      await b.close();
+    }
+  });
+
+  it('un Location inválido o con esquema ajeno no se sigue ni lanza', async () => {
+    const a = await startProbe((_req, res) => {
+      res.writeHead(302, { location: 'javascript:alert(1)' }).end();
+    });
+    try {
+      const res = await makeClient().request('GET', `${a.origin}/`);
+      expect(res.status).toBe(302);
+      expect(res.redirects).toEqual([]);
+    } finally {
+      await a.close();
+    }
+  });
+
+  it('el semáforo se libera si la petición falla (concurrency 1)', async () => {
+    const dead = await startProbe((_req, res) => res.end());
+    const deadOrigin = dead.origin;
+    await dead.close();
+    const client = makeClient({ concurrency: 1 });
+    await expect(client.request('GET', `${deadOrigin}/`)).rejects.toBeDefined();
+    await expect(client.request('GET', `${deadOrigin}/`)).rejects.toBeDefined();
+    const res = await client.request('GET', `${base}/ok`);
+    expect(res.status).toBe(200);
+  });
+
+  it('el semáforo se libera tras un timeout y tras agotar el presupuesto', async () => {
+    const client = makeClient({ concurrency: 1, requestTimeout: 100, maxRequests: 3 });
+    expect((await client.request('GET', `${base}/hang`)).timedOut).toBe(true);
+    expect((await client.request('GET', `${base}/ok`)).status).toBe(200);
+    expect((await client.request('GET', `${base}/ok`)).status).toBe(200);
+    await expect(client.request('GET', `${base}/ok`)).rejects.toBeInstanceOf(BudgetExceededError);
+    await expect(client.request('GET', `${base}/ok`)).rejects.toBeInstanceOf(BudgetExceededError);
+  });
+
+  it('el presupuesto agotado se detecta antes de resolver DNS o emitir nada', async () => {
+    const client = makeClient({ maxRequests: 1 });
+    await client.request('GET', `${base}/ok`);
+    await expect(client.request('GET', 'http://no-resuelve.invalid/')).rejects.toBeInstanceOf(BudgetExceededError);
+  });
+
+  it('un timeout a mitad del body devuelve timedOut y libera el socket', async () => {
+    const slow = await startProbe((_req, res) => {
+      res.writeHead(200);
+      res.write('parcial');
+    });
+    try {
+      const res = await makeClient({ requestTimeout: 150 }).request('GET', `${slow.origin}/`);
+      expect(res.timedOut).toBe(true);
+      expect(res.status).toBe(0);
+      expect(res.body).toBe('');
+    } finally {
+      await slow.close();
+    }
+  });
+
+  it('HEAD con content-encoding gzip y sin body no es un fallo de decodificación', async () => {
+    const a = await startProbe((_req, res) => {
+      res.writeHead(200, { 'content-encoding': 'gzip' }).end();
+    });
+    try {
+      const res = await makeClient().request('HEAD', `${a.origin}/`);
+      expect(res.body).toBe('');
+      expect(res.bodyDecoded).toBe(true);
+    } finally {
+      await a.close();
+    }
+  });
+
+  it('deflate crudo sin cabecera zlib queda sin decodificar y no lanza', async () => {
+    const a = await startProbe((_req, res) => {
+      res.writeHead(200, { 'content-encoding': 'deflate' }).end(zlib.deflateRawSync(Buffer.from('crudo')));
+    });
+    try {
+      const res = await makeClient().request('GET', `${a.origin}/`);
+      expect(res.status).toBe(200);
+      expect(res.body).toBe('');
+      expect(res.bodyDecoded).toBe(false);
+    } finally {
+      await a.close();
+    }
+  });
+
+  it('un set-cookie hostil (valor con separadores o jar enorme) no envenena el jar', async () => {
+    const a = await startProbe((req, res) => {
+      if (req.url === '/echo') {
+        res.writeHead(200).end(req.headers.cookie ?? '');
+        return;
+      }
+      const many = Array.from({ length: 300 }, (_v, i) => `c${i}=v`);
+      res.writeHead(200, { 'set-cookie': ['ok=1', 'bad=a b', 'bad2=x,y', ...many] }).end();
+    });
+    try {
+      const client = makeClient();
+      await client.request('GET', `${a.origin}/set`);
+      const cookies = client.getCookies('127.0.0.1');
+      expect(cookies).toContain('ok=1');
+      expect(cookies).not.toContain('bad');
+      expect(cookies.split('; ').length).toBeLessThanOrEqual(128);
+      expect((await client.request('GET', `${a.origin}/echo`)).status).toBe(200);
+    } finally {
+      await a.close();
+    }
+  });
+});

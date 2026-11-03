@@ -15,8 +15,16 @@ interface Hop {
   status: number;
   headers: Record<string, string | string[]>;
   raw: Buffer;
+  /** true si se dejó de leer al llegar al tope de bytes (el body está incompleto). */
+  rawTruncated: boolean;
   timedOut: boolean;
 }
+
+/** Cabeceras inocuas que sí se reenvían a otro origen en un redirect. El resto (auth, cookies, claves) no. */
+const CROSS_ORIGIN_SAFE_HEADERS = new Set(['accept', 'accept-encoding', 'accept-language', 'user-agent']);
+const BODY_HEADERS = ['content-length', 'content-type', 'content-encoding', 'transfer-encoding'];
+const MAX_COOKIES_PER_HOST = 128;
+const COOKIE_TOKEN = /^[\x21-\x7e]+$/;
 
 interface Codec {
   sync: (buf: Buffer, opts: { maxOutputLength: number }) => Buffer;
@@ -37,7 +45,7 @@ function sleep(ms: number): Promise<void> {
 function normalizeHeaders(raw: http.IncomingHttpHeaders): Record<string, string | string[]> {
   const out: Record<string, string | string[]> = {};
   for (const [name, value] of Object.entries(raw)) {
-    if (value !== undefined) out[name.toLowerCase()] = value;
+    if (value !== undefined && name.toLowerCase() !== '__proto__') out[name.toLowerCase()] = value;
   }
   return out;
 }
@@ -81,9 +89,13 @@ async function decodeBody(hop: Hop): Promise<Pick<HttpResponse, 'body' | 'bodyDe
   if (hop.timedOut) {
     return { body: '', bodyDecoded: false, contentEncoding: encoding };
   }
+  if (hop.raw.length === 0) {
+    // HEAD, 204, 304...: no hay nada que decodificar aunque la cabecera declare un encoding.
+    return { body: '', bodyDecoded: true, contentEncoding: encoding };
+  }
   if (encoding === null || encoding === 'identity') {
     let raw = hop.raw;
-    if (raw.length > MAX_BODY_BYTES) {
+    if (raw.length > MAX_BODY_BYTES || hop.rawTruncated) {
       logger.warn(`Body sin comprimir truncado a ${MAX_BODY_BYTES} bytes`);
       raw = raw.subarray(0, MAX_BODY_BYTES);
     }
@@ -99,12 +111,18 @@ async function decodeBody(hop: Hop): Promise<Pick<HttpResponse, 'body' | 'bodyDe
   }
   try {
     let decoded: Buffer;
-    try {
-      decoded = codec.sync(hop.raw, { maxOutputLength: MAX_BODY_BYTES });
-    } catch (e) {
-      if (!isBufferTooLarge(e)) throw e;
-      logger.warn(`Body ${encoding} supera ${MAX_BODY_BYTES} bytes descomprimidos; truncado`);
+    if (hop.rawTruncated) {
+      // Flujo comprimido cortado por el tope de lectura: se aprovecha el prefijo decodificable.
+      logger.warn(`Body ${encoding} supera ${MAX_BODY_BYTES} bytes comprimidos; truncado`);
       decoded = await collectPrefix(hop.raw, codec.stream());
+    } else {
+      try {
+        decoded = codec.sync(hop.raw, { maxOutputLength: MAX_BODY_BYTES });
+      } catch (e) {
+        if (!isBufferTooLarge(e)) throw e;
+        logger.warn(`Body ${encoding} supera ${MAX_BODY_BYTES} bytes descomprimidos; truncado`);
+        decoded = await collectPrefix(hop.raw, codec.stream());
+      }
     }
     return { body: decoded.toString('utf8'), bodyDecoded: true, contentEncoding: encoding };
   } catch (e) {
@@ -126,6 +144,10 @@ export class HttpClient {
   private count = 0;
   private inFlight = 0;
   private readonly waiters: Array<() => void> = [];
+  // Agentes propios y sin keep-alive: no heredan NODE_USE_ENV_PROXY (que saltaría el hook lookup)
+  // ni dejan sockets ociosos manteniendo vivo el proceso.
+  private readonly httpAgent = new http.Agent({ keepAlive: false });
+  private readonly httpsAgent = new https.Agent({ keepAlive: false });
   private nextSlotAt = 0;
 
   constructor(options: HttpClientOptions) {
@@ -149,7 +171,7 @@ export class HttpClient {
   async request(method: string, url: string, opts: HttpRequestOptions = {}): Promise<HttpResponse> {
     const started = Date.now();
     const followRedirects = opts.followRedirects !== false;
-    const headers = this.buildHeaders(opts.headers);
+    let headers = this.buildHeaders(opts.headers);
     const redirects: string[] = [];
     let verb = method.toUpperCase();
     let payload = opts.body;
@@ -169,12 +191,34 @@ export class HttpClient {
         break;
       }
       if (!(await this.guard.canFollowRedirect(location, current))) break;
-      redirects.push(location);
-      current = new URL(location, current).href;
-      if (hop.status < 307 && verb !== 'GET' && verb !== 'HEAD') {
+      let next: URL;
+      try {
+        next = new URL(location.replace(/[\t\n\r]/g, '').trim(), current);
+      } catch (e) {
+        logger.warn(`Location no válido, redirect no seguido: ${location}`, e);
+        break;
+      }
+      const crossOrigin = next.origin !== new URL(current).origin;
+      const keepsBody = hop.status >= 307;
+      if (crossOrigin && keepsBody && payload !== undefined) {
+        // 307/308 exigen reenviar el body: no se reenvía a otro origen.
+        logger.warn(`Redirect ${hop.status} con body hacia otro origen no seguido: ${next.origin}`);
+        break;
+      }
+      if (crossOrigin) {
+        headers = Object.fromEntries(
+          Object.entries(headers).filter(([name]) => CROSS_ORIGIN_SAFE_HEADERS.has(name)),
+        );
+      }
+      if (!keepsBody && verb !== 'GET' && verb !== 'HEAD') {
         verb = 'GET';
         payload = undefined;
       }
+      if (payload === undefined) {
+        headers = Object.fromEntries(Object.entries(headers).filter(([name]) => !BODY_HEADERS.includes(name)));
+      }
+      redirects.push(location);
+      current = next.href;
     }
 
     const decoded = await decodeBody(hop);
@@ -193,7 +237,7 @@ export class HttpClient {
 
   /** Cookies actuales del jar para un host, en formato de cabecera cookie. */
   getCookies(host: string): string {
-    const jar = this.jar.get(host);
+    const jar = this.jar.get(host.toLowerCase());
     if (!jar) return '';
     return [...jar].map(([name, value]) => `${name}=${value}`).join('; ');
   }
@@ -218,6 +262,9 @@ export class HttpClient {
   ): Promise<Hop> {
     if (!this.guard.isMethodAllowed(verb)) {
       throw new GuardError('method-blocked', `Método ${verb} no permitido sin --allow-mutations`);
+    }
+    if (this.count >= this.maxRequests) {
+      throw new BudgetExceededError(this.maxRequests);
     }
     await this.guard.assertTargetAllowed(url);
     const target = new URL(url);
@@ -264,7 +311,7 @@ export class HttpClient {
       const onFailure = (err: unknown): void =>
         settle(() => {
           if (signal.aborted) {
-            resolve({ status: 0, headers: {}, raw: Buffer.alloc(0), timedOut: true });
+            resolve({ status: 0, headers: {}, raw: Buffer.alloc(0), rawTruncated: false, timedOut: true });
           } else {
             reject(err);
           }
@@ -276,22 +323,35 @@ export class HttpClient {
           method: verb,
           headers,
           signal,
+          agent: target.protocol === 'https:' ? this.httpsAgent : this.httpAgent,
           lookup: this.guard.lookup.bind(this.guard),
         },
         (res) => {
           const chunks: Buffer[] = [];
-          res.on('data', (chunk: Buffer) => chunks.push(chunk));
-          res.on('end', () =>
+          let total = 0;
+          const finish = (rawTruncated: boolean): void =>
             settle(() =>
               resolve({
                 status: res.statusCode ?? 0,
                 headers: normalizeHeaders(res.headers),
                 raw: Buffer.concat(chunks),
+                rawTruncated,
                 timedOut: false,
               }),
-            ),
-          );
+            );
+          res.on('data', (chunk: Buffer) => {
+            chunks.push(chunk);
+            total += chunk.length;
+            if (total > MAX_BODY_BYTES) {
+              // Tope de lectura: un servidor hostil no puede hacernos acumular un body ilimitado.
+              finish(true);
+              res.destroy();
+              req.destroy();
+            }
+          });
+          res.on('end', () => finish(false));
           res.on('error', onFailure);
+          res.on('close', () => onFailure(new Error('Conexión cerrada antes de completar la respuesta')));
         },
       );
       req.on('error', onFailure);
@@ -310,6 +370,10 @@ export class HttpClient {
       if (eq <= 0) continue;
       const name = pair.slice(0, eq).trim();
       const value = pair.slice(eq + 1).trim();
+      // Un servidor hostil no debe poder envenenar el jar con caracteres que rompan la cabecera cookie.
+      if (!COOKIE_TOKEN.test(name) || /[=;,]/.test(name) || (value !== '' && !COOKIE_TOKEN.test(value)) || /[;,]/.test(value)) {
+        continue;
+      }
       const expired = attributes.some((attribute) => {
         const maxAge = /^\s*max-age\s*=\s*(-?\d+)\s*$/i.exec(attribute);
         return maxAge !== null && Number(maxAge[1]) <= 0;
@@ -321,7 +385,7 @@ export class HttpClient {
       }
       if (expired) {
         jar.delete(name);
-      } else {
+      } else if (jar.has(name) || jar.size < MAX_COOKIES_PER_HOST) {
         jar.set(name, value);
       }
     }

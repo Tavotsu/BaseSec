@@ -250,3 +250,132 @@ describe('Guard.assertNodeSupported', () => {
     expect(() => new Guard({ allowVulnerableNode: true }).assertNodeSupported()).not.toThrow();
   });
 });
+
+describe('Guard endurecimiento (revisión de seguridad)', () => {
+  const allowAll = { allowRemote: true, allowRemoteEnv: true };
+
+  it.each(['172.16.0.1', '172.20.5.5', '172.31.255.254', '10.255.255.255', '192.168.0.1', '127.8.8.8', '0.0.0.0'])(
+    '%s es local y se permite',
+    async (ip) => {
+      await expect(new Guard().assertTargetAllowed(`http://${ip}/`)).resolves.toEqual([ip]);
+    },
+  );
+
+  it.each(['172.15.255.255', '172.32.0.0', '192.169.0.1', '11.0.0.1'])('%s queda fuera de los rangos privados', async (ip) => {
+    await expectGuardError(new Guard().assertTargetAllowed(`http://${ip}/`), 'remote-blocked');
+  });
+
+  it.each([
+    ['fc00::1'],
+    ['fd12:3456::1'],
+    ['::1'],
+    ['::'],
+  ])('IPv6 %s es local', async (ip) => {
+    await expect(new Guard({ resolver: async () => [ip] }).assertTargetAllowed('http://v6.test/')).resolves.toEqual([ip]);
+  });
+
+  it.each([['fe00::1'], ['fec0::1'], ['2001:db8::1']])('IPv6 %s no es local', async (ip) => {
+    await expectGuardError(new Guard({ resolver: async () => [ip] }).assertTargetAllowed('http://v6.test/'), 'remote-blocked');
+  });
+
+  it.each([
+    '::ffff:169.254.169.254',
+    '::ffff:a9fe:a9fe',
+    'fe80::1%eth0',
+    'febf::1',
+    '::169.254.169.254',
+    '64:ff9b::a9fe:a9fe',
+    '2002:a9fe:a9fe::1',
+  ])('%s es link-local/metadata y se bloquea incluso con allowRemote', async (ip) => {
+    const guard = new Guard({ ...allowAll, resolver: async () => [ip] });
+    await expectGuardError(guard.assertTargetAllowed('http://meta.test/', { isTTY: true }), 'link-local');
+  });
+
+  it('metadata como literal IPv6 mapeado en la URL se bloquea', async () => {
+    await expectGuardError(new Guard(allowAll).assertTargetAllowed('http://[::ffff:169.254.169.254]/', { isTTY: true }), 'link-local');
+  });
+
+  it.each([
+    'http://0177.0.0.1\\@evil.test/',
+    'http://evil.test@0x7f.0.0.1/',
+    'http://a@b@2130706433/',
+    '\thttp://0177.0.0.1/',
+    'http://%30x7f.1/',
+    'http://0x7f000001/',
+    'http://127.1./',
+    'http://0xa9.0xfe.0xa9.0xfe/',
+    'http://2852039166/',
+    'http://１２７.1/',
+  ])('IPv4 no canónica %j se rechaza', async (url) => {
+    await expectGuardError(new Guard(allowAll).assertTargetAllowed(url, { isTTY: true }), 'non-canonical-ip');
+  });
+
+  it('un nombre que empieza por dígitos pero no es numérico no es una IPv4 no canónica', async () => {
+    const guard = new Guard({ resolver: async () => ['127.0.0.1'] });
+    await expect(guard.assertTargetAllowed('http://1password.test/')).resolves.toEqual(['127.0.0.1']);
+  });
+
+  it('un nombre que resuelve a una lista mixta privada+pública se bloquea sin allowRemote', async () => {
+    const guard = new Guard({ resolver: async () => ['10.0.0.1', PUBLIC_IP] });
+    await expectGuardError(guard.assertTargetAllowed('http://mixto.test/'), 'remote-blocked');
+  });
+
+  it('lookup valida TODAS las IPs, no solo la primera (all:true y forma simple)', async () => {
+    const guard = new Guard({ resolver: async () => ['10.0.0.1', PUBLIC_IP] });
+    expect((await lookupAsync(guard, 'mixto.test', { all: true })).err).toMatchObject({ code: 'remote-blocked' });
+    expect((await lookupAsync(guard, 'mixto.test', {})).err).toMatchObject({ code: 'remote-blocked' });
+    const meta = new Guard({ ...allowAll, resolver: async () => [PUBLIC_IP, '169.254.169.254'] });
+    expect((await lookupAsync(meta, 'mixto.test', { all: true })).err).toMatchObject({ code: 'link-local' });
+  });
+
+  it('lookup respeta la familia pedida y falla si no hay direcciones de esa familia', async () => {
+    const guard = new Guard({ resolver: async () => ['::1', '127.0.0.1'] });
+    expect(await lookupAsync(guard, 'dual.test', { family: 4 })).toMatchObject({ err: null, address: '127.0.0.1', family: 4 });
+    expect(await lookupAsync(guard, 'dual.test', 6)).toMatchObject({ err: null, address: '::1', family: 6 });
+    const v4only = new Guard({ resolver: async () => ['127.0.0.1'] });
+    expect((await lookupAsync(v4only, 'v4.test', { family: 6 })).err).toMatchObject({ code: 'dns' });
+  });
+
+  it('lookup invoca el callback una sola vez aunque el callback lance', async () => {
+    const guard = new Guard({ resolver: async () => ['127.0.0.1'] });
+    const calls: number[] = [];
+    const handler = (e: Error): void => {
+      calls.push(1);
+      void e;
+    };
+    process.once('uncaughtException', handler);
+    guard.lookup('x.test', {}, () => {
+      calls.push(0);
+      throw new Error('boom en el callback');
+    });
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    process.removeListener('uncaughtException', handler);
+    expect(calls).toEqual([0, 1]);
+  });
+
+  it.each([
+    '//169.254.169.254/x',
+    '\\\\169.254.169.254/x',
+    '/\\169.254.169.254/x',
+    '/\t/169.254.169.254/x',
+    ' \thttp://169.254.169.254/',
+    'http://169.254.169.254:80/',
+    '//[::ffff:169.254.169.254]/',
+  ])('canFollowRedirect rechaza el Location %j hacia metadata', async (location) => {
+    await expect(new Guard(allowAll).canFollowRedirect(location, 'http://127.0.0.1:8080/start')).resolves.toBe(false);
+  });
+
+  it('un Location protocol-relative a un host remoto se valida (no cambia de host sin pasar por el guard)', async () => {
+    const guard = new Guard({ resolver: publicResolver });
+    await expect(guard.canFollowRedirect('//evil.test/x', 'http://127.0.0.1/')).resolves.toBe(false);
+    const allowed = new Guard({ resolver: publicResolver, ...allowAll });
+    await expect(allowed.canFollowRedirect('//evil.test/x', 'http://127.0.0.1/')).resolves.toBe(true);
+  });
+
+  it('un Location relativo con ruta rara sigue en el mismo host', async () => {
+    const resolver = vi.fn(async () => ['127.0.0.1']);
+    const guard = new Guard({ resolver });
+    await expect(guard.canFollowRedirect('../a/b?x=1#f', 'http://app.test/c/d')).resolves.toBe(true);
+    expect(resolver).toHaveBeenCalledWith('app.test');
+  });
+});

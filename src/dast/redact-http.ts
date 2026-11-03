@@ -20,7 +20,14 @@ const SENSITIVE_HEADER_NAMES = new Set([
 ]);
 const SENSITIVE_HEADER_PATTERN = /token|secret|session|api[-_]?key|password/i;
 const HEADER_LINE = /^([ \t]*)([A-Za-z0-9_-]+)([ \t]*:[ \t]*)([^\r\n]*)$/gm;
-const QUERY_SECRET = /([?&](?:access_token|token|apikey|key|password|secret|session|signature|sig)=)[^&\s#"'<>]*/gi;
+// Nombres de la lista del plan (token, key, sig...) más cualquier nombre que case con la regla de cabeceras
+// (api_key, refresh_token, client_secret...). El valor llega hasta el siguiente separador.
+const QUERY_SECRET =
+  /([?&](?:[\w.-]*(?:token|secret|session|api[-_]?key|password)[\w.-]*|key|sig|signature)=)[^&\s#"'<>]*/gi;
+const URL_USERINFO = /(\b[a-z][a-z0-9+.-]*:\/\/[^\s/:@]+:)[^\s/@]+(?=@)/gi;
+/** Margen sobre el límite del body que se procesa: acota el coste de las regex ante cuerpos hostiles. */
+const REDACTION_MARGIN_BYTES = 4096;
+const MAX_HEAD_CHARS = 65536;
 
 function unanchored(pattern: RegExp): RegExp {
   const source = pattern.source.replace(/^\^/, '').replace(/\$$/, '');
@@ -33,7 +40,7 @@ const TOKEN_PATTERNS: Array<{ regex: RegExp; replacement: string }> = [
     replacement: REDACTED,
   })),
   { regex: /eyJ[\w-]+\.[\w-]+\.[\w-]+/g, replacement: REDACTED },
-  { regex: /Bearer \S+/g, replacement: `Bearer ${REDACTED}` },
+  { regex: /Bearer\s+\S+/gi, replacement: `Bearer ${REDACTED}` },
 ];
 
 function isSensitiveHeader(name: string): boolean {
@@ -62,29 +69,54 @@ function redactHeaderValue(name: string, value: string): string {
   return REDACTED;
 }
 
-function truncateBody(text: string, maxBodyBytes: number): string {
+/** Corta a `maxBytes` bytes UTF-8 sin partir un carácter multibyte. */
+function cutUtf8(text: string, maxBytes: number): string {
+  const buf = Buffer.from(text, 'utf8');
+  if (buf.length <= maxBytes) return text;
+  let end = maxBytes;
+  while (end > 0 && (buf[end] & 0xc0) === 0x80) end--;
+  return buf.subarray(0, end).toString('utf8');
+}
+
+function splitHead(text: string): { head: string; body: string } {
   const separator = /\r?\n\r?\n/.exec(text);
   const headEnd = separator ? separator.index + separator[0].length : 0;
-  const head = text.slice(0, headEnd);
-  const body = text.slice(headEnd);
-  if (Buffer.byteLength(body, 'utf8') <= maxBodyBytes) return text;
-  const cut = Buffer.from(body, 'utf8').subarray(0, maxBodyBytes).toString('utf8');
-  return `${head}${cut} …[truncado]`;
+  return { head: text.slice(0, headEnd), body: text.slice(headEnd) };
+}
+
+function applyRedactions(text: string, knownSecrets: string[]): string {
+  let out = text.replace(HEADER_LINE, (line: string, indent: string, name: string, sep: string, value: string) =>
+    isSensitiveHeader(name) ? `${indent}${name}${sep}${redactHeaderValue(name, value)}` : line,
+  );
+  // Los más largos primero: si un secreto contiene a otro, redactar el corto antes dejaría restos del largo.
+  const secrets = [...new Set(knownSecrets)].sort((a, b) => b.length - a.length);
+  for (const secret of secrets) {
+    out = redactSecret(out, secret);
+  }
+  out = out.replace(QUERY_SECRET, (_match, prefix: string) => `${prefix}${REDACTED}`);
+  out = out.replace(URL_USERINFO, `$1${REDACTED}`);
+  for (const { regex, replacement } of TOKEN_PATTERNS) {
+    out = out.replace(regex, replacement);
+  }
+  return out;
 }
 
 /** Redacta una petición o respuesta en texto para la evidencia. */
 export function redactHttp(text: string, opts: RedactHttpOptions = {}): string {
-  let out = text.replace(HEADER_LINE, (line: string, indent: string, name: string, sep: string, value: string) =>
-    isSensitiveHeader(name) ? `${indent}${name}${sep}${redactHeaderValue(name, value)}` : line,
-  );
-  for (const secret of opts.knownSecrets ?? []) {
-    out = redactSecret(out, secret);
-  }
-  out = out.replace(QUERY_SECRET, (_match, prefix: string) => `${prefix}${REDACTED}`);
-  for (const { regex, replacement } of TOKEN_PATTERNS) {
-    out = out.replace(regex, replacement);
-  }
-  return truncateBody(out, opts.maxBodyBytes ?? DEFAULT_MAX_BODY_BYTES);
+  const requested = opts.maxBodyBytes;
+  const maxBodyBytes = requested !== undefined && requested >= 0 ? requested : DEFAULT_MAX_BODY_BYTES;
+  const { head, body } = splitHead(text);
+  // Se acota la entrada ANTES de aplicar las regex (un cuerpo de MB hostil podría disparar su coste);
+  // el margen extra evita que un token justo en el corte quede sin redactar dentro de la parte visible.
+  const boundedHead = head.length > MAX_HEAD_CHARS ? `${head.slice(0, MAX_HEAD_CHARS)} …[truncado]\n\n` : head;
+  const bodyBytes = Buffer.byteLength(body, 'utf8');
+  const boundedBody = bodyBytes > maxBodyBytes + REDACTION_MARGIN_BYTES
+    ? cutUtf8(body, maxBodyBytes + REDACTION_MARGIN_BYTES)
+    : body;
+  const redacted = applyRedactions(`${boundedHead}${boundedBody}`, opts.knownSecrets ?? []);
+  const redactedHead = splitHead(redacted);
+  if (Buffer.byteLength(redactedHead.body, 'utf8') <= maxBodyBytes && bodyBytes <= maxBodyBytes) return redacted;
+  return `${redactedHead.head}${cutUtf8(redactedHead.body, maxBodyBytes)} …[truncado]`;
 }
 
 /** Redacta solo un mapa de headers (para la evidencia estructurada). */
