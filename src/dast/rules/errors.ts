@@ -10,14 +10,24 @@ const FRAME_LOCATION = /^(?:\/|[A-Za-z]:\\|node:|file:\/\/)[^\n]*:\d+:\d+$/;
 const SCAN_LIMIT_CHARS = 262144;
 const LINE_LIMIT_CHARS = 1000;
 const SNIPPET_LIMIT_CHARS = 200;
+/** Secuencias ANSI CSI (ESC [ ... letra) y OSC (ESC ] ... BEL o ESC \). Lineales: clases de caracteres disjuntas. */
+const ANSI_CSI = /\u001b\[[0-9;?]*[ -/]*[@-~]/g;
+const ANSI_OSC = /\u001b\][^\u0007\u001b]*(?:\u0007|\u001b\\)/g;
+/** Controles C0 y C1 sueltos. Conserva \t (U+0009), \n (U+000A) y \r (U+000D). */
+const CONTROL_CHARS = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F]/g;
 
 /**
  * Normaliza formas habituales de incrustar un stack: el handler por defecto de Express usa "<br>" y "&nbsp;"
  * en una sola línea, y las respuestas JSON llevan los saltos como "\n" literal.
+ * Antes de partir en líneas se eliminan secuencias ANSI completas y controles sueltos, para que un
+ * "\u001b[2J" o un "\u0000" delante de "at" no oculte un frame. El límite de tamaño va primero.
  */
 function normalizeBody(body: string): string {
   return body
     .slice(0, SCAN_LIMIT_CHARS)
+    .replace(ANSI_CSI, '')
+    .replace(ANSI_OSC, '')
+    .replace(CONTROL_CHARS, '')
     .replace(/<br\s{0,8}\/?>/gi, '\n')
     .replace(/&nbsp;/g, ' ')
     .replace(/(?:\\r)?\\n/g, '\n');

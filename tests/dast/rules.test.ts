@@ -659,3 +659,34 @@ describe('terminal control characters in dynamic findings', () => {
     expect(findings[0].codeSnippet).toContain('at Object.<anonymous>');
   });
 });
+
+describe('DAST-006 control characters before a stack frame', () => {
+  it('detects a frame preceded by a CSI sequence and strips the whole sequence from the snippet', async () => {
+    const body = 'Error\n\u001b[2J    at Object.<anonymous> (/app/src/x.js:10:5)\n';
+    const findings = await run(DAST006, ctx([obs({ status: 500, headers: HTML, body })]));
+    expect(findings).toHaveLength(1);
+    expect(findings[0].codeSnippet).not.toContain('\u001b');
+    expect(findings[0].codeSnippet).not.toContain('[2J');
+    expect(findings[0].codeSnippet).toContain('at Object.<anonymous> (/app/src/x.js:10:5)');
+  });
+
+  it('detects a frame preceded by an OSC sequence', async () => {
+    const body = 'Error\n\u001b]0;pwned\u0007    at foo (/app/a.js:1:2)\n';
+    expect(await run(DAST006, ctx([obs({ status: 500, headers: HTML, body })]))).toHaveLength(1);
+  });
+
+  it('detects a frame preceded by a loose NUL control character', async () => {
+    const body = 'Error\n\u0000    at foo (/app/a.js:1:2)\n';
+    expect(await run(DAST006, ctx([obs({ status: 500, headers: HTML, body })]))).toHaveLength(1);
+  });
+
+  it('does not report prose with an ANSI color code and no location', async () => {
+    const body = '\u001b[31mat the moment we cannot help you\u001b[0m';
+    expect(await run(DAST006, ctx([obs({ status: 500, headers: HTML, body })]))).toHaveLength(0);
+  });
+
+  it('ignores the same hostile body when the status is 200', async () => {
+    const body = 'Error\n\u001b[2J    at Object.<anonymous> (/app/src/x.js:10:5)\n';
+    expect(await run(DAST006, ctx([obs({ status: 200, headers: HTML, body })]))).toHaveLength(0);
+  });
+});
