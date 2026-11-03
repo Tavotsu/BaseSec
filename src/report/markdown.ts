@@ -70,12 +70,28 @@ export class MarkdownFormatter implements ReportFormatter {
       const label = SEVERITY_LABELS[finding.severity] ?? finding.severity.toUpperCase();
       lines.push(`### [${label}] ${finding.ruleId}: ${finding.ruleName}`);
       lines.push('');
-      lines.push(`**File:** \`${finding.filePath}:${finding.line}\``);
+      if (finding.filePath === '' && finding.endpoint) {
+        lines.push(`**Endpoint:** \`${finding.endpoint.replace(/`/g, "'")}\``);
+      } else {
+        lines.push(`**File:** \`${finding.filePath}:${finding.line}\``);
+      }
       lines.push('');
+      if (finding.verified === true) {
+        lines.push('**Verified:** runtime');
+        lines.push('');
+      }
       lines.push('```typescript');
       lines.push(escapeMarkdownCode(finding.codeSnippet));
       lines.push('```');
       lines.push('');
+      if (finding.evidence) {
+        lines.push('**Evidence:**');
+        lines.push('');
+        lines.push('```http');
+        lines.push(escapeMarkdownCode(`${finding.evidence.request}\n${finding.evidence.response}`));
+        lines.push('```');
+        lines.push('');
+      }
       lines.push(`**Message:** ${finding.message}`);
       lines.push('');
       lines.push(`**Remedy:** ${finding.remediation}`);

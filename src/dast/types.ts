@@ -1,4 +1,6 @@
 import type { Guard } from './guard';
+import type { Finding, RuleCategory, Severity } from '../rules/types';
+import type { HttpClient } from './http';
 
 export type { Guard } from './guard';
 
@@ -68,4 +70,43 @@ export class BudgetExceededError extends Error {
     this.name = 'BudgetExceededError';
     this.limit = limit;
   }
+}
+
+export interface DastTarget {
+  /** Origen del target, sin path: "http://localhost:3000". */
+  origin: string;
+  /** true si el protocolo es https. */
+  https: boolean;
+}
+
+export interface DastObservation {
+  /** "GET /" o "GET /health". */
+  endpoint: string;
+  /** URL absoluta pedida. */
+  url: string;
+  method: string;
+  response: HttpResponse;
+}
+
+export interface DastProbeContext {
+  target: DastTarget;
+  /** Respuestas ya obtenidas (target y healthcheck en esta fase). */
+  observations: DastObservation[];
+  /** Para reglas que necesitan una petición extra (DAST-004). Pasa por guard, rate limit y budget. */
+  client: Pick<HttpClient, 'request'>;
+  /** Valores conocidos a redactar en la evidencia (cabeceras del usuario). */
+  knownSecrets: string[];
+}
+
+export interface DastRule {
+  id: string;
+  name: string;
+  description: string;
+  category: RuleCategory;
+  severity: Severity;
+  /** true = corre una vez por target; false = sobre cada observación. */
+  once: boolean;
+  mutating?: boolean;
+  optIn?: boolean;
+  probe(ctx: DastProbeContext): Promise<Finding[]>;
 }

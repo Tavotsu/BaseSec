@@ -1,5 +1,5 @@
 import pc from 'picocolors';
-import type { Finding, ScanResult, Severity } from '../rules/types';
+import type { DastEvidence, Finding, ScanResult, Severity } from '../rules/types';
 import type { ReportFormatter } from './formatter';
 
 const SEVERITY_ORDER: Severity[] = ['critical', 'high', 'medium', 'low', 'info'];
@@ -22,6 +22,25 @@ function severityToColor(severity: Severity): string {
     case 'info': return '#6b7280';
     default: return '#374151';
   }
+}
+
+/** Ubicación de un hallazgo: fichero:línea, o el endpoint si es a nivel de target. */
+function locationLabel(f: Finding): string {
+  if (f.filePath === '' && f.endpoint) return escapeHtml(f.endpoint);
+  return `${escapeHtml(f.filePath)}:${f.line}`;
+}
+
+function locationRow(f: Finding): string {
+  if (f.filePath === '' && f.endpoint) {
+    return `<tr><td><strong>Endpoint:</strong></td><td><code>${escapeHtml(f.endpoint)}</code></td></tr>`;
+  }
+  return `<tr><td><strong>File:</strong></td><td><code>${escapeHtml(f.filePath)}:${f.line}:${f.column}</code></td></tr>`;
+}
+
+/** Evidencia de una verificación runtime. Todo valor viene de un servidor potencialmente hostil: se escapa. */
+function evidenceBlock(evidence: DastEvidence): string {
+  const preStyle = 'background:#0f172a;color:#e2e8f0;padding:8px;border-radius:4px;white-space:pre-wrap;word-break:break-all;';
+  return `<details style="margin:10px 0;"><summary>Evidence (runtime)</summary><div style="margin-top:8px;"><strong>Request:</strong><pre style="${preStyle}">${escapeHtml(evidence.request)}</pre><strong>Response:</strong><pre style="${preStyle}">${escapeHtml(evidence.response)}</pre></div></details>`;
 }
 
 function severityToBadge(severity: Severity): string {
@@ -63,7 +82,7 @@ export class HtmlFormatter implements ReportFormatter {
               <td><code>${escapeHtml(f.ruleId)}</code></td>
               <td>${escapeHtml(f.ruleName)}</td>
               <td>${escapeHtml(f.category)}</td>
-              <td><a href="#finding-${i}">${escapeHtml(f.filePath)}:${f.line}</a></td>
+              <td><a href="#finding-${i}">${locationLabel(f)}</a></td>
             </tr>`;
     }).join('\n');
 
@@ -73,16 +92,16 @@ export class HtmlFormatter implements ReportFormatter {
           <div id="finding-${i}" class="finding-card" style="border-left:4px solid ${color};">
             <div class="finding-header">
               ${severityToBadge(f.severity)}
-              <span class="finding-id">${escapeHtml(f.ruleId)}: ${escapeHtml(f.ruleName)}</span>
+              <span class="finding-id">${escapeHtml(f.ruleId)}: ${escapeHtml(f.ruleName)}</span>${f.verified === true ? '<span style="background-color:#0d9488;color:#fff;padding:2px 8px;border-radius:4px;font-size:12px;font-weight:bold;">Verified (runtime)</span>' : ''}
             </div>
             <div class="finding-body">
               <table class="finding-detail">
-                <tr><td><strong>File:</strong></td><td><code>${escapeHtml(f.filePath)}:${f.line}:${f.column}</code></td></tr>
+                ${locationRow(f)}
                 <tr><td><strong>Category:</strong></td><td>${escapeHtml(f.category)}</td></tr>
                 <tr><td><strong>Confidence:</strong></td><td>${escapeHtml(f.confidence)}</td></tr>
                 <tr><td><strong>Message:</strong></td><td>${escapeHtml(f.message)}</td></tr>
               </table>
-              <div class="code-block"><pre>${escapeHtml(f.codeSnippet)}</pre></div>
+              <div class="code-block"><pre>${escapeHtml(f.codeSnippet)}</pre></div>${f.evidence ? evidenceBlock(f.evidence) : ''}
               <div class="remediation">
                 <strong>Remediation:</strong> ${escapeHtml(f.remediation)}
               </div>

@@ -17,6 +17,23 @@ export type Framework = 'express' | 'nestjs' | 'mongoose' | 'typeorm' | 'fastify
 
 export type Confidence = 'high' | 'medium' | 'low';
 
+export type FindingSource = 'static' | 'dynamic';
+
+export type CorrelationKind = 'handler' | 'import-graph' | 'agent' | 'runtime-property';
+
+export interface DastEvidence {
+  /** Método y URL absoluta, ya redactada. Ej: "GET http://localhost:3000/". */
+  request: string;
+  /** Status + headers relevantes (+ primeros bytes del body si aplica), ya redactado. */
+  response: string;
+  /** Payload enviado; '' en reglas de inspección. */
+  payload: string;
+  oracle: 'reflection' | 'sql-error' | 'timing' | 'diff' | 'redirect' | 'header' | 'agent';
+  correlation?: CorrelationKind;
+  file?: string;
+  sink?: { fn: string; filePath: string; line: number };
+}
+
 export interface Finding {
   ruleId: string;
   ruleName: string;
@@ -36,6 +53,14 @@ export interface Finding {
   aiExplanation?: string;
   aiGenerated?: boolean;
   originalConfidence?: Confidence;
+  /** Ausente = 'static'. Solo se marca explícitamente lo dinámico. */
+  source?: FindingSource;
+  /** true solo si un oráculo confirmó explotación real. */
+  verified?: boolean;
+  /** Presente cuando verified === true, o en hallazgos DAST-only. */
+  evidence?: DastEvidence;
+  /** Endpoint atacado ("GET /api/users/:id") o el origen ("http://localhost:3000") a nivel de target. */
+  endpoint?: string;
 }
 
 export interface Rule {

@@ -68,6 +68,6 @@ export class ResultStore {
 
   private getKey(finding: Finding): string {
     const snippet = normalizeSnippet(finding.codeSnippet);
-    return `${finding.ruleId}\x00${finding.filePath}\x00${finding.line}:${finding.column}\x00${snippet}`;
+    return `${finding.ruleId}\x00${finding.filePath}\x00${finding.line}:${finding.column}\x00${snippet}\x00${finding.endpoint ?? ''}`;
   }
 }
