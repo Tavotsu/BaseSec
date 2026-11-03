@@ -1,0 +1,130 @@
+import { describe, it, expect } from 'vitest';
+import { redactHttp, redactHeaders } from '../../src/dast/redact-http';
+
+const CANARY = 'BS1a2b3c4d';
+
+describe('redactHttp', () => {
+  const evidence = [
+    'GET /api/users/42?token=abc HTTP/1.1',
+    'Host: app.local',
+    'Authorization: Bearer xyz',
+    'Cookie: sid=secret',
+    'Content-Type: application/json',
+    '',
+    `{"jwt":"eyJhbGc.eyJzdWI.sig","marker":"${CANARY}"}`,
+  ].join('\n');
+
+  it('redacta cabeceras, query token, JWT y Bearer, pero conserva ruta y canario', () => {
+    const out = redactHttp(evidence);
+    expect(out).not.toContain('xyz');
+    expect(out).not.toContain('secret');
+    expect(out).not.toContain('eyJhbGc.eyJzdWI.sig');
+    expect(out).not.toContain('token=abc');
+    expect(out).toContain('/api/users/42');
+    expect(out).toContain(CANARY);
+  });
+
+  it('conserva el nombre de la cookie y redacta solo su valor', () => {
+    const out = redactHttp('Cookie: sid=secret; theme=dark');
+    expect(out).toBe('Cookie: sid=[REDACTED]; theme=[REDACTED]');
+  });
+
+  it('en set-cookie conserva el nombre y los flags', () => {
+    const out = redactHttp('Set-Cookie: sid=abc123; Path=/; HttpOnly');
+    expect(out).toBe('Set-Cookie: sid=[REDACTED]; Path=/; HttpOnly');
+  });
+
+  it('un header content-type no se redacta (caso negativo)', () => {
+    expect(redactHttp('Content-Type: application/json')).toBe('Content-Type: application/json');
+  });
+
+  it('un header x-request-id no se redacta aunque tenga un número largo', () => {
+    expect(redactHttp('X-Request-Id: 1234567890')).toBe('X-Request-Id: 1234567890');
+  });
+
+  it('redacta cualquier header cuyo nombre case con token/secret/session/password', () => {
+    expect(redactHttp('X-Csrf-Token: abcdef')).toBe('X-Csrf-Token: [REDACTED]');
+    expect(redactHttp('Session-Id: 9f8e7d')).toBe('Session-Id: [REDACTED]');
+    expect(redactHttp('X-Db-Password: hunter')).toBe('X-Db-Password: [REDACTED]');
+  });
+
+  it('x-api-key y x-auth-token se redactan', () => {
+    const out = redactHttp('X-Api-Key: zzz111\nX-Auth-Token: yyy222');
+    expect(out).toBe('X-Api-Key: [REDACTED]\nX-Auth-Token: [REDACTED]');
+  });
+
+  it('redacta el valor conocido de --header donde aparezca', () => {
+    const secret = 'mi-clave-super-secreta';
+    const out = redactHttp(`{"echo":"${secret}"}`, { knownSecrets: [secret] });
+    expect(out).not.toContain(secret);
+    expect(out).toContain('**************');
+  });
+
+  it('redacta parámetros de query sensibles y conserva los demás', () => {
+    expect(redactHttp('/api?key=AAA&page=2')).toBe('/api?key=[REDACTED]&page=2');
+    expect(redactHttp('/cb?access_token=ttt&sig=sss&id=7')).toBe(
+      '/cb?access_token=[REDACTED]&sig=[REDACTED]&id=7',
+    );
+  });
+
+  it('un path con números no se confunde con un secreto', () => {
+    const text = 'GET /api/v1/users/12345/orders/9876543210';
+    expect(redactHttp(text)).toBe(text);
+  });
+
+  it('un hex de 32 caracteres en el cuerpo no se redacta (Possible Hex Secret excluido)', () => {
+    const text = 'commit 0123456789abcdef0123456789abcdef';
+    expect(redactHttp(text)).toBe(text);
+  });
+
+  it('un token de GitHub en el cuerpo sí se redacta', () => {
+    const token = `ghp_${'a'.repeat(36)}`;
+    expect(redactHttp(`leaked ${token} here`)).toBe('leaked [REDACTED] here');
+  });
+
+  it('un Bearer en el cuerpo conserva la palabra Bearer', () => {
+    expect(redactHttp('auth was Bearer abc.def')).toBe('auth was Bearer [REDACTED]');
+  });
+
+  it('el canario BS + 8 hex nunca se redacta', () => {
+    expect(redactHttp(`payload ${CANARY} end`)).toBe(`payload ${CANARY} end`);
+  });
+
+  it('trunca el body a maxBodyBytes y lo indica', () => {
+    const body = 'x'.repeat(50);
+    const out = redactHttp(`HTTP/1.1 200 OK\n\n${body}`, { maxBodyBytes: 10 });
+    expect(out).toBe('HTTP/1.1 200 OK\n\nxxxxxxxxxx …[truncado]');
+  });
+
+  it('un body dentro del límite no se trunca', () => {
+    const text = 'HTTP/1.1 200 OK\n\nshort';
+    expect(redactHttp(text, { maxBodyBytes: 100 })).toBe(text);
+  });
+
+  it('por defecto el límite es 8192 bytes', () => {
+    const body = 'y'.repeat(9000);
+    const out = redactHttp(`HTTP/1.1 200 OK\n\n${body}`);
+    expect(out.endsWith(' …[truncado]')).toBe(true);
+    expect(out.length).toBeLessThan(9000);
+  });
+});
+
+describe('redactHeaders', () => {
+  it('redacta authorization y deja content-type intacto', () => {
+    const out = redactHeaders({ authorization: 'Bearer x', 'content-type': 'application/json' });
+    expect(out).toEqual({ authorization: '[REDACTED]', 'content-type': 'application/json' });
+  });
+
+  it('en set-cookie como array redacta cada valor y conserva flags', () => {
+    const out = redactHeaders({ 'set-cookie': ['a=1; Path=/', 'b=2'] });
+    expect(out).toEqual({ 'set-cookie': ['a=[REDACTED]; Path=/', 'b=[REDACTED]'] });
+  });
+
+  it('no altera headers no sensibles ni muta el original', () => {
+    const input = { 'x-request-id': 'abc', authorization: 'Basic zzz' };
+    const out = redactHeaders(input);
+    expect(out['x-request-id']).toBe('abc');
+    expect(out.authorization).toBe('[REDACTED]');
+    expect(input.authorization).toBe('Basic zzz');
+  });
+});
