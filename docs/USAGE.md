@@ -100,8 +100,8 @@ The `--revoke-ai-consent` flag revokes AI consent stored in `~/.basesec/ai-conse
 > most jurisdictions.
 
 `basesec dast <url>` tests a **running** application at runtime. It sends `GET` to `/` and to the
-healthcheck, then checks headers, cookies, CORS and error pages (`DAST-001` to `DAST-007`). It never
-sends injection payloads.
+healthcheck, then checks headers, cookies, CORS and error pages (`DAST-001` to `DAST-007`). These passive
+checks never send payloads. In full mode, the active injection checks described below also run.
 
 With no route surface it runs in **no-source mode**. When a route surface is available (from
 `--routes`, `--scan`, or the saved artifact described below) it runs in **full mode**: it also sends
@@ -157,7 +157,7 @@ When the run is non-interactive (CI), a remote host also needs `BASESEC_ALLOW_RE
 | `--request-timeout <ms>` | 10000 | Per-request timeout |
 | `--evidence-dir <dir>` | `~/.basesec` | Directory for evidence files (created with the first finding) |
 | `--no-evidence` | off | Do not write evidence files |
-| `--rules <ids>` | all | Comma-separated DAST rule IDs, e.g. `DAST-001,DAST-005` |
+| `--rules <ids>` | all | Comma-separated DAST rule IDs, e.g. `DAST-001,DAST-005`. Injection IDs (`DAST-011`, `DAST-101` to `DAST-105`) select the active checks |
 | `--config`, `-c` | — | Path to config file |
 | `--allow-vulnerable-node` | off | Run even if Node lacks the mandatory security patches |
 | `--format`, `-f` / `--output`, `-o` | `terminal` | Same as `scan` |
@@ -173,6 +173,36 @@ Without a route surface the output starts with a warning, and findings are repor
 at runtime", not as "secure". With `--format json`, `stats.dast.mode` is `"no-source"` or `"full"`, so
 integrations can tell a shallow check apart from a full one. Incomplete runs (request budget or timeout) say so in
 `stats.dast.incomplete` and in the summary. They do not change the exit code.
+
+### Active checks (injection)
+
+Active checks run only in **full mode** (`--routes`, `--scan`, or a saved artifact). Read this first:
+
+- **Only `GET`, `HEAD` and `OPTIONS` endpoints are attacked, and only their path and query parameters.**
+  Request bodies are never touched, and mutating endpoints (`POST`, `PUT`, `PATCH`, `DELETE`) are never
+  requested. Without a route surface there are no parameters, so nothing is injected.
+- **The payloads are non-destructive.** They are read-only queries, always-true conditions, delays of at
+  most 2 seconds, reads of well-known read-only files (`/etc/passwd`, `win.ini`) and unique canary strings.
+  No payload writes, deletes, creates or redirects output to a file. A test checks every payload in the
+  catalog against that rule.
+- Each finding is confirmed by an oracle (reflection, SQL error signature, timing with a control request,
+  response difference, or redirect to another host). Oracles with weak evidence report low confidence.
+
+| Class | Rule | Severity | Oracle |
+|---|---|---|---|
+| SQL injection | `DAST-101` | critical | SQL error signature, or timing with a control |
+| NoSQL injection (`param[$ne]=…`) | `DAST-102` | high | Stable response difference, low confidence |
+| Command injection | `DAST-103` | critical | Canary echoed in the output, or timing with a control |
+| Path traversal | `DAST-104` | critical | `/etc/passwd` or `win.ini` contents |
+| Reflected XSS | `DAST-105` | high | Unescaped canary in an HTML response |
+| Open redirect | `DAST-011` | medium | `Location` to another host that carries the canary |
+
+Each class reports at most once per endpoint. A finding names the parameter and the oracle, and lists any
+static finding of the same class at that handler as a possible origin. Select classes with
+`--rules DAST-105`, for example. The run budget (`--max-requests`) also covers the injection requests.
+At most 40 requests go to each endpoint, so an endpoint with many parameters may leave some untested. NoSQL
+operators are sent only in query parameters. A timing finding needs the delayed response twice and a zero-delay
+control that stays fast.
 
 ### Evidence
 

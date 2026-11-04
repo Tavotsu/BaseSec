@@ -21,7 +21,7 @@ export interface HttpResponse {
   redirects: string[];
   /** true si la petición se abortó por timeout. En ese caso status = 0. */
   timedOut: boolean;
-  /** Milisegundos de la petición (incluye redirects). */
+  /** Milisegundos en la red (incluye redirects; no cuenta la espera del rate limiter ni de la cola). */
   elapsedMs: number;
 }
 

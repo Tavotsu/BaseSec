@@ -413,6 +413,11 @@ export async function runDastCommand(url: string | undefined, options: DastCliOp
     if (progressTTY) process.stderr.write('\r\x1b[K');
   }
 
+  const attacked = result.stats.dast?.endpoints.attacked ?? 0;
+  if (!quiet && attacked > 0) {
+    console.error(pc.cyan(`  Sent non-destructive payloads to ${attacked} endpoint(s); mutations are off.`));
+  }
+
   if (evidence && !quiet && result.findings.length > 0 && result.stats.dast?.evidenceDir === undefined) {
     console.error(pc.yellow('  ⚠ Evidence files could not be written (run with --verbose for details).'));
   }

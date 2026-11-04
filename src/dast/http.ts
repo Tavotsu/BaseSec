@@ -18,6 +18,8 @@ interface Hop {
   /** true si se dejó de leer al llegar al tope de bytes (el body está incompleto). */
   rawTruncated: boolean;
   timedOut: boolean;
+  /** Tiempo en la red de este salto, sin la espera del rate limiter ni de la cola de concurrencia. */
+  networkMs: number;
 }
 
 /** Cabeceras inocuas que sí se reenvían a otro origen en un redirect. El resto (auth, cookies, claves) no. */
@@ -169,7 +171,7 @@ export class HttpClient {
   }
 
   async request(method: string, url: string, opts: HttpRequestOptions = {}): Promise<HttpResponse> {
-    const started = Date.now();
+    let networkMs = 0;
     const followRedirects = opts.followRedirects !== false;
     let headers = this.buildHeaders(opts.headers);
     const redirects: string[] = [];
@@ -180,6 +182,7 @@ export class HttpClient {
 
     for (;;) {
       hop = await this.sendHop(verb, current, headers, payload);
+      networkMs += hop.networkMs;
       const location = singleHeader(hop.headers, 'location');
       if (
         hop.timedOut ||
@@ -231,7 +234,8 @@ export class HttpClient {
       url: current,
       redirects,
       timedOut: hop.timedOut,
-      elapsedMs: Date.now() - started,
+      // Tiempo de red (sin la espera del rate limiter): los oráculos de retardo comparan estas medidas.
+      elapsedMs: networkMs,
     };
   }
 
@@ -284,7 +288,9 @@ export class HttpClient {
         throw new BudgetExceededError(this.maxRequests);
       }
       this.count++;
+      const sentAt = Date.now();
       const hop = await this.transmit(verb, target, hopHeaders, body);
+      hop.networkMs = Date.now() - sentAt;
       if (!hop.timedOut) this.storeCookies(target.hostname, hop.headers);
       return hop;
     } finally {
@@ -311,7 +317,7 @@ export class HttpClient {
       const onFailure = (err: unknown): void =>
         settle(() => {
           if (signal.aborted) {
-            resolve({ status: 0, headers: {}, raw: Buffer.alloc(0), rawTruncated: false, timedOut: true });
+            resolve({ status: 0, headers: {}, raw: Buffer.alloc(0), rawTruncated: false, timedOut: true, networkMs: 0 });
           } else {
             reject(err);
           }
@@ -337,6 +343,7 @@ export class HttpClient {
                 raw: Buffer.concat(chunks),
                 rawTruncated,
                 timedOut: false,
+                networkMs: 0,
               }),
             );
           res.on('data', (chunk: Buffer) => {

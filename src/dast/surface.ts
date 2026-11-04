@@ -119,6 +119,23 @@ export function isDotSegment(segment: string): boolean {
   return decoded === '.' || decoded === '..';
 }
 
+/**
+ * URL absoluta de un endpoint de la superficie, o undefined si no queda en el origen del target
+ * (plan §2: segunda barrera además de la validación del artefacto).
+ */
+export function resolveEndpointUrl(origin: string, concretePath: string): string | undefined {
+  // new URL colapsa "." y ".." (también %2e) y trata "//host" y "\\" como autoridad: se descartan antes de resolver.
+  if (!concretePath.startsWith('/') || concretePath.startsWith('//') || concretePath.includes('\\')) return undefined;
+  if (concretePath.split('/').some(isDotSegment)) return undefined;
+  try {
+    const url = new URL(concretePath, origin);
+    return url.origin === origin ? url.href : undefined;
+  } catch (e) {
+    logger.warn('Ruta de endpoint no válida', e);
+    return undefined;
+  }
+}
+
 function isRoutePath(value: unknown): value is string {
   return (
     typeof value === 'string' &&

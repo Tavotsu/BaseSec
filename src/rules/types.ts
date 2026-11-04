@@ -200,7 +200,14 @@ export interface DastStats {
   routesStale: boolean;
   readOnly: boolean;
   agent: boolean;
-  endpoints: { total: number; analyzed: number; skippedMutating: number; unresolved: number };
+  endpoints: {
+    total: number;
+    analyzed: number;
+    skippedMutating: number;
+    unresolved: number;
+    /** Endpoints a los que se envió al menos un payload de inyección (solo en modo full). */
+    attacked?: number;
+  };
   requests: number;
   incomplete?: 'budget' | 'timeout';
   /** Ausente si no se escribió evidencia (--no-evidence o ningún hallazgo). */

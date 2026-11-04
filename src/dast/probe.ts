@@ -1,5 +1,5 @@
 import * as path from 'node:path';
-import type { Confidence, Finding, Severity } from '../rules/types';
+import type { Confidence, DastEvidence, Finding, Severity } from '../rules/types';
 import type { DastObservation, DastRule } from './types';
 import { maskKnownSecrets, redactHeaders, redactHttp } from './redact-http';
 
@@ -18,6 +18,10 @@ export interface DynamicFindingArgs {
   /** Observación de la que sale la evidencia. */
   observation: DastObservation;
   knownSecrets: string[];
+  /** Payload enviado (inyección activa). Las reglas pasivas no lo pasan y la evidencia queda en ''. */
+  payload?: string;
+  /** Oráculo que decidió (inyección activa). Por defecto 'header', como en las reglas pasivas. */
+  oracle?: DastEvidence['oracle'];
 }
 
 /** C0 (salvo \t y \n) y C1. Se usa en textos multilínea. */
@@ -45,6 +49,8 @@ export function observationOf(finding: Finding): DastObservation | undefined {
 export function dynamicFinding(args: DynamicFindingArgs): Finding {
   const { rule, observation, knownSecrets } = args;
   const redactOptions = { knownSecrets };
+  // El payload no es secreto, pero si un valor de --header aparece en él se enmascara igual que el resto.
+  const payload = stripControl(maskKnownSecrets(args.payload ?? '', knownSecrets));
   const scrub = (text: string): string => redactHttp(maskKnownSecrets(text, knownSecrets), redactOptions);
 
   const headerLines: string[] = [];
@@ -89,8 +95,8 @@ export function dynamicFinding(args: DynamicFindingArgs): Finding {
     evidence: {
       request: stripControl(scrub(`${observation.method} ${observation.url}`)),
       response: stripControl(scrub(response)),
-      payload: '',
-      oracle: 'header',
+      payload,
+      oracle: args.oracle ?? 'header',
     },
   };
   FINDING_OBSERVATION.set(finding, observation);

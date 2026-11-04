@@ -49,8 +49,11 @@ function buildContent(finding: Finding, observation: DastObservation, knownSecre
   const requestLines = requestHeaderLines(observation.requestHeaders ?? {}, knownSecrets);
   const responseLines = headerLines(redactHeaders(response.headers));
 
+  // Un payload de inyección (no secreto) se documenta como comentario; las reglas pasivas no lo tienen.
+  const payloadLines = finding.evidence?.payload ? [`# payload (${finding.evidence.oracle}): ${finding.evidence.payload}`] : [];
   const head = [
     `### ${finding.ruleId} — ${observation.endpoint}`,
+    ...payloadLines,
     `${observation.method} ${observation.url} HTTP/1.1`,
     ...requestLines,
     '',
