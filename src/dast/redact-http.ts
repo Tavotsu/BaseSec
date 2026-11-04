@@ -34,11 +34,27 @@ function unanchored(pattern: RegExp): RegExp {
   return new RegExp(source, `${pattern.flags.replace('g', '')}g`);
 }
 
+/**
+ * Cadenas de conexión de SECRET_VALUE_PATTERNS: su `.+:.+@` sin ancla tiene backtracking superlineal
+ * sobre texto hostil. Se excluyen aquí (patterns.ts no cambia) y se sustituyen por CONNECTION_USERINFO.
+ */
+const CONNECTION_STRING_NAMES = new Set([
+  'MongoDB Connection String',
+  'PostgreSQL Connection String',
+  'MySQL Connection String',
+  'Redis Connection String',
+]);
+/** Userinfo de una cadena de conexión, sin backtracking: usuario sin `:` y contraseña sin `@`, `/` ni espacios. */
+const CONNECTION_USERINFO = /\b(mongodb(?:\+srv)?|postgres(?:ql)?|mysql|redis):\/\/[^\s:@/]+:[^\s@/]+@/gi;
+
 const TOKEN_PATTERNS: Array<{ regex: RegExp; replacement: string }> = [
-  ...SECRET_VALUE_PATTERNS.filter(({ name }) => name !== 'Possible Hex Secret').map(({ pattern }) => ({
+  ...SECRET_VALUE_PATTERNS.filter(
+    ({ name }) => name !== 'Possible Hex Secret' && !CONNECTION_STRING_NAMES.has(name),
+  ).map(({ pattern }) => ({
     regex: unanchored(pattern),
     replacement: REDACTED,
   })),
+  { regex: CONNECTION_USERINFO, replacement: `$1://${REDACTED}@` },
   { regex: /eyJ[\w-]+\.[\w-]+\.[\w-]+/g, replacement: REDACTED },
   { regex: /Bearer\s+\S+/gi, replacement: `Bearer ${REDACTED}` },
 ];

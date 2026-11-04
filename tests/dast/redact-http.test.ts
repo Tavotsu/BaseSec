@@ -191,3 +191,37 @@ describe('redactHttp endurecimiento (revisión de seguridad)', () => {
     expect(redactHttp('x\n\nhola', { maxBodyBytes: Number.NaN })).toBe('x\n\nhola');
   });
 });
+
+describe('redactHttp cadenas de conexión (rendimiento y userinfo)', () => {
+  it.each([
+    ['mongodb', 'mongodb://admin:s3cr3tpw@db.internal:27017/app'],
+    ['mongodb+srv', 'mongodb+srv://admin:s3cr3tpw@db.internal/app'],
+    ['postgres', 'postgres://admin:s3cr3tpw@db.internal:5432/app'],
+    ['mysql', 'mysql://admin:s3cr3tpw@db.internal:3306/app'],
+    ['redis', 'redis://admin:s3cr3tpw@db.internal:6379/0'],
+  ])('redacta el userinfo de una cadena %s y conserva esquema y host', (_name, conn) => {
+    const out = redactHttp(`{"dsn":"${conn}","marker":"${CANARY}"}`);
+    expect(out).not.toContain('s3cr3tpw');
+    expect(out).not.toContain('admin');
+    expect(out).toContain(conn.slice(0, conn.indexOf('://') + 3));
+    expect(out).toContain('db.internal');
+    expect(out).toContain(CANARY);
+  });
+
+  it('una URL normal sin credenciales no se toca', () => {
+    expect(redactHttp('GET https://example.com/path HTTP/1.1')).toBe('GET https://example.com/path HTTP/1.1');
+  });
+
+  it('un body hostil de 64 KB se redacta en menos de 150 ms y conserva el canario', () => {
+    const unit = 'mongodb://a:a';
+    const mixed = 'mongodb://a:b:c:d:e:f:g:h:i:j:k:l:m:n:o:p:q:r:s:t:u:v:w:x:y:z:';
+    const size = 64 * 1024;
+    const hostile = `HTTP/1.1 200 OK\n\n${unit.repeat(size).slice(0, size)}${mixed.repeat(size).slice(0, size)}${CANARY}`;
+    // maxBodyBytes alto para que el body completo pase por las regex (si no, se recorta antes).
+    const started = performance.now();
+    const out = redactHttp(hostile, { maxBodyBytes: 4 * size });
+    const elapsed = performance.now() - started;
+    expect(elapsed).toBeLessThan(150);
+    expect(out).toContain(CANARY);
+  });
+});
