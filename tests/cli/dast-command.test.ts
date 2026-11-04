@@ -1,5 +1,6 @@
 import * as fs from 'node:fs';
 import * as http from 'node:http';
+import * as os from 'node:os';
 import * as path from 'node:path';
 import type { AddressInfo } from 'node:net';
 import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from 'vitest';
@@ -11,6 +12,8 @@ vi.mock('prompts', () => ({ default: vi.fn() }));
 let server: http.Server;
 let url: string;
 let workDir: string;
+let fakeHome: string;
+let previousHome: string | undefined;
 
 beforeAll(async () => {
   server = http.createServer((req, res) => {
@@ -33,12 +36,19 @@ afterAll(async () => {
 beforeEach(() => {
   // Un directorio dentro del cwd: así la salida no pide confirmación y se limpia al terminar.
   workDir = fs.mkdtempSync(path.join(process.cwd(), 'basesec-dast-cli-'));
+  // HOME temporal: el artefacto de rutas por defecto (~/.basesec/routes) del repo no puede cambiar el modo de estos tests.
+  previousHome = process.env.HOME;
+  fakeHome = fs.mkdtempSync(path.join(os.tmpdir(), 'basesec-dast-home-'));
+  process.env.HOME = fakeHome;
   vi.spyOn(console, 'error').mockImplementation(() => {});
   vi.spyOn(console, 'log').mockImplementation(() => {});
 });
 
 afterEach(() => {
   vi.restoreAllMocks();
+  if (previousHome === undefined) delete process.env.HOME;
+  else process.env.HOME = previousHome;
+  fs.rmSync(fakeHome, { recursive: true, force: true });
   fs.rmSync(workDir, { recursive: true, force: true });
 });
 

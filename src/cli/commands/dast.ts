@@ -8,7 +8,12 @@ import { Guard } from '../../dast/guard';
 import { DastConfigError, expandEnvHeaders, parseHeaderFlag } from '../../dast/config';
 import { DastTargetUnreachableError, runDast } from '../../dast/runner';
 import { GuardError } from '../../dast/types';
+import { RouteArtifactError, isArtifactStale, loadRouteArtifact, toSurfaceEndpoints } from '../../dast/surface';
+import type { LoadedSurface } from '../../dast/surface';
+import { Pipeline } from '../../core/pipeline';
+import { defaultArtifactPath, findProjectRoot } from '../../core/route-emitter';
 import type { DastConfig, OutputFormat, ScanResult, Severity, basesecConfig } from '../../rules/types';
+import type { RouteArtifact } from '../../framework/routes/types';
 import { severityGte } from '../../utils/severity';
 import { logger } from '../../utils/logger';
 import { printError } from '../output';
@@ -38,7 +43,17 @@ export interface DastCliOptions {
   /** false con --no-evidence; undefined = lo que diga la config (por defecto true). */
   evidence?: boolean;
   rules?: string;
+  /** Artefacto de rutas explícito. */
+  routes?: string;
+  /** Ruta de código de la que derivar las rutas en memoria, sin escribir nada. */
+  scan?: string;
 }
+
+const SURFACE_LABEL: Record<LoadedSurface['source'], string> = {
+  artifact: 'saved artifact',
+  scan: 'scan',
+  'routes-file': 'routes file',
+};
 
 const DEFAULTS = {
   rps: 20,
@@ -112,8 +127,80 @@ function printRemoteBlocked(hostname: string, origin: string): void {
   console.error(`    If you are authorized:  basesec dast ${origin} --allow-remote`);
 }
 
+function loadSurfaceFile(file: string): RouteArtifact {
+  try {
+    return loadRouteArtifact(path.resolve(file));
+  } catch (e) {
+    if (e instanceof RouteArtifactError) throw new DastConfigError(e.message);
+    throw e;
+  }
+}
+
 /**
- * Comando `basesec dast <url>` en modo sin código fuente. Devuelve el exit code:
+ * Superficie de ataque (plan §5.3, §9.1): `--routes`, `--scan`, o el artefacto por defecto del proyecto.
+ * Un error en `--routes` o `--scan` es de configuración (exit 3). Un artefacto por defecto inválido
+ * se ignora con aviso. Sin nada de eso, undefined (modo sin código fuente).
+ */
+async function resolveSurface(options: DastCliOptions, quiet: boolean): Promise<LoadedSurface | undefined> {
+  if (options.routes !== undefined) {
+    if (options.routes.trim() === '') throw new DastConfigError('--routes needs a file path');
+    const artifact = loadSurfaceFile(options.routes);
+    return { artifact, source: 'routes-file', stale: isArtifactStale(artifact) };
+  }
+
+  if (options.scan !== undefined) {
+    if (options.scan.trim() === '') throw new DastConfigError('--scan needs a path');
+    const scanPath = path.resolve(options.scan);
+    if (!fs.existsSync(scanPath)) throw new DastConfigError(`--scan path does not exist: ${options.scan}`);
+    let result: ScanResult;
+    try {
+      // noCache: la caché de análisis escribe en ~/.basesec/cache, y --scan no escribe nada en disco.
+      // noDeps: el artefacto ignora los hallazgos de dependencias.
+      result = await new Pipeline(undefined, { noCache: true }).run(scanPath, { emitRoutes: true, noDeps: true });
+    } catch (e) {
+      throw new DastConfigError(`Could not build routes from ${options.scan}: ${e instanceof Error ? e.message : String(e)}`);
+    }
+    if (!result.routes) throw new DastConfigError(`Could not build routes from ${options.scan}`);
+    // Recién generado a partir del código actual: nunca está obsoleto.
+    return { artifact: result.routes, source: 'scan', stale: false };
+  }
+
+  const defaultFile = defaultArtifactPath(findProjectRoot(process.cwd()));
+  if (!fs.existsSync(defaultFile)) return undefined;
+  try {
+    const artifact = loadRouteArtifact(defaultFile);
+    return { artifact, source: 'artifact', stale: isArtifactStale(artifact) };
+  } catch (e) {
+    if (!(e instanceof RouteArtifactError)) throw e;
+    if (!quiet) {
+      console.error(pc.yellow(`  ⚠ Saved route artifact ignored: ${e.message}`));
+    }
+    return undefined;
+  }
+}
+
+function printSurfaceNotices(surface: LoadedSurface): void {
+  const endpoints = toSurfaceEndpoints(surface.artifact);
+  const mutating = endpoints.filter((endpoint) => endpoint.mutating).length;
+  console.error(
+    pc.cyan(
+      `  Routes: ${surface.artifact.routes.length} from ${SURFACE_LABEL[surface.source]} · ${surface.artifact.unresolved.length} unresolved`,
+    ),
+  );
+  if (mutating > 0) {
+    console.error(
+      pc.blue(
+        `  ℹ ${mutating} of ${endpoints.length} endpoints skipped (POST/PUT/PATCH/DELETE). Mutation testing is not available yet.`,
+      ),
+    );
+  }
+  if (surface.stale) {
+    console.error(pc.yellow('  ⚠ The route artifact is older than the source code; re-run basesec scan --emit-routes.'));
+  }
+}
+
+/**
+ * Comando `basesec dast <url>`. Sin superficie es el modo sin código fuente. Devuelve el exit code:
  * 0 sin hallazgos (o con hallazgos sin --strict), 1 hallazgos con --strict,
  * 2 target inalcanzable o error inesperado, 3 configuración, validación o barandillas.
  */
@@ -122,6 +209,11 @@ export async function runDastCommand(url: string | undefined, options: DastCliOp
     logger.isVerbose = true;
   }
   const quiet = options.quiet === true;
+
+  if (options.routes !== undefined && options.scan !== undefined) {
+    printError('--routes and --scan cannot be used together');
+    return 3;
+  }
 
   let fileConfig: Partial<basesecConfig> = {};
   if (options.config) {
@@ -253,9 +345,25 @@ export async function runDastCommand(url: string | undefined, options: DastCliOp
     }
   }
 
+  // Después de la confirmación de host y antes de cualquier petición al target.
+  let surface: LoadedSurface | undefined;
+  try {
+    surface = await resolveSurface(options, quiet);
+  } catch (e) {
+    if (e instanceof DastConfigError) {
+      printError(safe(e.message));
+      return 3;
+    }
+    throw e;
+  }
+
   if (!quiet) {
-    console.error(pc.yellow('  ⚠ No source code: no routes to attack.'));
-    console.error(pc.yellow('    Only headers, cookies and errors of / and the healthcheck are checked.'));
+    if (surface) {
+      printSurfaceNotices(surface);
+    } else {
+      console.error(pc.yellow('  ⚠ No source code: no routes to attack.'));
+      console.error(pc.yellow('    Only headers, cookies and errors of / and the healthcheck are checked.'));
+    }
   }
 
   const progressTTY = !quiet && process.stderr.isTTY === true;
@@ -273,6 +381,7 @@ export async function runDastCommand(url: string | undefined, options: DastCliOp
   try {
     result = await runDast({
       url: target,
+      surface,
       health,
       headers,
       allowRemote: allowRemoteRequested,

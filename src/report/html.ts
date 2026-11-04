@@ -30,11 +30,17 @@ function locationLabel(f: Finding): string {
   return `${escapeHtml(f.filePath)}:${f.line}`;
 }
 
+function endpointRow(endpoint: string): string {
+  return `<tr><td><strong>Endpoint:</strong></td><td><code>${escapeHtml(endpoint)}</code></td></tr>`;
+}
+
+/** Filas de ubicación: el endpoint solo (hallazgo a nivel de target) o fichero y, si lo hay, endpoint. */
 function locationRow(f: Finding): string {
   if (f.filePath === '' && f.endpoint) {
-    return `<tr><td><strong>Endpoint:</strong></td><td><code>${escapeHtml(f.endpoint)}</code></td></tr>`;
+    return endpointRow(f.endpoint);
   }
-  return `<tr><td><strong>File:</strong></td><td><code>${escapeHtml(f.filePath)}:${f.line}:${f.column}</code></td></tr>`;
+  const fileRow = `<tr><td><strong>File:</strong></td><td><code>${escapeHtml(f.filePath)}:${f.line}:${f.column}</code></td></tr>`;
+  return f.endpoint ? fileRow + endpointRow(f.endpoint) : fileRow;
 }
 
 /** Evidencia de una verificación runtime. Todo valor viene de un servidor potencialmente hostil: se escapa. */

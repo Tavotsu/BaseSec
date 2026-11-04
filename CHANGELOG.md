@@ -6,6 +6,7 @@ All notable changes to BaseSec are documented in this file.
 
 ### Added
 - **`basesec dast <url>`**: runtime testing of a running application, in no-source mode. It checks `/` and the healthcheck with `GET` only and never sends injection payloads. Options cover allowlisted targets (`--allow-remote` with typed host confirmation), rate and request budgets, per-finding redacted `.http` evidence, and `$env:` header secrets.
+- **`basesec dast --routes <file>` and `--scan <path>`**: full mode. Each route of the artifact (GET, HEAD and OPTIONS only; mutating endpoints are skipped) is requested, and cookie and stack-trace findings point to the handler's file and lines.
 - **DAST rules `DAST-001` to `DAST-007`** (headers, HSTS, CSP, CORS, cookie flags, stack traces, server banner). They are listed by `basesec rules --dast` and are not part of `scan`.
 - **`dast` section in the config file** (`basesec.config.*`, `.basesecrc`, `package.json`) with the same options as the CLI flags.
 - **`stats.dast` in reports**: JSON, SARIF (`runs[0].properties.dast`), HTML and Markdown show the DAST mode and whether the analysis was incomplete.

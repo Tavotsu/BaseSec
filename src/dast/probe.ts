@@ -1,9 +1,10 @@
+import * as path from 'node:path';
 import type { Confidence, Finding, Severity } from '../rules/types';
 import type { DastObservation, DastRule } from './types';
 import { maskKnownSecrets, redactHeaders, redactHttp } from './redact-http';
 
 export interface DynamicFindingArgs {
-  rule: Pick<DastRule, 'id' | 'name' | 'category' | 'severity'>;
+  rule: Pick<DastRule, 'id' | 'name' | 'category' | 'severity'> & Partial<Pick<DastRule, 'once'>>;
   /** Sobreescribe la severidad de la regla (DAST-004 medium para `*` con credentials). */
   severity?: Severity;
   confidence: Confidence;
@@ -54,16 +55,29 @@ export function dynamicFinding(args: DynamicFindingArgs): Finding {
   }
   const response = [`HTTP ${observation.response.status}`, ...headerLines].join('\n');
 
+  // Un hallazgo por endpoint tiene ubicación: la del handler en el artefacto (plan §4.1). Las reglas de nivel
+  // target (once: true, p. ej. cabeceras o CSP) describen la configuración del servidor, no un handler: aunque
+  // la observación venga de un endpoint, no se les asigna fichero.
+  const { route, artifactTarget } = observation;
+  const handler =
+    !rule.once && route !== undefined && artifactTarget !== undefined ? { route, artifactTarget } : undefined;
+  const location = handler
+    ? {
+        filePath: path.join(handler.artifactTarget, handler.route.filePath),
+        line: handler.route.line,
+        endLine: handler.route.endLine,
+        column: 1,
+        endColumn: 1,
+      }
+    : { filePath: '', line: 0, column: 0, endLine: 0, endColumn: 0 };
+  const endpoint = route !== undefined ? `${observation.method} ${route.path}` : args.endpoint;
+
   const finding: Finding = {
     ruleId: rule.id,
     ruleName: rule.name,
     category: rule.category,
     severity: args.severity ?? rule.severity,
-    filePath: '',
-    line: 0,
-    column: 0,
-    endLine: 0,
-    endColumn: 0,
+    ...location,
     message: stripControl(scrub(args.message)),
     codeSnippet: stripControl(scrub(args.codeSnippet), true),
     remediation: args.remediation,
@@ -71,7 +85,7 @@ export function dynamicFinding(args: DynamicFindingArgs): Finding {
     confidence: args.confidence,
     source: 'dynamic',
     verified: true,
-    endpoint: stripControl(args.endpoint, true),
+    endpoint: stripControl(endpoint, true),
     evidence: {
       request: stripControl(scrub(`${observation.method} ${observation.url}`)),
       response: stripControl(scrub(response)),

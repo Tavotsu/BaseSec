@@ -99,10 +99,14 @@ The `--revoke-ai-consent` flag revokes AI consent stored in `~/.basesec/ai-conse
 > at `169.254.169.254`, are always blocked. Testing a system without authorization is a crime in
 > most jurisdictions.
 
-`basesec dast <url>` tests a **running** application at runtime. This first version runs in
-**no-source mode**: it does not read your code, so it has no routes to attack. It sends `GET` to
-`/` and to the healthcheck, then checks headers, cookies, CORS and error pages (`DAST-001` to
-`DAST-007`). It never sends injection payloads.
+`basesec dast <url>` tests a **running** application at runtime. It sends `GET` to `/` and to the
+healthcheck, then checks headers, cookies, CORS and error pages (`DAST-001` to `DAST-007`). It never
+sends injection payloads.
+
+With no route surface it runs in **no-source mode**. When a route surface is available (from
+`--routes`, `--scan`, or the saved artifact described below) it runs in **full mode**: it also sends
+`GET`, `HEAD` and `OPTIONS` to every endpoint, and checks cookies (`DAST-005`) and stack traces
+(`DAST-006`) on each response. Such findings point to the handler's file and lines.
 
 ```bash
 # Local app, default checks
@@ -116,13 +120,33 @@ basesec dast http://localhost:3000 --header 'Authorization: Bearer $env:API_TOKE
 
 # Non-local target: requires --allow-remote and typing the host to confirm
 basesec dast https://staging.example.com --allow-remote
+
+# Full mode: routes derived from the code in memory, nothing written to disk
+basesec dast http://localhost:3000 --scan ./src
+
+# Full mode with an explicit route artifact
+basesec dast http://localhost:3000 --routes ./routes.json
 ```
+
+**Where the route surface comes from.** `--routes <file>` uses that artifact; it is an error if the
+file is missing or invalid, and nothing is sent. `--scan <path>` analyzes the code with the normal
+project configuration and keeps the routes in memory; it writes nothing to disk. `--routes` and
+`--scan` cannot be used together. Without either flag, BaseSec looks for the artifact saved by
+`basesec scan <path> --emit-routes` for the project root: the nearest directory with `package.json`,
+starting from the current directory. It is stored in `~/.basesec/routes/<hash>.json`. An invalid saved
+artifact is ignored with a warning. Use `--routes` or `--scan` when the directory where you run
+`dast` is not the project root, for example in a monorepo.
+
+Endpoints with a mutating method (`POST`, `PUT`, `PATCH`, `DELETE`) are never requested: they are
+counted and skipped. Mutation testing is not available yet.
 
 When the run is non-interactive (CI), a remote host also needs `BASESEC_ALLOW_REMOTE=1`.
 `allowRemote` in the config file is not enough on its own.
 
 | Flag | Default | Description |
 |---|---|---|
+| `--routes <file>` | saved artifact | Route artifact to test in full mode. Invalid or missing file: exit 3, no request is sent |
+| `--scan <path>` | — | Derive the routes from this code path in memory (full mode). Cannot be combined with `--routes` |
 | `--health <path>` | `/` | Healthcheck path, observed in addition to `/` |
 | `--header <header>` | — | Request header `"Name: value"`, repeatable. Overrides the same header from the config (case-insensitive) |
 | `--allow-remote` | off | Allow non-local targets. Requires typing the host, or `BASESEC_ALLOW_REMOTE=1` without a terminal |
@@ -143,11 +167,11 @@ When the run is non-interactive (CI), a remote host also needs `BASESEC_ALLOW_RE
 
 Progress is printed to stderr, so `basesec dast <url> -f json > out.json` stays valid JSON.
 
-### No-source mode
+### No-source mode and full mode
 
-The output starts with a warning. Findings are reported as "no confirmed at runtime", not as
-"secure". With `--format json`, `stats.dast.mode` is `"no-source"`, so integrations can tell a
-shallow check apart from a full one. Incomplete runs (request budget or timeout) say so in
+Without a route surface the output starts with a warning, and findings are reported as "no confirmed
+at runtime", not as "secure". With `--format json`, `stats.dast.mode` is `"no-source"` or `"full"`, so
+integrations can tell a shallow check apart from a full one. Incomplete runs (request budget or timeout) say so in
 `stats.dast.incomplete` and in the summary. They do not change the exit code.
 
 ### Evidence

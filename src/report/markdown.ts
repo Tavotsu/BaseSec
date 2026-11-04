@@ -79,6 +79,9 @@ export class MarkdownFormatter implements ReportFormatter {
         lines.push(`**Endpoint:** \`${finding.endpoint.replace(/`/g, "'")}\``);
       } else {
         lines.push(`**File:** \`${finding.filePath}:${finding.line}\``);
+        if (finding.endpoint) {
+          lines.push(`**Endpoint:** \`${finding.endpoint.replace(/`/g, "'")}\``);
+        }
       }
       lines.push('');
       if (finding.verified === true) {

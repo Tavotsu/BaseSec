@@ -144,6 +144,8 @@ export async function main(): Promise<void> {
     .option('--evidence-dir <dir>', 'Where to write .http evidence (default: ~/.basesec)')
     .option('--no-evidence', 'Do not write evidence files')
     .option('--rules <ids>', 'Comma-separated DAST rule IDs')
+    .option('--routes <file>', 'Route artifact to test (default: ~/.basesec/routes/<hash>.json)')
+    .option('--scan <path>', 'Derive routes from this code path in memory (nothing is written)')
     .option('--config <path>, -c', 'Path to config file')
     .option('--allow-vulnerable-node', 'Run even if Node lacks mandatory security patches')
     .option('--format <format>, -f', 'Output format: terminal|json|sarif|html|markdown', { default: 'terminal' })
@@ -199,6 +201,9 @@ export async function main(): Promise<void> {
           // cac pone evidence=true por defecto: solo --no-evidence cuenta como flag explícito (la config decide el resto).
           evidence: options.evidence === false ? false : undefined,
           rules: options.rules,
+          // cac entrega `true` si el flag no lleva valor; el comando lo rechaza con exit 3.
+          routes: options.routes === undefined ? undefined : typeof options.routes === 'string' ? options.routes : '',
+          scan: options.scan === undefined ? undefined : typeof options.scan === 'string' ? options.scan : '',
         });
         process.exit(exitCode);
       } catch (e) {

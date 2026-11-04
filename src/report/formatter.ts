@@ -100,6 +100,9 @@ class TerminalFormatter implements ReportFormatter {
         lines.push(pc.gray(`    Endpoint: ${finding.endpoint}`));
       } else {
         lines.push(pc.gray(`    File: ${finding.filePath}:${finding.line}`));
+        if (finding.endpoint) {
+          lines.push(pc.gray(`    Endpoint: ${finding.endpoint}`));
+        }
       }
       if (finding.codeSnippet) {
         lines.push(pc.white(`    Code: ${finding.codeSnippet}`));

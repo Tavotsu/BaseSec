@@ -1,6 +1,7 @@
 import type { Guard } from './guard';
 import type { Finding, RuleCategory, Severity } from '../rules/types';
 import type { HttpClient } from './http';
+import type { ExtractedRoute } from '../framework/routes/types';
 
 export type { Guard } from './guard';
 
@@ -88,6 +89,10 @@ export interface DastObservation {
   response: HttpResponse;
   /** Cabeceras que envió el usuario (sin redactar). Solo para la evidencia. */
   requestHeaders?: Record<string, string>;
+  /** Ruta del artefacto que originó esta petición (solo endpoints de la superficie). */
+  route?: ExtractedRoute;
+  /** Raíz absoluta del artefacto: base de la ubicación del handler. */
+  artifactTarget?: string;
 }
 
 export interface DastProbeContext {

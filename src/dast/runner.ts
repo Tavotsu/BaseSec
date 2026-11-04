@@ -7,6 +7,8 @@ import { observationOf } from './probe';
 import { BudgetExceededError, GuardError } from './types';
 import type { DastObservation, DastProbeContext, DastRule } from './types';
 import type { HttpResponse, HttpRequestOptions } from './types';
+import { isDotSegment, toSurfaceEndpoints } from './surface';
+import type { LoadedSurface, SurfaceEndpoint } from './surface';
 import { ResultStore } from '../core/result-store';
 import type { DastStats, Finding, ScanResult } from '../rules/types';
 import { logger } from '../utils/logger';
@@ -27,6 +29,8 @@ export interface DastRunOptions {
   evidence?: boolean;            // default true
   evidenceDir?: string;
   rules?: string[];              // filtro de IDs DAST
+  /** Superficie de ataque (artefacto de rutas). Sin ella, solo se observan `/` y el healthcheck. */
+  surface?: LoadedSurface;
   onProgress?: (event: { done: number; total: number; requests: number; label: string }) => void;
   /** Inyección para tests. */
   resolver?: (hostname: string) => Promise<string[]>;
@@ -75,6 +79,23 @@ function collectSecrets(headers: Record<string, string>): string[] {
   return [...secrets];
 }
 
+/**
+ * URL absoluta de un endpoint de la superficie, o undefined si no queda en el origen del target
+ * (plan §2: segunda barrera además de la validación del artefacto).
+ */
+export function resolveEndpointUrl(origin: string, concretePath: string): string | undefined {
+  // new URL colapsa "." y ".." (también %2e) y trata "//host" y "\\" como autoridad: se descartan antes de resolver.
+  if (!concretePath.startsWith('/') || concretePath.startsWith('//') || concretePath.includes('\\')) return undefined;
+  if (concretePath.split('/').some(isDotSegment)) return undefined;
+  try {
+    const url = new URL(concretePath, origin);
+    return url.origin === origin ? url.href : undefined;
+  } catch (e) {
+    logger.warn('Ruta de endpoint no válida', e);
+    return undefined;
+  }
+}
+
 function selectRules(ids: string[] | undefined): DastRule[] {
   const byId = (a: DastRule, b: DastRule): number => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
   const wanted = (ids ?? []).map((id) => id.trim().toUpperCase()).filter((id) => id !== '');
@@ -90,9 +111,10 @@ function selectRules(ids: string[] | undefined): DastRule[] {
 }
 
 /**
- * Ejecuta el análisis DAST sin código fuente: GET a `/` y al healthcheck, y las reglas DAST-001…007.
- * Lanza GuardError (barandillas), DastConfigError y DastTargetUnreachableError; el resto de fallos
- * de reglas se registran con logger.warn y no detienen el análisis.
+ * Ejecuta el análisis DAST: GET a `/` y al healthcheck y las reglas DAST-001…007. Con `surface`, además
+ * GET/HEAD/OPTIONS a cada endpoint del artefacto (los mutantes se cuentan y no se piden). Lanza GuardError
+ * (barandillas), DastConfigError y DastTargetUnreachableError; el resto de fallos de reglas se registran con
+ * logger.warn y no detienen el análisis.
  */
 export async function runDast(opts: DastRunOptions): Promise<ScanResult> {
   const started = Date.now();
@@ -162,7 +184,31 @@ export async function runDast(opts: DastRunOptions): Promise<ScanResult> {
   if (healthUrl.href !== `${origin}/`) {
     targets.push({ label: `GET ${healthUrl.pathname}`, url: healthUrl.href });
   }
-  const total = targets.length + rules.length;
+
+  // Superficie: solo los endpoints de lectura se piden. Un GET que resuelve a la URL de `/` o del healthcheck
+  // no se repite: esa observación ya existe y solo se le asocia la ruta (ubicación del handler).
+  const surface = opts.surface;
+  const surfaceEndpoints = surface ? toSurfaceEndpoints(surface.artifact) : [];
+  const readOnlyEndpoints = surfaceEndpoints.filter((endpoint) => !endpoint.mutating);
+  const skippedMutating = surfaceEndpoints.length - readOnlyEndpoints.length;
+  let unresolvedEndpoints = 0;
+  const endpointRequests: Array<{ endpoint: SurfaceEndpoint; url: string }> = [];
+  const routeOfTarget = new Map<string, SurfaceEndpoint>();
+  for (const endpoint of readOnlyEndpoints) {
+    const url = resolveEndpointUrl(origin, endpoint.concretePath);
+    if (url === undefined) {
+      unresolvedEndpoints++;
+      logger.warn(`Endpoint descartado (fuera del origen del target): ${endpoint.method} ${endpoint.path}`);
+      continue;
+    }
+    if (endpoint.method === 'GET' && targets.some((target) => target.url === url)) {
+      if (!routeOfTarget.has(url)) routeOfTarget.set(url, endpoint);
+      continue;
+    }
+    endpointRequests.push({ endpoint, url });
+  }
+
+  const total = targets.length + endpointRequests.length + rules.length;
   let done = 0;
   const progress = (label: string): void => {
     done++;
@@ -184,7 +230,15 @@ export async function runDast(opts: DastRunOptions): Promise<ScanResult> {
       if (response.timedOut || response.status === 0) {
         logger.warn(`Sin respuesta de ${target.url} (tiempo agotado)`);
       } else {
-        observations.push({ endpoint: target.label, url: target.url, method: 'GET', response, requestHeaders: headers });
+        const known = routeOfTarget.get(target.url);
+        observations.push({
+          endpoint: target.label,
+          url: target.url,
+          method: 'GET',
+          response,
+          requestHeaders: headers,
+          ...(known ? { route: known.route, artifactTarget: surface?.artifact.target } : {}),
+        });
       }
     } catch (e) {
       if (budgetHit) {
@@ -205,12 +259,62 @@ export async function runDast(opts: DastRunOptions): Promise<ScanResult> {
     throw new DastTargetUnreachableError(`Target unreachable: ${origin}`);
   }
 
-  if (incomplete === undefined) {
-    const ctx: DastProbeContext = {
+  const endpointObservations: DastObservation[] = [];
+  for (const { endpoint, url } of endpointRequests) {
+    if (incomplete !== undefined) break;
+    if (Date.now() > deadline) {
+      incomplete = 'timeout';
+      break;
+    }
+    const label = `${endpoint.method} ${endpoint.path}`;
+    try {
+      const response = await trackedClient.request(endpoint.method, url);
+      if (response.timedOut || response.status === 0) {
+        logger.warn(`Sin respuesta de ${label} (tiempo agotado)`);
+      } else {
+        endpointObservations.push({
+          endpoint: label,
+          url,
+          method: endpoint.method,
+          response,
+          requestHeaders: headers,
+          route: endpoint.route,
+          artifactTarget: surface?.artifact.target,
+        });
+      }
+    } catch (e) {
+      if (budgetHit) {
+        incomplete = 'budget';
+        break;
+      }
+      if (guardFailure) throw guardFailure;
+      logger.warn(`Fallo de red al pedir ${label}`, e);
+    }
+    progress(label);
+    if (budgetHit) {
+      incomplete = 'budget';
+      break;
+    }
+  }
+
+  // Un presupuesto agotado no descarta lo ya observado, con o sin superficie: las reglas de inspección no
+  // piden nada nuevo (las que sí piden, como DAST-004, fallan sin enviar). Un timeout sí corta: pasada la
+  // fecha límite el bucle de reglas se detendría en la primera de todos modos.
+  const inspect = incomplete === undefined || incomplete === 'budget';
+  if (inspect) {
+    // Las reglas por endpoint (once: false) ven toda la superficie. Las de nivel target (once: true) ven
+    // `/`, el healthcheck y, detrás, los endpoints que respondieron sin error: así una CSP débil que solo
+    // sirve una página HTML que no es `/` no se pierde, y una página 404 de otro endpoint no genera hallazgos.
+    // `/` va primero, de modo que sigue mandando cuando existe.
+    const targetCtx: DastProbeContext = {
       target: { origin, https: parsed.protocol === 'https:' },
-      observations,
+      observations: [...observations, ...endpointObservations.filter((o) => o.response.status < 400)],
       client: trackedClient,
       knownSecrets,
+    };
+    const endpointCtx: DastProbeContext = {
+      ...targetCtx,
+      observations: [...observations, ...endpointObservations],
     };
     for (const rule of rules) {
       if (Date.now() > deadline) {
@@ -219,7 +323,7 @@ export async function runDast(opts: DastRunOptions): Promise<ScanResult> {
       }
       let produced: Finding[] = [];
       try {
-        produced = await rule.probe(ctx);
+        produced = await rule.probe(rule.once ? targetCtx : endpointCtx);
       } catch (e) {
         logger.warn(`La regla ${rule.id} falló`, e);
       }
@@ -227,10 +331,7 @@ export async function runDast(opts: DastRunOptions): Promise<ScanResult> {
       rulesRun++;
       store.addMany(produced);
       progress(rule.id);
-      if (budgetHit) {
-        incomplete = 'budget';
-        break;
-      }
+      if (budgetHit) incomplete = 'budget';
     }
   }
 
@@ -255,18 +356,36 @@ export async function runDast(opts: DastRunOptions): Promise<ScanResult> {
     if (written > 0) evidenceDir = writer.dir;
   }
 
-  const dast: DastStats = {
-    target: origin,
-    mode: 'no-source',
-    routesSource: 'none',
-    routesStale: false,
-    readOnly: true,
-    agent: false,
-    endpoints: { total: targets.length, analyzed: observations.length, skippedMutating: 0, unresolved: 0 },
-    requests: client.requestCount,
-    ...(incomplete !== undefined ? { incomplete } : {}),
-    ...(evidenceDir !== undefined ? { evidenceDir } : {}),
-  };
+  const dast: DastStats = surface
+    ? {
+        target: origin,
+        mode: 'full',
+        routesSource: surface.source,
+        routesStale: surface.stale,
+        readOnly: true,
+        agent: false,
+        endpoints: {
+          total: surfaceEndpoints.length,
+          analyzed: endpointObservations.length + observations.filter((o) => o.route !== undefined).length,
+          skippedMutating,
+          unresolved: surface.artifact.unresolved.length + unresolvedEndpoints,
+        },
+        requests: client.requestCount,
+        ...(incomplete !== undefined ? { incomplete } : {}),
+        ...(evidenceDir !== undefined ? { evidenceDir } : {}),
+      }
+    : {
+        target: origin,
+        mode: 'no-source',
+        routesSource: 'none',
+        routesStale: false,
+        readOnly: true,
+        agent: false,
+        endpoints: { total: targets.length, analyzed: observations.length, skippedMutating: 0, unresolved: 0 },
+        requests: client.requestCount,
+        ...(incomplete !== undefined ? { incomplete } : {}),
+        ...(evidenceDir !== undefined ? { evidenceDir } : {}),
+      };
 
   return {
     findings,
