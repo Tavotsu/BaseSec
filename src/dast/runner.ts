@@ -5,6 +5,8 @@ import { createEvidenceWriter } from './evidence';
 import { DastConfigError, expandEnvHeaders } from './config';
 import { observationOf } from './probe';
 import { INJECTION_RULE_IDS, runInjection } from './inject';
+import { ACTIVE_RULE_IDS, pickRateLimitTarget, runAuthCheck, runRateLimitCheck } from './active-checks';
+import type { ActiveCheckContext, ActiveCheckResult, SurfaceTarget } from './active-checks';
 import { clampDelaySeconds } from './payloads';
 import type { InjectionPoint } from './inject';
 import { BudgetExceededError, GuardError } from './types';
@@ -32,7 +34,11 @@ export interface DastRunOptions {
   requestTimeout?: number;       // ms, default 10000
   evidence?: boolean;            // default true
   evidenceDir?: string;
-  rules?: string[];              // filtro de IDs DAST (pasivas e inyección)
+  rules?: string[];              // filtro de IDs DAST (pasivas, activas e inyección)
+  /** Patrones de rutas públicas para DAST-008 (dast.publicRoutes). */
+  publicRoutes?: string[];
+  /** Activa DAST-010 (--probe-rate-limit o dast.probeRateLimit). Apagada por defecto. */
+  probeRateLimit?: boolean;
   /** Segundos del payload de delay de la inyección activa (1 o 2). Por defecto 2; los tests lo bajan. */
   injectionDelaySeconds?: number;
   /** Superficie de ataque (artefacto de rutas). Sin ella, solo se observan `/` y el healthcheck. */
@@ -93,7 +99,7 @@ function normalizeRuleIds(ids: string[] | undefined): string[] {
 function selectRules(wanted: string[]): DastRule[] {
   const byId = (a: DastRule, b: DastRule): number => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
   if (wanted.length === 0) return [...ALL_DAST_RULES].sort(byId);
-  const known = new Set([...ALL_DAST_RULES.map((rule) => rule.id), ...INJECTION_RULE_IDS]);
+  const known = new Set([...ALL_DAST_RULES.map((rule) => rule.id), ...ACTIVE_RULE_IDS, ...INJECTION_RULE_IDS]);
   const unknown = wanted.filter((id) => !known.has(id));
   if (unknown.length > 0) {
     throw new DastConfigError(
@@ -138,6 +144,13 @@ export async function runDast(opts: DastRunOptions): Promise<ScanResult> {
   // undefined = inyección con todas sus reglas; si --rules solo nombra reglas pasivas, la inyección no corre.
   const injectionRules =
     wantedRules.length === 0 ? undefined : wantedRules.filter((id) => INJECTION_RULE_IDS.includes(id));
+  // DAST-008 (sin superficie no hay rutas) y DAST-010 (opt-in). --rules sin DAST-010 no la activa por sí solo.
+  const authWanted = wantedRules.length === 0 || wantedRules.includes('DAST-008');
+  const rateWanted = wantedRules.length === 0 || wantedRules.includes('DAST-010');
+  const rateEnabled = opts.probeRateLimit === true && rateWanted;
+  if (wantedRules.includes('DAST-010') && opts.probeRateLimit !== true) {
+    logger.warn('DAST-010 no corre sin --probe-rate-limit (o dast.probeRateLimit)');
+  }
 
   const client = new HttpClient({
     guard,
@@ -179,6 +192,25 @@ export async function runDast(opts: DastRunOptions): Promise<ScanResult> {
     },
   });
   const trackedClient = trackClient(true);
+  // Las comprobaciones activas usan un cliente sin registro: su evidencia sale de la observación que devuelven, con las
+  // cabeceras que realmente enviaron (la del DAST-008 no lleva credenciales).
+  const activeContext = (): ActiveCheckContext => ({
+    client: trackClient(false),
+    requestHeaders: headers,
+    knownSecrets,
+    artifactTarget: surface?.artifact.target,
+    publicRoutes: opts.publicRoutes ?? [],
+    deadlineReached: () => Date.now() > deadline,
+  });
+  const mergeIncomplete = (
+    current: DastStats['incomplete'],
+    outcome: ActiveCheckResult,
+    budgetSeen: boolean,
+  ): DastStats['incomplete'] => {
+    if (budgetSeen || outcome.incomplete === 'budget') return 'budget';
+    if (current !== undefined) return current;
+    return outcome.incomplete;
+  };
 
   const targets: Array<{ label: string; url: string }> = [{ label: 'GET /', url: `${origin}/` }];
   if (healthUrl.href !== `${origin}/`) {
@@ -194,7 +226,7 @@ export async function runDast(opts: DastRunOptions): Promise<ScanResult> {
   let unresolvedEndpoints = 0;
   const endpointRequests: Array<{ endpoint: SurfaceEndpoint; url: string }> = [];
   const routeOfTarget = new Map<string, SurfaceEndpoint>();
-  const resolvedReadOnly: SurfaceEndpoint[] = [];
+  const resolvedReadOnly: SurfaceTarget[] = [];
   for (const endpoint of readOnlyEndpoints) {
     const url = resolveEndpointUrl(origin, endpoint.concretePath);
     if (url === undefined) {
@@ -202,7 +234,7 @@ export async function runDast(opts: DastRunOptions): Promise<ScanResult> {
       logger.warn(`Endpoint descartado (fuera del origen del target): ${endpoint.method} ${endpoint.path}`);
       continue;
     }
-    resolvedReadOnly.push(endpoint);
+    resolvedReadOnly.push({ endpoint, url });
     if (endpoint.method === 'GET' && targets.some((target) => target.url === url)) {
       if (!routeOfTarget.has(url)) routeOfTarget.set(url, endpoint);
       continue;
@@ -210,7 +242,8 @@ export async function runDast(opts: DastRunOptions): Promise<ScanResult> {
     endpointRequests.push({ endpoint, url });
   }
 
-  const total = targets.length + endpointRequests.length + rules.length;
+  const activeSlots = (surface && authWanted ? 1 : 0) + (rateEnabled ? 1 : 0);
+  const total = targets.length + endpointRequests.length + rules.length + activeSlots;
   let done = 0;
   const progress = (label: string): void => {
     done++;
@@ -335,6 +368,15 @@ export async function runDast(opts: DastRunOptions): Promise<ScanResult> {
       progress(rule.id);
       if (budgetHit) incomplete = 'budget';
     }
+
+    // DAST-008: solo con superficie. Va antes de la inyección: sus peticiones son pocas y no dependen de ella.
+    if (surface && authWanted && incomplete === undefined) {
+      const outcome = await runAuthCheck(resolvedReadOnly, [...observations, ...endpointObservations], activeContext());
+      rulesRun++;
+      store.addMany(outcome.findings);
+      progress('DAST-008');
+      incomplete = mergeIncomplete(incomplete, outcome, budgetHit);
+    }
   }
 
   // Inyección activa (plan §7.5): solo con superficie, solo sobre GET/HEAD/OPTIONS y sus params de path/query, y
@@ -343,7 +385,7 @@ export async function runDast(opts: DastRunOptions): Promise<ScanResult> {
   const injectionEnabled = surface !== undefined && (injectionRules === undefined || injectionRules.length > 0);
   if (injectionEnabled && incomplete === undefined) {
     const points: InjectionPoint[] = [];
-    for (const endpoint of resolvedReadOnly) {
+    for (const { endpoint } of resolvedReadOnly) {
       for (const param of endpoint.route.params) {
         if (param.in === 'path' || param.in === 'query') points.push({ endpoint, param });
       }
@@ -366,6 +408,25 @@ export async function runDast(opts: DastRunOptions): Promise<ScanResult> {
     attackedEndpoints = outcome.attackedEndpoints;
     if (outcome.budgetExceeded || budgetHit) incomplete = 'budget';
     else if (outcome.timedOut) incomplete = 'timeout';
+  }
+
+  // DAST-010 va al final: su ráfaga de 30 peticiones no debe alterar los oráculos de la inyección.
+  if (rateEnabled && incomplete === undefined) {
+    const base = pickRateLimitTarget(
+      resolvedReadOnly,
+      [...observations, ...endpointObservations],
+      healthUrl.href,
+      `${origin}/`,
+    );
+    if (base !== undefined) {
+      const outcome = await runRateLimitCheck(base, activeContext());
+      store.addMany(outcome.findings);
+      incomplete = mergeIncomplete(incomplete, outcome, budgetHit);
+    } else {
+      logger.warn('DAST-010 omitido: el objetivo no tiene una respuesta válida sin error');
+    }
+    rulesRun++;
+    progress('DAST-010');
   }
 
   const findings = store.getFindings();

@@ -47,6 +47,8 @@ export interface DastCliOptions {
   routes?: string;
   /** Ruta de código de la que derivar las rutas en memoria, sin escribir nada. */
   scan?: string;
+  /** --probe-rate-limit: activa DAST-010. Sin el flag manda dast.probeRateLimit de la config. */
+  probeRateLimit?: boolean;
 }
 
 const SURFACE_LABEL: Record<LoadedSurface['source'], string> = {
@@ -396,6 +398,9 @@ export async function runDastCommand(url: string | undefined, options: DastCliOp
       evidence,
       evidenceDir,
       rules,
+      // Solo por config: rutas públicas a propósito que DAST-008 no debe reportar.
+      publicRoutes: dastConfig.publicRoutes,
+      probeRateLimit: options.probeRateLimit === true || dastConfig.probeRateLimit === true,
       onProgress,
     });
   } catch (e) {

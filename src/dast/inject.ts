@@ -68,7 +68,7 @@ export interface InjectionResult {
   attackedEndpoints: number;
 }
 
-interface ClassMeta {
+export interface ClassMeta {
   id: string;
   name: string;
   category: RuleCategory;
@@ -79,7 +79,8 @@ interface ClassMeta {
   remediation: string;
 }
 
-const CLASS_META: Record<InjectionClass, ClassMeta> = {
+/** Metadatos por clase. Exportado para que tests/cli/rules-dast.test.ts compruebe que el catálogo de `basesec rules` coincide. */
+export const CLASS_META: Record<InjectionClass, ClassMeta> = {
   sqli: {
     id: 'DAST-101',
     name: 'SQL injection (confirmed at runtime)',

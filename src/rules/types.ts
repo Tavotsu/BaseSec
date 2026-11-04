@@ -123,6 +123,14 @@ export interface DastConfig {
   evidence?: boolean;
   evidenceDir?: string;
   rules?: string[];
+  /**
+   * Rutas que son públicas a propósito y nunca se reportan por DAST-008. Cada patrón es una ruta del artefacto
+   * con segmentos separados por "/"; `*` casa con exactamente un segmento y el resto se compara literal (sin
+   * distinguir mayúsculas). Ejemplo: "/api/*\/status" cubre "/api/v1/status".
+   */
+  publicRoutes?: string[];
+  /** Activa DAST-010 (sonda de rate limiting, ráfaga de 30 peticiones). Equivale a --probe-rate-limit. */
+  probeRateLimit?: boolean;
 }
 
 export interface basesecConfig {

@@ -30,7 +30,24 @@ export interface HttpRequestOptions {
   body?: string | Buffer;
   /** default true. */
   followRedirects?: boolean;
+  /**
+   * Solo para la sonda de rate limiting (DAST-010): no espacia la petición según `rps`. Sigue contando para el
+   * presupuesto y pasa por el semáforo de concurrencia, el guard y el timeout. Sin esto, una ráfaga a 20 rps no
+   * prueba nada del servidor.
+   */
+  bypassRateLimit?: boolean;
+  /**
+   * Solo para la comprobación sin credenciales (DAST-008): no envía las cabeceras de credenciales de la
+   * configuración (authorization, cookie, x-api-key…) ni las cookies recibidas durante el análisis.
+   */
+  withoutCredentials?: boolean;
 }
+
+/**
+ * Nombres de cabecera que transportan credenciales. Se quitan con `withoutCredentials`. `auth` cubre authorization,
+ * proxy-authorization y x-auth-*; el resto, cookie, x-auth-token, x-session-id, x-api-key, x-secret…
+ */
+export const CREDENTIAL_HEADER = /auth|cookie|token|session|api[-_]?key|secret|credential|jwt/i;
 
 export interface HttpClientOptions {
   guard: Guard;

@@ -537,3 +537,175 @@ describe('HttpClient endurecimiento (revisión de seguridad)', () => {
     }
   });
 });
+
+describe('HttpClient bypassRateLimit y withoutCredentials', () => {
+  let echo: http.Server;
+  let echoBase: string;
+
+  beforeAll(async () => {
+    echo = http.createServer((req, res) => {
+      const url = req.url ?? '/';
+      if (url === '/echo-auth') {
+        res.writeHead(200, { 'content-type': 'application/json' });
+        res.end(JSON.stringify({ authorization: req.headers.authorization ?? null, cookie: req.headers.cookie ?? null, test: req.headers['x-test'] ?? null }));
+        return;
+      }
+      if (url === '/echo-all') {
+        res.writeHead(200, { 'content-type': 'application/json' });
+        res.end(JSON.stringify(req.headers));
+        return;
+      }
+      if (url === '/set-cookie') {
+        res.writeHead(200, { 'set-cookie': 'sid=abc; Path=/' }).end('set');
+        return;
+      }
+      if (url === '/set-guest-cookie') {
+        res.writeHead(200, { 'set-cookie': 'guest=1; Path=/' }).end('guest');
+        return;
+      }
+      res.writeHead(200).end('ok');
+    });
+    await new Promise<void>((resolve) => echo.listen(0, '127.0.0.1', resolve));
+    echoBase = `http://127.0.0.1:${(echo.address() as AddressInfo).port}`;
+  });
+
+  afterAll(async () => {
+    echo.closeAllConnections();
+    await new Promise<void>((resolve) => echo.close(() => resolve()));
+  });
+
+  it('bypassRateLimit no espacia las peticiones aunque rps sea bajo', async () => {
+    const client = makeClient({ rps: 5 });
+    const started = Date.now();
+    for (let i = 0; i < 5; i++) {
+      await client.request('GET', `${base}/ok`, { bypassRateLimit: true });
+    }
+    expect(Date.now() - started).toBeLessThan(700);
+  });
+
+  it('sin bypassRateLimit, las mismas peticiones sí se espacian según rps', async () => {
+    const client = makeClient({ rps: 5 });
+    const started = Date.now();
+    for (let i = 0; i < 5; i++) {
+      await client.request('GET', `${base}/ok`);
+    }
+    expect(Date.now() - started).toBeGreaterThanOrEqual(700);
+  });
+
+  it('bypassRateLimit sigue contando para el presupuesto', async () => {
+    const client = makeClient({ maxRequests: 2 });
+    await client.request('GET', `${base}/ok`, { bypassRateLimit: true });
+    await client.request('GET', `${base}/ok`, { bypassRateLimit: true });
+    await expect(client.request('GET', `${base}/ok`, { bypassRateLimit: true })).rejects.toBeInstanceOf(BudgetExceededError);
+    expect(client.requestCount).toBe(2);
+  });
+
+  it('withoutCredentials quita authorization y x-api-key de las cabeceras por defecto', async () => {
+    const client = makeClient({
+      defaultHeaders: { Authorization: 'Bearer SECRET', 'X-Api-Key': 'k-1', 'X-Test': 'kept' },
+    });
+    const withAuth = JSON.parse((await client.request('GET', `${echoBase}/echo-auth`)).body);
+    expect(withAuth).toEqual({ authorization: 'Bearer SECRET', cookie: null, test: 'kept' });
+
+    const anonymous = JSON.parse((await client.request('GET', `${echoBase}/echo-auth`, { withoutCredentials: true })).body);
+    expect(anonymous).toEqual({ authorization: null, cookie: null, test: 'kept' });
+  });
+
+  it('withoutCredentials no envía las cookies recibidas en el análisis', async () => {
+    const client = makeClient();
+    await client.request('GET', `${echoBase}/set-cookie`);
+    const sent = JSON.parse((await client.request('GET', `${echoBase}/echo-auth`)).body);
+    expect(sent.cookie).toBe('sid=abc');
+    const anonymous = JSON.parse((await client.request('GET', `${echoBase}/echo-auth`, { withoutCredentials: true })).body);
+    expect(anonymous.cookie).toBeNull();
+  });
+
+  it('withoutCredentials quita todas las cabeceras de credenciales, por defecto y de la petición, y deja las demás', async () => {
+    const client = makeClient({
+      defaultHeaders: {
+        Authorization: 'Bearer A',
+        'Proxy-Authorization': 'Basic B',
+        Cookie: 'c=1',
+        'X-Api-Key': 'k',
+        'X-Auth-Token': 't',
+        'X-Session-Id': 's',
+        'X-Custom-Secret': 'z',
+        'X-Test': 'kept',
+      },
+    });
+    const sent = JSON.parse(
+      (await client.request('GET', `${echoBase}/echo-all`, { withoutCredentials: true, headers: { 'X-Csrf-Token': 'q', 'X-Other': 'o' } })).body,
+    ) as Record<string, string>;
+    for (const name of ['authorization', 'proxy-authorization', 'cookie', 'x-api-key', 'x-auth-token', 'x-session-id', 'x-custom-secret', 'x-csrf-token']) {
+      expect(sent, name).not.toHaveProperty(name);
+    }
+    expect(sent['x-test']).toBe('kept');
+    expect(sent['x-other']).toBe('o');
+  });
+
+  it('withoutCredentials afecta solo a esa petición: la siguiente vuelve a llevar auth y cookies', async () => {
+    const client = makeClient({ defaultHeaders: { Authorization: 'Bearer SECRET', 'X-Test': 'kept' } });
+    await client.request('GET', `${echoBase}/set-cookie`);
+
+    const anonymous = JSON.parse((await client.request('GET', `${echoBase}/echo-auth`, { withoutCredentials: true })).body);
+    expect(anonymous).toEqual({ authorization: null, cookie: null, test: 'kept' });
+
+    const normal = JSON.parse((await client.request('GET', `${echoBase}/echo-auth`)).body);
+    expect(normal).toEqual({ authorization: 'Bearer SECRET', cookie: 'sid=abc', test: 'kept' });
+  });
+
+  it('una respuesta a una petición anónima no escribe en el jar compartido', async () => {
+    const client = makeClient();
+    await client.request('GET', `${echoBase}/set-guest-cookie`, { withoutCredentials: true });
+    expect(client.getCookies('127.0.0.1')).toBe('');
+    const sent = JSON.parse((await client.request('GET', `${echoBase}/echo-auth`)).body);
+    expect(sent.cookie).toBeNull();
+  });
+
+  it('una ráfaga de 30 con bypassRateLimit no espera el espaciado de rps y cuenta todas las peticiones', async () => {
+    const client = makeClient({ rps: 2, concurrency: 5 });
+    const started = Date.now();
+    const responses = await Promise.all(
+      Array.from({ length: 30 }, () => client.request('GET', `${echoBase}/ok`, { bypassRateLimit: true })),
+    );
+    // A 2 rps, 30 peticiones espaciadas tardarían unos 14 s.
+    expect(Date.now() - started).toBeLessThan(3000);
+    expect(responses.every((response) => response.status === 200)).toBe(true);
+    expect(client.requestCount).toBe(30);
+  });
+
+  it('con bypassRateLimit, el presupuesto corta la ráfaga y libera el semáforo (nada queda colgado)', async () => {
+    const client = makeClient({ maxRequests: 12, concurrency: 3 });
+    const settled = await Promise.allSettled(
+      Array.from({ length: 30 }, () => client.request('GET', `${echoBase}/ok`, { bypassRateLimit: true })),
+    );
+    expect(settled.filter((result) => result.status === 'fulfilled')).toHaveLength(12);
+    const rejected = settled.filter((result): result is PromiseRejectedResult => result.status === 'rejected');
+    expect(rejected).toHaveLength(18);
+    expect(rejected.every((result) => result.reason instanceof BudgetExceededError)).toBe(true);
+    expect(client.requestCount).toBe(12);
+  });
+
+  it('bypassRateLimit mantiene el tope de concurrencia', async () => {
+    let active = 0;
+    let peak = 0;
+    const slow = http.createServer((_req, res) => {
+      active++;
+      peak = Math.max(peak, active);
+      setTimeout(() => {
+        active--;
+        res.writeHead(200).end('ok');
+      }, 30);
+    });
+    await new Promise<void>((resolve) => slow.listen(0, '127.0.0.1', resolve));
+    try {
+      const url = `http://127.0.0.1:${(slow.address() as AddressInfo).port}/`;
+      const client = makeClient({ concurrency: 3 });
+      await Promise.all(Array.from({ length: 12 }, () => client.request('GET', url, { bypassRateLimit: true })));
+      expect(peak).toBeLessThanOrEqual(3);
+    } finally {
+      slow.closeAllConnections();
+      await new Promise<void>((resolve) => slow.close(() => resolve()));
+    }
+  });
+});

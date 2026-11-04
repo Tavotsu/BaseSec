@@ -4,11 +4,17 @@ import * as zlib from 'node:zlib';
 import type { Transform } from 'node:stream';
 import type { Guard } from './guard';
 import { isNodeSupported } from './guard';
-import { BudgetExceededError, GuardError } from './types';
+import { BudgetExceededError, CREDENTIAL_HEADER, GuardError } from './types';
 import type { HttpClientOptions, HttpRequestOptions, HttpResponse } from './types';
 import { logger } from '../utils/logger';
 
 const MAX_BODY_BYTES = 8 * 1024 * 1024;
+
+/** Opciones de una petición que afectan a cada salto (redirects incluidos). */
+interface HopMode {
+  bypassRateLimit: boolean;
+  anonymous: boolean;
+}
 const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
 
 interface Hop {
@@ -173,7 +179,11 @@ export class HttpClient {
   async request(method: string, url: string, opts: HttpRequestOptions = {}): Promise<HttpResponse> {
     let networkMs = 0;
     const followRedirects = opts.followRedirects !== false;
-    let headers = this.buildHeaders(opts.headers);
+    const mode: HopMode = {
+      bypassRateLimit: opts.bypassRateLimit === true,
+      anonymous: opts.withoutCredentials === true,
+    };
+    let headers = this.buildHeaders(opts.headers, mode.anonymous);
     const redirects: string[] = [];
     let verb = method.toUpperCase();
     let payload = opts.body;
@@ -181,7 +191,7 @@ export class HttpClient {
     let hop: Hop;
 
     for (;;) {
-      hop = await this.sendHop(verb, current, headers, payload);
+      hop = await this.sendHop(verb, current, headers, payload, mode);
       networkMs += hop.networkMs;
       const location = singleHeader(hop.headers, 'location');
       if (
@@ -246,13 +256,18 @@ export class HttpClient {
     return [...jar].map(([name, value]) => `${name}=${value}`).join('; ');
   }
 
-  private buildHeaders(requestHeaders: Record<string, string> = {}): Record<string, string> {
+  private buildHeaders(requestHeaders: Record<string, string> = {}, anonymous = false): Record<string, string> {
     const merged: Record<string, string> = {};
     for (const [name, value] of Object.entries({ ...this.defaultHeaders, ...requestHeaders })) {
       merged[name.toLowerCase()] = value;
     }
     for (const [name, value] of Object.entries(requestHeaders)) {
       merged[name.toLowerCase()] = value;
+    }
+    if (anonymous) {
+      for (const name of Object.keys(merged)) {
+        if (CREDENTIAL_HEADER.test(name)) delete merged[name];
+      }
     }
     if (!('accept-encoding' in merged)) merged['accept-encoding'] = 'gzip, deflate';
     return merged;
@@ -263,6 +278,7 @@ export class HttpClient {
     url: string,
     headers: Record<string, string>,
     body: string | Buffer | undefined,
+    mode: HopMode,
   ): Promise<Hop> {
     if (!this.guard.isMethodAllowed(verb)) {
       throw new GuardError('method-blocked', `Método ${verb} no permitido sin --allow-mutations`);
@@ -277,12 +293,12 @@ export class HttpClient {
     if (body !== undefined && !('content-length' in hopHeaders)) {
       hopHeaders['content-length'] = String(Buffer.byteLength(body));
     }
-    const jarCookies = this.getCookies(target.hostname);
+    const jarCookies = mode.anonymous ? '' : this.getCookies(target.hostname);
     if (jarCookies) {
       hopHeaders.cookie = [hopHeaders.cookie, jarCookies].filter(Boolean).join('; ');
     }
 
-    await this.acquire();
+    await this.acquire(mode.bypassRateLimit);
     try {
       if (this.count >= this.maxRequests) {
         throw new BudgetExceededError(this.maxRequests);
@@ -291,7 +307,8 @@ export class HttpClient {
       const sentAt = Date.now();
       const hop = await this.transmit(verb, target, hopHeaders, body);
       hop.networkMs = Date.now() - sentAt;
-      if (!hop.timedOut) this.storeCookies(target.hostname, hop.headers);
+      // Una petición anónima no toca el jar compartido: sus cookies (sesión de invitado) no deben llegar a las demás.
+      if (!hop.timedOut && !mode.anonymous) this.storeCookies(target.hostname, hop.headers);
       return hop;
     } finally {
       this.release();
@@ -398,12 +415,17 @@ export class HttpClient {
     }
   }
 
-  private async acquire(): Promise<void> {
+  /**
+   * Obtiene plaza de concurrencia y, salvo `bypassRateLimit`, espera el siguiente hueco de rps. El bypass no
+   * avanza `nextSlotAt`: la sonda no retrasa ni adelanta el resto del análisis.
+   */
+  private async acquire(bypassRateLimit: boolean): Promise<void> {
     if (this.inFlight < this.concurrency) {
       this.inFlight++;
     } else {
       await new Promise<void>((resolve) => this.waiters.push(resolve));
     }
+    if (bypassRateLimit) return;
     const now = Date.now();
     const startAt = Math.max(now, this.nextSlotAt);
     this.nextSlotAt = startAt + this.minIntervalMs;

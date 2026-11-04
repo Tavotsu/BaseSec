@@ -311,3 +311,24 @@ describe('basesec dast command review hardening', () => {
     expect(JSON.parse(fs.readFileSync(output, 'utf-8')).stats.dast.incomplete).toBe('budget');
   });
 });
+
+describe('basesec dast --probe-rate-limit', () => {
+  it('the flag activates DAST-010 in the JSON report', async () => {
+    const output = path.join(workDir, 'probe.json');
+    const code = await runDastCommand(url, baseOptions({ format: 'json', output, probeRateLimit: true }));
+
+    expect(code).toBe(0);
+    const report = JSON.parse(fs.readFileSync(output, 'utf-8'));
+    const ids = report.findings.map((finding: { ruleId: string }) => finding.ruleId);
+    expect(ids).toContain('DAST-010');
+  });
+
+  it('without the flag DAST-010 is not in the report', async () => {
+    const output = path.join(workDir, 'no-probe.json');
+    await runDastCommand(url, baseOptions({ format: 'json', output }));
+
+    const report = JSON.parse(fs.readFileSync(output, 'utf-8'));
+    const ids = report.findings.map((finding: { ruleId: string }) => finding.ruleId);
+    expect(ids).not.toContain('DAST-010');
+  });
+});

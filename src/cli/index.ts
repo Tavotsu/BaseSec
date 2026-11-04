@@ -6,7 +6,7 @@ import { runScan } from './commands/scan';
 import { runDastCommand } from './commands/dast';
 import { runInit } from './commands/init';
 import { ALL_RULES } from '../rules/index';
-import { ALL_DAST_RULES } from '../dast/rules/index';
+import { DAST_CATALOG } from '../dast/catalog';
 import pc from 'picocolors';
 import { revokeConsent } from '../ai/consent';
 import type { CliOptions, OutputFormat, Severity } from '../rules/types';
@@ -144,6 +144,7 @@ export async function main(): Promise<void> {
     .option('--evidence-dir <dir>', 'Where to write .http evidence (default: ~/.basesec)')
     .option('--no-evidence', 'Do not write evidence files')
     .option('--rules <ids>', 'Comma-separated DAST rule IDs')
+    .option('--probe-rate-limit', 'Send 30 rapid requests to a login or healthcheck to check rate limiting (DAST-010)')
     .option('--routes <file>', 'Route artifact to test (default: ~/.basesec/routes/<hash>.json)')
     .option('--scan <path>', 'Derive routes from this code path in memory (nothing is written)')
     .option('--config <path>, -c', 'Path to config file')
@@ -201,6 +202,7 @@ export async function main(): Promise<void> {
           // cac pone evidence=true por defecto: solo --no-evidence cuenta como flag explícito (la config decide el resto).
           evidence: options.evidence === false ? false : undefined,
           rules: options.rules,
+          probeRateLimit: options.probeRateLimit === true,
           // cac entrega `true` si el flag no lleva valor; el comando lo rechaza con exit 3.
           routes: options.routes === undefined ? undefined : typeof options.routes === 'string' ? options.routes : '',
           scan: options.scan === undefined ? undefined : typeof options.scan === 'string' ? options.scan : '',
@@ -242,7 +244,7 @@ export async function main(): Promise<void> {
         (!category || rule.category === category) && (!severity || rule.severity === severity);
 
       const sastRules = options.dast === true ? [] : ALL_RULES.filter(matches);
-      const dastRules = ALL_DAST_RULES.filter(matches);
+      const dastRules = DAST_CATALOG.filter(matches);
       const total = sastRules.length + dastRules.length;
 
       if (total === 0) {
@@ -258,7 +260,9 @@ export async function main(): Promise<void> {
         info: pc.gray,
       };
 
-      console.log(pc.bold(`\n  basesec rules (${total} rules)\n`));
+      // El título cuenta solo las SAST (ALL_RULES); con --dast, las DAST mostradas.
+      const title = options.dast === true ? `basesec rules --dast (${dastRules.length} DAST rules)` : `basesec rules (${sastRules.length} rules)`;
+      console.log(pc.bold(`\n  ${title}\n`));
 
       const byCategory = new Map<string, typeof sastRules>();
       for (const rule of sastRules) {
@@ -286,8 +290,8 @@ export async function main(): Promise<void> {
           const colorFn = severityColors[rule.severity] ?? pc.white;
           const label = rule.severity.toUpperCase().padEnd(8);
           console.log(`    ${colorFn(label)} ${pc.bold(rule.id)}: ${rule.name}`);
-          console.log(pc.gray(`      ${rule.description}`));
-          console.log(pc.gray(`      Scope: ${rule.once ? 'target' : 'endpoint'}`));
+          console.log(pc.gray(`      ${rule.note}`));
+          console.log(pc.gray(`      Scope: ${rule.scope} | Category: ${rule.category}`));
         }
         console.log('');
       }

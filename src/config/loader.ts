@@ -241,6 +241,10 @@ function normalizeDastConfig(raw: Record<string, unknown>): DastConfig {
   if (isPositiveFiniteNumber(raw.maxRequests)) dast.maxRequests = raw.maxRequests;
   if (isPositiveFiniteNumber(raw.timeout)) dast.timeout = raw.timeout;
   if (isPositiveFiniteNumber(raw.requestTimeout)) dast.requestTimeout = raw.requestTimeout;
+  if (typeof raw.probeRateLimit === 'boolean') dast.probeRateLimit = raw.probeRateLimit;
+  if (Array.isArray(raw.publicRoutes)) {
+    dast.publicRoutes = raw.publicRoutes.filter((route): route is string => typeof route === 'string');
+  }
   if (Array.isArray(raw.rules) && raw.rules.every((rule) => typeof rule === 'string')) {
     dast.rules = raw.rules as string[];
   }

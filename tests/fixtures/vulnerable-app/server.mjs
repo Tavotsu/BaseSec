@@ -25,6 +25,14 @@
 //   GET /dual?a=&b=       el ' en a O en b da el error pg                            (un finding por endpoint y clase)
 //   GET /reflect?q=       refleja q sin escapar y, además, la cabecera Authorization (fuga de secretos)
 //
+// Autenticación y rate limiting (DAST-008 y DAST-010, plan §4.3):
+//   GET /admin            200 sin credenciales; ruta sensible y sin auth              (DAST-008)
+//   GET /admin/guarded    200 solo con cabecera authorization; sin ella 401           (control: sin DAST-008)
+//   GET /profile          200 sin credenciales; no es sensible por path               (control: sin DAST-008)
+//   GET /burst            200 y nunca 429 ni cabeceras de rate limit; cuenta peticiones (DAST-010 con --probe-rate-limit)
+//   GET /limited          200 hasta la 4.ª petición; a partir de la 5.ª 429 + ratelimit-remaining: 0 (control: sin DAST-010)
+//
+
 // Sin stack traces. El servidor guarda el registro de peticiones para que los tests comprueben qué se envió.
 import * as http from 'node:http';
 import { pathToFileURL } from 'node:url';
@@ -35,6 +43,8 @@ const ESCAPES = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&
 let flakyHit = false;
 let varyCount = 0;
 const BRACKET = /^([A-Za-z_]\w*)\[(\$\w+)\]$/;
+let burstCount = 0;
+let limitedCount = 0;
 
 function escapeHtml(text) {
   return text.replace(/[&<>"']/g, (char) => ESCAPES[char]);
@@ -96,6 +106,42 @@ async function handle(req, res, url) {
     const id = path === '/users' ? asText(query.get('id')) : safeDecode(path.slice('/users/'.length));
     if (id.includes("'")) {
       send(res, 500, 'text/plain; charset=utf-8', 'syntax error at or near "\'"');
+      return;
+    }
+    sendJson(res, 200, { ok: true });
+    return;
+  }
+
+  if (path === '/admin') {
+    sendJson(res, 200, { admin: true });
+    return;
+  }
+
+  if (path === '/admin/guarded') {
+    if (req.headers.authorization) {
+      sendJson(res, 200, { admin: true });
+    } else {
+      send(res, 401, 'text/plain; charset=utf-8', 'unauthorized');
+    }
+    return;
+  }
+
+  if (path === '/profile') {
+    sendJson(res, 200, { name: 'anonymous' });
+    return;
+  }
+
+  if (path === '/burst') {
+    burstCount++;
+    sendJson(res, 200, { count: burstCount });
+    return;
+  }
+
+  if (path === '/limited') {
+    limitedCount++;
+    if (limitedCount >= 5) {
+      res.writeHead(429, { 'content-type': 'text/plain; charset=utf-8', 'retry-after': '1', 'ratelimit-remaining': '0' });
+      res.end('Too Many Requests');
       return;
     }
     sendJson(res, 200, { ok: true });
@@ -246,10 +292,12 @@ export function createVulnerableApp() {
   });
   return {
     requests,
-    /** Reinicia el estado de los controles con memoria (/flaky, /vary). */
+    /** Reinicia el estado de los controles con memoria (/flaky, /vary, /burst, /limited). */
     reset() {
       flakyHit = false;
       varyCount = 0;
+      burstCount = 0;
+      limitedCount = 0;
     },
     start() {
       return new Promise((resolve, reject) => {

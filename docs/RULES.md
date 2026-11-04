@@ -181,9 +181,11 @@ absence of a finding means "not confirmed at runtime", not "secure".
 | `DAST-005` | Insecure cookie flags | high | `Set-Cookie` lacks `HttpOnly` or `SameSite`, or lacks `Secure` over HTTPS. Scope: endpoint |
 | `DAST-006` | Stack trace exposed | high | A 5xx response body contains a Node.js stack trace with internal file paths. Scope: endpoint |
 | `DAST-007` | Server banner leakage | low | Responses disclose the framework (`X-Powered-By`) or the server version (`Server`). Scope: target |
+| `DAST-008` | Unauthenticated sensitive endpoint | medium | A sensitive `GET`/`HEAD` route with `hasAuth: false` in the route artifact answers 2xx without credentials (confidence low). Full mode only. Scope: endpoint |
+| `DAST-010` | Missing rate limiting | low | Opt-in (`--probe-rate-limit`): 30 rapid requests to a login or healthcheck target get no 429 and no rate-limit headers. Scope: target |
 
 Run a subset with `basesec dast <url> --rules DAST-001,DAST-005`. List the rules with
-`basesec rules --dast`.
+`basesec rules --dast`. `DAST-009` is not implemented yet (see the USAGE guide).
 
 ## Severity Scale
 

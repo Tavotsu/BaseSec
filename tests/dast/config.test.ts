@@ -166,3 +166,40 @@ describe('header injection hardening', () => {
     expect(() => parseHeaderFlag('X-A: v\r\nEvil: 1')).toThrow(DastConfigError);
   });
 });
+
+describe('dast.publicRoutes and dast.probeRateLimit', () => {
+  const tmpDirs: string[] = [];
+  afterEach(() => {
+    for (const dir of tmpDirs.splice(0)) fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('keeps only string patterns and a boolean probe flag', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'basesec-dast-cfg-'));
+    tmpDirs.push(dir);
+    const file = path.join(dir, 'config.json');
+    fs.writeFileSync(
+      file,
+      JSON.stringify({
+        dast: {
+          publicRoutes: ['/api/*/status', 42, '/docs'],
+          probeRateLimit: true,
+        },
+      }),
+    );
+
+    const config = loadConfig(file, dir);
+
+    expect(config.dast).toEqual({ publicRoutes: ['/api/*/status', '/docs'], probeRateLimit: true });
+  });
+
+  it('ignores a non-array publicRoutes and a non-boolean probeRateLimit', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'basesec-dast-cfg-'));
+    tmpDirs.push(dir);
+    const file = path.join(dir, 'config.json');
+    fs.writeFileSync(file, JSON.stringify({ dast: { publicRoutes: '/docs', probeRateLimit: 'yes' } }));
+
+    const config = loadConfig(file, dir);
+
+    expect(config.dast).toEqual({});
+  });
+});

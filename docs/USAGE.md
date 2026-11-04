@@ -157,7 +157,8 @@ When the run is non-interactive (CI), a remote host also needs `BASESEC_ALLOW_RE
 | `--request-timeout <ms>` | 10000 | Per-request timeout |
 | `--evidence-dir <dir>` | `~/.basesec` | Directory for evidence files (created with the first finding) |
 | `--no-evidence` | off | Do not write evidence files |
-| `--rules <ids>` | all | Comma-separated DAST rule IDs, e.g. `DAST-001,DAST-005`. Injection IDs (`DAST-011`, `DAST-101` to `DAST-105`) select the active checks |
+| `--rules <ids>` | all | Comma-separated DAST rule IDs, e.g. `DAST-001,DAST-005`. Active and injection IDs (`DAST-008`, `DAST-010`, `DAST-011`, `DAST-101` to `DAST-105`) select their checks |
+| `--probe-rate-limit` | off | Enables `DAST-010`: 30 rapid requests to a login or to the healthcheck. Also `dast.probeRateLimit: true` in the config |
 | `--config`, `-c` | — | Path to config file |
 | `--allow-vulnerable-node` | off | Run even if Node lacks the mandatory security patches |
 | `--format`, `-f` / `--output`, `-o` | `terminal` | Same as `scan` |
@@ -203,6 +204,53 @@ static finding of the same class at that handler as a possible origin. Select cl
 At most 40 requests go to each endpoint, so an endpoint with many parameters may leave some untested. NoSQL
 operators are sent only in query parameters. A timing finding needs the delayed response twice and a zero-delay
 control that stays fast.
+
+### Authentication and rate limit checks (DAST-008, DAST-010)
+
+Both checks run only in **full mode**, except `DAST-010` with `--probe-rate-limit`, which also works without routes.
+
+**`DAST-008` Unauthenticated sensitive endpoint** (medium, confidence low). For each `GET` or `HEAD` route whose
+artifact says `hasAuth: false` (not `'unknown'`, not `true`) and whose path looks sensitive, BaseSec sends one
+request without credentials and without following redirects. A `2xx` answer is a finding. A `401`, `403`, `3xx`,
+`4xx` or `5xx` is not. `OPTIONS` routes are not checked: servers answer preflight requests with `2xx` by design.
+
+- Sensitive means the path contains one of these as a whole word: `admin`, `internal`, `debug`, `config`,
+  `metrics`, `account`, `settings`, `dashboard`, `private`, `secret` (so `/international` and `/accounting` do
+  not match). It is also sensitive with an owner parameter (`:userId`, `:uid`, `:accountId`, `:customerId`) or an
+  identifier after a user-owned resource (`/users/:id`, `/orders/:id`, `/accounts/:id`, `/customers/:id`,
+  `/invoices/:id`, `/messages/:id`…). A public catalog such as `/products/:id` is not sensitive. A collection
+  without a parameter (`/users`, `/profile`) is not sensitive by itself: a conservative choice that avoids
+  reporting public listings. A non-sensitive route without auth is not reported, because most APIs have many.
+- These paths are never reported: `/`, `/login`, `/logout`, `/register`, `/signup`, `/health`, `/healthz`,
+  `/healthcheck` (and anything below them), `/status`, `/ready`, `/live`, `/ping`, `/favicon.ico`, and any path
+  whose last segment is a login or sign-up page (`/admin/login`).
+- `dast.publicRoutes` in the config lists routes that are public on purpose. Each pattern is a route path
+  split by `/`. `*` matches exactly one segment, and the other segments match literally, ignoring case:
+  `"/api/*/status"` covers `/api/v1/status`, but not `/api/v1/v2/status`.
+- If the run sent a credential (for example `--header Authorization: …`), the observation of that route is not
+  reused, because it carried the credential. The check repeats the request without every credential header
+  (any header whose name contains `auth`, `cookie`, `token`, `session`, `api-key`, `secret`, `credential` or
+  `jwt`). Cookies that the server set earlier in the run are not sent either, and the cookies this request
+  receives are not kept for the rest of the run.
+- Known limitation: a `2xx` that is a login page is skipped only when it is HTML with a password field, or carries
+  `WWW-Authenticate`. A login screen rendered by a SPA, or a JSON body such as `{"error":"login required"}` with a
+  `200`, still counts as reachable. This is why the confidence is `low`.
+
+**`DAST-010` Missing rate limiting** (low, confidence low, opt-in). It is off unless you pass
+`--probe-rate-limit` or set `dast.probeRateLimit: true`. It sends **30 `GET` requests in a burst** to one target:
+the first surface `GET` route with `login`, `signin`, `auth`, `oauth`, `token` or `session` as a word of its path
+(`/authors` does not count); otherwise the
+healthcheck; otherwise `/`. A target that already answers `4xx`/`5xx` is not probed.
+
+- The burst ignores `--rps`, otherwise it would test the rate of the probe and not the server. It still counts
+  toward `--max-requests`, uses the concurrency limit, and goes through the same host guard and timeout.
+- It reports only when all 30 answers arrive, none is `429` or any other `4xx`/`5xx`, and none carries `Retry-After`,
+  `RateLimit`, `RateLimit-*`, `X-RateLimit-*` or `X-Rate-Limit-*`. An error in the middle of the burst (a WAF `403`,
+  a `503`) is inconclusive, not "no limit". If the budget runs out in the middle, nothing is reported and the run is marked incomplete.
+- Use it against a test environment: 30 quick requests can trip a lockout or an alert on a real login endpoint.
+
+Not implemented yet: **`DAST-009`** (verbose error on malformed input). The plan ties it to endpoints with a body
+and to `--allow-mutations`, so it arrives with the mutation tests. Until then, `basesec rules --dast` does not list it.
 
 ### Evidence
 

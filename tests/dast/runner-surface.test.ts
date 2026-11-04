@@ -136,8 +136,8 @@ describe('runDast with a route surface', () => {
       onProgress: (event) => events.push({ done: event.done, total: event.total }),
     });
 
-    // 1 target (/), 2 read-only endpoints, 7 DAST rules.
-    expect(events.at(-1)).toEqual({ done: 10, total: 10 });
+    // 1 target (/), 2 read-only endpoints, 7 DAST rules and the DAST-008 check (Fase 4: con superficie, DAST-008 ocupa una ranura).
+    expect(events.at(-1)).toEqual({ done: 11, total: 11 });
   });
 
   it('keeps the findings of the observed endpoints when the budget runs out', async () => {
