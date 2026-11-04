@@ -85,7 +85,8 @@ export class MarkdownFormatter implements ReportFormatter {
       }
       lines.push('');
       if (finding.verified === true) {
-        lines.push('**Verified:** runtime');
+        const correlation = finding.evidence?.correlation;
+        lines.push(`**Verified:** runtime${correlation !== undefined ? ` (${correlation})` : ''}`);
         lines.push('');
       }
       lines.push('```typescript');
@@ -95,8 +96,13 @@ export class MarkdownFormatter implements ReportFormatter {
       if (finding.evidence) {
         lines.push('**Evidence:**');
         lines.push('');
+        const { request, response, payload, oracle } = finding.evidence;
+        // Payload y oráculo solo cuando hay payload, como en la terminal. Todo pasa por escapeMarkdownCode.
+        const evidenceText = payload !== ''
+          ? `${request}\n${response}\nPayload: ${payload}\nOracle: ${oracle}`
+          : `${request}\n${response}`;
         lines.push('```http');
-        lines.push(escapeMarkdownCode(`${finding.evidence.request}\n${finding.evidence.response}`));
+        lines.push(escapeMarkdownCode(evidenceText));
         lines.push('```');
         lines.push('');
       }

@@ -43,10 +43,25 @@ function locationRow(f: Finding): string {
   return f.endpoint ? fileRow + endpointRow(f.endpoint) : fileRow;
 }
 
-/** Evidencia de una verificación runtime. Todo valor viene de un servidor potencialmente hostil: se escapa. */
+/**
+ * Evidencia de una verificación runtime. Todo valor viene de un servidor potencialmente hostil: se escapa.
+ * Mismo criterio que la terminal: payload y oráculo solo cuando hay payload (las reglas de inspección no envían ninguno).
+ */
 function evidenceBlock(evidence: DastEvidence): string {
   const preStyle = 'background:#0f172a;color:#e2e8f0;padding:8px;border-radius:4px;white-space:pre-wrap;word-break:break-all;';
-  return `<details style="margin:10px 0;"><summary>Evidence (runtime)</summary><div style="margin-top:8px;"><strong>Request:</strong><pre style="${preStyle}">${escapeHtml(evidence.request)}</pre><strong>Response:</strong><pre style="${preStyle}">${escapeHtml(evidence.response)}</pre></div></details>`;
+  let rows = `<strong>Request:</strong><pre style="${preStyle}">${escapeHtml(evidence.request)}</pre><strong>Response:</strong><pre style="${preStyle}">${escapeHtml(evidence.response)}</pre>`;
+  if (evidence.payload !== '') {
+    rows += `<strong>Payload:</strong><pre style="${preStyle}">${escapeHtml(evidence.payload)}</pre>`;
+    rows += `<div><strong>Oracle:</strong> ${escapeHtml(evidence.oracle)}</div>`;
+  }
+  if (evidence.correlation !== undefined) {
+    rows += `<div><strong>Correlation:</strong> ${escapeHtml(evidence.correlation)}</div>`;
+  }
+  if (evidence.sink !== undefined) {
+    const sink = `${evidence.sink.fn} ${evidence.sink.filePath}:${evidence.sink.line}`;
+    rows += `<div><strong>Sink:</strong> <code>${escapeHtml(sink)}</code></div>`;
+  }
+  return `<details style="margin:10px 0;"><summary>Evidence (runtime)</summary><div style="margin-top:8px;">${rows}</div></details>`;
 }
 
 function severityToBadge(severity: Severity): string {

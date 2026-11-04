@@ -99,6 +99,8 @@ export class SarifFormatter implements ReportFormatter {
         ? {
             verified: f.verified,
             endpoint: f.endpoint,
+            ...(f.evidence?.correlation !== undefined ? { correlation: f.evidence.correlation } : {}),
+            ...(f.evidence?.oracle ? { oracle: f.evidence.oracle } : {}),
             ...(f.evidence?.file ? { evidenceFile: f.evidence.file } : {}),
           }
         : undefined;
