@@ -25,12 +25,17 @@ export function getFormatter(format: OutputFormat): ReportFormatter {
   }
 }
 
+/** Texto fijo de `scan --verify`: no confirmado no es lo mismo que no vulnerable. */
+const NOT_CONFIRMED_NOTE = 'Findings not verified are "not confirmed at runtime", which is not the same as "not vulnerable".';
+
 class TerminalFormatter implements ReportFormatter {
   format(result: ScanResult, target: string): string {
     const lines: string[] = [];
 
     lines.push('');
     const dast = result.stats.dast;
+    // Solo `scan --verify` combina superficie dinámica con análisis estático (`dast` no tiene archivos escaneados).
+    const verifyMode = dast !== undefined && result.stats.filesScanned > 0;
     lines.push(pc.cyan(`  Scanning: ${target}`));
     if (result.stats.frameworks.length > 0) {
       lines.push(pc.cyan(`  Frameworks: ${result.stats.frameworks.join(', ')}`));
@@ -49,6 +54,9 @@ class TerminalFormatter implements ReportFormatter {
           `  Files: ${result.stats.filesScanned} | Skipped: ${result.stats.filesSkipped}`,
         ),
       );
+      if (verifyMode && dast) {
+        lines.push(pc.cyan(`  Target: ${dast.target} · mode: ${dast.mode} · ${dast.requests} requests`));
+      }
     }
     lines.push('');
 
@@ -58,6 +66,9 @@ class TerminalFormatter implements ReportFormatter {
           dast ? '  No issues confirmed at runtime (this is not the same as "secure").' : '  No vulnerabilities found.',
         ),
       );
+      if (verifyMode) {
+        lines.push(pc.gray(`  ${NOT_CONFIRMED_NOTE}`));
+      }
       lines.push('');
       return lines.join('\n');
     }
@@ -104,6 +115,9 @@ class TerminalFormatter implements ReportFormatter {
           lines.push(pc.gray(`    Endpoint: ${finding.endpoint}`));
         }
       }
+      if (verifyMode && finding.verified === true && finding.evidence) {
+        lines.push(...evidenceLines(finding));
+      }
       if (finding.codeSnippet) {
         lines.push(pc.white(`    Code: ${finding.codeSnippet}`));
       }
@@ -141,11 +155,41 @@ class TerminalFormatter implements ReportFormatter {
       summaryLine += ' (' + parts.join(', ') + ')';
     }
     lines.push(summaryLine);
+    if (verifyMode) {
+      const staticFindings = result.findings.filter((f) => f.source !== 'dynamic');
+      const verified = staticFindings.filter((f) => f.verified === true).length;
+      const runtimeOnly = result.findings.length - staticFindings.length;
+      lines.push(pc.green(`  Verified at runtime: ${verified} of ${staticFindings.length} static findings; ${runtimeOnly} runtime-only findings.`));
+    }
     lines.push(pc.gray(`  Duration: ${(result.duration / 1000).toFixed(1)}s`));
+    if (verifyMode) {
+      lines.push(pc.gray(`  ${NOT_CONFIRMED_NOTE}`));
+    }
     lines.push('');
 
     return lines.join('\n');
   }
+}
+
+/** Evidencia de un hallazgo confirmado por `scan --verify`: petición, respuesta y, si lo hay, payload y enlace. */
+function evidenceLines(finding: Finding): string[] {
+  const evidence = finding.evidence;
+  if (!evidence) return [];
+  const lines = [
+    pc.gray(`    Request: ${evidence.request}`),
+    pc.gray(`    Response: ${evidence.response.split('\n')[0]}`),
+  ];
+  if (evidence.payload !== '') {
+    lines.push(pc.gray(`    Payload: ${evidence.payload}`));
+    lines.push(pc.gray(`    Oracle: ${evidence.oracle}`));
+  }
+  if (evidence.correlation !== undefined) {
+    lines.push(pc.gray(`    Link: ${evidence.correlation}`));
+  }
+  if (evidence.file !== undefined) {
+    lines.push(pc.gray(`    Evidence file: ${evidence.file}`));
+  }
+  return lines;
 }
 
 class JsonFormatter implements ReportFormatter {

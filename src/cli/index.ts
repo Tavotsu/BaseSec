@@ -4,15 +4,39 @@ import { printBanner, printError } from './output';
 import { VERSION } from '../version';
 import { runScan } from './commands/scan';
 import { runDastCommand } from './commands/dast';
+import { runVerify } from './commands/verify';
 import { runInit } from './commands/init';
 import { ALL_RULES } from '../rules/index';
 import { DAST_CATALOG } from '../dast/catalog';
 import pc from 'picocolors';
 import { revokeConsent } from '../ai/consent';
-import type { CliOptions, OutputFormat, Severity } from '../rules/types';
-import { VALID_FORMATS, VALID_SEVERITIES, validateRouteOptions } from './validation';
+import type { CliOptions, OutputFormat, Severity, VerifyDastOptions } from '../rules/types';
+import { VALID_FORMATS, VALID_SEVERITIES, validateRouteOptions, validateVerifyOptions } from './validation';
 
 const VALID_FRAMEWORKS = ['auto', 'express', 'nestjs', 'mongoose', 'typeorm', 'fastify', 'koa', 'prisma', 'react', 'nextjs', 'vue', 'angular', 'svelte'];
+
+/** Repetibles --dast-header. cac rellena con null las ausentes (`type: []`), así que solo cuentan las cadenas. */
+function dastHeaderValues(options: any): string[] {
+  const headers: unknown = options.dastHeader;
+  return Array.isArray(headers) ? headers.filter((v): v is string => typeof v === 'string') : [];
+}
+
+/** Flags --dast-* de `scan --verify` tal como los entrega cac (valores crudos: runVerify los valida). */
+function verifyDastOptions(options: any): VerifyDastOptions {
+  return {
+    allowRemote: options.dastAllowRemote === true,
+    allowVulnerableNode: options.dastAllowVulnerableNode === true,
+    headers: dastHeaderValues(options),
+    rules: options.dastRules,
+    probeRateLimit: options.dastProbeRateLimit === true,
+    timeout: options.dastTimeout,
+    requestTimeout: options.dastRequestTimeout,
+    rps: options.dastRps,
+    maxRequests: options.dastMaxRequests,
+    evidenceDir: options.dastEvidenceDir,
+    evidence: options.dastEvidence === false ? false : undefined,
+  };
+}
 
 export async function main(): Promise<void> {
   const cli = cac('basesec');
@@ -47,6 +71,19 @@ export async function main(): Promise<void> {
     .option('--ai-context <level>', 'Context level: minimal|context|file', { default: 'minimal' })
     .option('--emit-routes', 'Write the route artifact (attack surface) instead of the report')
     .option('--routes-out <file>', 'Path for the route artifact (requires --emit-routes; default ~/.basesec/routes/)')
+    .option('--verify', 'Confirm static findings at runtime: attacks --target with the routes of this code (requires --target)')
+    .option('--target <url>', 'Running app to verify against (used with --verify)')
+    .option('--dast-allow-remote', 'Allow a non-local --target in --verify (requires confirmation)')
+    .option('--dast-header <header>', 'Request header "Name: value" for --verify (repeatable)', { type: [] })
+    .option('--dast-rules <ids>', 'Comma-separated DAST rule IDs for --verify')
+    .option('--dast-probe-rate-limit', 'Enable DAST-010 in --verify')
+    .option('--dast-timeout <s>', 'Global DAST timeout in seconds for --verify (default: 300)')
+    .option('--dast-request-timeout <ms>', 'Per-request DAST timeout for --verify (default: 10000)')
+    .option('--dast-rps <n>', 'DAST requests per second for --verify (default: 20)')
+    .option('--dast-max-requests <n>', 'DAST request budget for --verify (default: 5000)')
+    .option('--dast-evidence-dir <dir>', 'Where --verify writes .http evidence (default: ~/.basesec)')
+    .option('--no-dast-evidence', 'Do not write evidence files in --verify')
+    .option('--dast-allow-vulnerable-node', 'Run --verify even if Node lacks mandatory security patches')
     .action(async (path: string | undefined, options: any) => {
       const targetPath = path || process.cwd();
 
@@ -87,6 +124,37 @@ export async function main(): Promise<void> {
         process.exit(2);
       }
 
+      // Flags --dast-* y --target: solo válidos con --verify. cac pone evidence=true por defecto (se mira el false).
+      const dastFlagValues: Array<[string, unknown]> = [
+        ['--target', options.target],
+        ['--dast-allow-remote', options.dastAllowRemote === true ? true : undefined],
+        ['--dast-header', dastHeaderValues(options).length > 0 ? true : undefined],
+        ['--dast-rules', options.dastRules],
+        ['--dast-probe-rate-limit', options.dastProbeRateLimit === true ? true : undefined],
+        ['--dast-timeout', options.dastTimeout],
+        ['--dast-request-timeout', options.dastRequestTimeout],
+        ['--dast-rps', options.dastRps],
+        ['--dast-max-requests', options.dastMaxRequests],
+        ['--dast-evidence-dir', options.dastEvidenceDir],
+        ['--no-dast-evidence', options.dastEvidence === false ? true : undefined],
+        ['--dast-allow-vulnerable-node', options.dastAllowVulnerableNode === true ? true : undefined],
+      ];
+      const dastFlags = dastFlagValues.filter(([, value]) => value !== undefined).map(([flag]) => flag);
+      const verify = options.verify === true;
+      const target = typeof options.target === 'string' ? options.target : undefined;
+      const verifyError = validateVerifyOptions({ verify, target, emitRoutes, ai: options.ai === true, dastFlags });
+      if (verifyError) {
+        printError(verifyError);
+        process.exit(2);
+      }
+      // cac entrega `true` si un flag con valor va sin él: se rechaza aquí, con un mensaje claro.
+      const valueFlags = ['--target', '--dast-rules', '--dast-timeout', '--dast-request-timeout', '--dast-rps', '--dast-max-requests', '--dast-evidence-dir'];
+      const missingValue = dastFlagValues.find(([flag, value]) => valueFlags.includes(flag) && value === true);
+      if (missingValue) {
+        printError(`${missingValue[0]} needs a value`);
+        process.exit(2);
+      }
+
       const rawIgnore: string[] = Array.isArray(options.ignore)
         ? options.ignore.filter((v: any) => v !== null && v !== undefined)
         : [];
@@ -116,6 +184,9 @@ export async function main(): Promise<void> {
         aiContext: options.aiContext,
         emitRoutes,
         routesOut,
+        verify,
+        target,
+        verifyDast: verifyDastOptions(options),
       };
 
       if (!cliOptions.noBanner && !cliOptions.quiet) {
@@ -123,7 +194,9 @@ export async function main(): Promise<void> {
       }
 
       try {
-        const exitCode = await runScan(targetPath, cliOptions);
+        const exitCode = cliOptions.verify === true
+          ? await runVerify(targetPath, cliOptions)
+          : await runScan(targetPath, cliOptions);
         process.exit(exitCode);
       } catch (e) {
         printError(e instanceof Error ? e.message : String(e));

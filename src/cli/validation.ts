@@ -20,3 +20,32 @@ export function validateRouteOptions(options: {
   }
   return undefined;
 }
+
+/**
+ * Combinaciones válidas de --verify / --target / --dast-* en `scan`. Devuelve el mensaje de error o undefined.
+ * `dastFlags` lista los flags de este bloque que el usuario pasó (p. ej. "--dast-rps").
+ */
+export function validateVerifyOptions(options: {
+  verify: boolean;
+  target?: string;
+  emitRoutes: boolean;
+  ai: boolean;
+  dastFlags: string[];
+}): string | undefined {
+  if (!options.verify) {
+    if (options.dastFlags.length > 0) {
+      return `${options.dastFlags.join(', ')} require${options.dastFlags.length === 1 ? 's' : ''} --verify.`;
+    }
+    return undefined;
+  }
+  if (options.target === undefined || options.target.trim() === '') {
+    return '--verify requires --target <url>.';
+  }
+  if (options.emitRoutes) {
+    return '--verify cannot be combined with --emit-routes.';
+  }
+  if (options.ai) {
+    return '--verify cannot be combined with --ai (the runtime check makes no LLM calls).';
+  }
+  return undefined;
+}

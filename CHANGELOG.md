@@ -5,6 +5,7 @@ All notable changes to BaseSec are documented in this file.
 ## [Unreleased]
 
 ### Added
+- scan --verify --target: confirms static findings at runtime and reports them as verified, with request/response evidence.
 - **DAST-008 (unauthenticated sensitive endpoint)**: a sensitive `GET`/`HEAD` route that the route artifact marks `hasAuth: false` and that answers 2xx without credentials is reported (medium, confidence low). Full mode only. New `dast.publicRoutes` config option excludes routes that are public on purpose (`*` matches one path segment).
 - **DAST-010 (missing rate limiting)**, opt-in with `--probe-rate-limit` or `dast.probeRateLimit`: a burst of 30 requests to a login or healthcheck target, sent outside `--rps` but counted in the request budget, reports when no response is 429 and none carries rate-limit headers.
 - **`DAST-009` is deferred**: detection of verbose errors on malformed input (plan §4.3) needs the mutation tests and arrives with them. It is not implemented and does not appear in `basesec rules`.

@@ -268,6 +268,74 @@ directory has mode `0700` and files have mode `0600`. Existing files are never o
 | 2 | Target unreachable or unexpected error |
 | 3 | Configuration error, invalid flag, blocked host (no request was sent), missing `$env:` variable, or Node below the patched floor |
 
+### Verify static findings at runtime (`scan --verify`)
+
+> **Legal warning.** `--verify` sends real HTTP requests to `--target`, with the same guards as
+> `basesec dast`: only loopback and private networks by default, and `--dast-allow-remote` plus a typed
+> host confirmation for anything else. Use the same target you are authorized to test. Without `--target`
+> it is an error.
+
+`basesec scan <path> --verify --target <url>` runs the static analysis and then attacks the running app
+with the routes extracted from that same code. A static finding that the runtime confirms is reported as
+`verified`, with the request and response that proved it, and it is **not** repeated as a separate runtime
+finding. Runtime-only findings (for example, a missing header set by the proxy) are added at the end.
+
+```bash
+# Start the app, then confirm what the static analysis reports
+basesec scan ./src --verify --target http://localhost:3000
+
+# Only the high-severity results, and fail CI when any remains
+basesec scan ./src --verify --target http://localhost:3000 --severity high --strict
+
+# Limit the runtime checks and send no evidence files
+basesec scan ./src --verify --target http://localhost:3000 --dast-rules DAST-101,DAST-105 --no-dast-evidence
+```
+
+The static finding is linked to the runtime confirmation in one of three ways, shown in the output as
+`Link:`:
+
+| Link | Meaning | Confidence |
+|---|---|---|
+| `handler` | The confirmed route's handler contains the static finding. | high |
+| `import-graph` | The static finding is in a file the handler imports. Its confidence is at least medium. | max(original, medium) |
+| `runtime-property` | A header or cookie rule (for example, a missing CSP) matches a static rule about the same thing. | high |
+
+When two static findings compete for the same confirmed injection and sit on different lines, BaseSec does
+not guess: the runtime finding stays, and its message lists the possible origins. Findings on the same line
+(for example, two rules describing one SQL query) are all verified.
+
+A runtime finding only verifies static findings it can actually explain: a confirmed reflected XSS
+(`DAST-105`) is linked to `XSS-001` and an open redirect (`DAST-011`) to `XSS-004`, never to other `xss`
+rules such as a missing `helmet` (`XSS-002`) that happen to live in a file the route imports.
+
+`verified` absent does not mean "false positive". It means "not confirmed at runtime". The terminal report
+says so on every verify run, and it never says a finding is safe.
+
+| Flag | Meaning |
+|---|---|
+| `--verify` | Enables the runtime check. Requires `--target`. Not combined with `--emit-routes` or `--ai`. |
+| `--target <url>` | The running app to attack. |
+| `--dast-allow-remote` | Allows a non-local target (asks for the host to be typed when there is a terminal). |
+| `--dast-header <h>` | Request header `"Name: value"`, repeatable. Overrides `dast.headers` with the same name. |
+| `--dast-rules <ids>` | Comma-separated DAST rule IDs. |
+| `--dast-probe-rate-limit` | Enables `DAST-010`. |
+| `--dast-timeout <s>` | Global timeout (default 300). |
+| `--dast-request-timeout <ms>` | Per-request timeout (default 10000). |
+| `--dast-rps <n>` | Requests per second (default 20). |
+| `--dast-max-requests <n>` | Request budget (default 5000). |
+| `--dast-evidence-dir <dir>` | Where the `.http` evidence is written. |
+| `--no-dast-evidence` | Does not write evidence files. |
+| `--dast-allow-vulnerable-node` | Runs even if Node is below the patched floor. |
+
+Other `dast` settings (`health`, `publicRoutes`, `concurrency`, `headers`, `probeRateLimit`) are read from
+the `dast` section of the config file. The `--dast-*` flags are rejected without `--verify`.
+
+Exit codes are the same as `scan` and `dast`: 0 clean (or findings without `--strict`), 1 findings with
+`--strict`, 2 target unreachable or unexpected error, 3 configuration, invalid flag value, blocked host or Node
+below the patched floor. Invalid flag combinations (`--verify` without `--target`, with `--emit-routes` or
+`--ai`, or `--target` / `--dast-*` without `--verify`) exit 2, as the other `scan` flag errors do. If no routes are extracted from the code, nothing is attacked: BaseSec reports the
+static findings and warns on stderr.
+
 ## Exit Codes
 
 | Code | Meaning |

@@ -133,6 +133,23 @@ export interface DastConfig {
   probeRateLimit?: boolean;
 }
 
+/** Flags `--dast-*` de `scan --verify` ya leídos de la línea de comandos (sin validar: lo hace el comando). */
+export interface VerifyDastOptions {
+  allowRemote?: boolean;
+  allowVulnerableNode?: boolean;
+  /** Repetible: "Name: value". */
+  headers?: string[];
+  rules?: string;
+  probeRateLimit?: boolean;
+  timeout?: number | string;
+  requestTimeout?: number | string;
+  rps?: number | string;
+  maxRequests?: number | string;
+  evidenceDir?: string;
+  /** false con --no-dast-evidence; undefined = lo que diga la config. */
+  evidence?: boolean;
+}
+
 export interface basesecConfig {
   target: string[];
   ignore: string[];
@@ -190,6 +207,10 @@ export interface CliOptions {
   emitRoutes?: boolean;
   /** Ruta explícita del artefacto con emitRoutes; por defecto ~/.basesec/routes/. */
   routesOut?: string;
+  /** Confirma los hallazgos estáticos atacando `target` con la superficie del propio código. */
+  verify?: boolean;
+  target?: string;
+  verifyDast?: VerifyDastOptions;
 }
 
 export interface ScanResult {

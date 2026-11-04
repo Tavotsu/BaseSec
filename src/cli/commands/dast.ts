@@ -57,7 +57,7 @@ const SURFACE_LABEL: Record<LoadedSurface['source'], string> = {
   'routes-file': 'routes file',
 };
 
-const DEFAULTS = {
+export const DEFAULTS = {
   rps: 20,
   concurrency: 5,
   maxRequests: 5000,
@@ -65,7 +65,7 @@ const DEFAULTS = {
   requestTimeout: 10000,
 } as const;
 
-function toPositiveInteger(name: string, value: number | string): number {
+export function toPositiveInteger(name: string, value: number | string): number {
   const parsed = typeof value === 'number' ? value : /^\d+$/.test(value.trim()) ? Number(value.trim()) : NaN;
   if (!Number.isSafeInteger(parsed) || parsed <= 0) {
     throw new DastConfigError(`${name} must be a positive integer (got: ${String(value)})`);
@@ -73,7 +73,7 @@ function toPositiveInteger(name: string, value: number | string): number {
   return parsed;
 }
 
-function resolveInteger(
+export function resolveInteger(
   name: string,
   cliValue: number | string | undefined,
   configValue: number | undefined,
@@ -85,7 +85,7 @@ function resolveInteger(
 }
 
 /** Ruta de evidencia absoluta; debe ser un directorio existente o uno creable en un ancestro escribible. */
-function validateEvidenceDir(raw: string): string {
+export function validateEvidenceDir(raw: string): string {
   const resolved = path.resolve(raw);
   let probe = resolved;
   try {
@@ -113,20 +113,20 @@ function normalizeHost(host: string): string {
  * Quita credenciales de URL (`user:pass@`) de un mensaje y sustituye el target tal como lo escribió el usuario
  * por su origen: ni los errores ni el progreso deben mostrar `user:pass@host`.
  */
-function scrubMessage(message: string, rawTarget: string, origin: string | undefined): string {
+export function scrubMessage(message: string, rawTarget: string, origin: string | undefined): string {
   let out = message;
   if (origin !== undefined && rawTarget !== '') out = out.split(rawTarget).join(origin);
   return out.replace(/\b([a-z][a-z0-9+.-]*:\/\/)[^\s/?#]*@/gi, '$1');
 }
 
-/** `origin` sin credenciales: nunca se imprime la URL completa del usuario. */
-function printRemoteBlocked(hostname: string, origin: string): void {
+/** Sin credenciales: `retryCommand` lleva el origen, nunca la URL completa del usuario. */
+function printRemoteBlocked(hostname: string, retryCommand: string): void {
   console.error(pc.red(`  ✖ Remote host blocked: ${hostname}`));
   console.error('');
   console.error('    BaseSec only tests loopback and private networks by default.');
   console.error("    Testing a system without its owner's written authorization is a crime in most jurisdictions.");
   console.error('');
-  console.error(`    If you are authorized:  basesec dast ${origin} --allow-remote`);
+  console.error(`    If you are authorized:  ${retryCommand}`);
 }
 
 function loadSurfaceFile(file: string): RouteArtifact {
@@ -181,7 +181,7 @@ async function resolveSurface(options: DastCliOptions, quiet: boolean): Promise<
   }
 }
 
-function printSurfaceNotices(surface: LoadedSurface): void {
+export function printSurfaceNotices(surface: LoadedSurface): void {
   const endpoints = toSurfaceEndpoints(surface.artifact);
   const mutating = endpoints.filter((endpoint) => endpoint.mutating).length;
   console.error(
@@ -199,6 +199,104 @@ function printSurfaceNotices(surface: LoadedSurface): void {
   if (surface.stale) {
     console.error(pc.yellow('  ⚠ The route artifact is older than the source code; re-run basesec scan --emit-routes.'));
   }
+}
+
+/** Cabeceras de la config con las de `--header` encima (mismo nombre, sin distinguir mayúsculas). */
+export function mergeDastHeaders(configHeaders: Record<string, string> | undefined, flags: string[]): Record<string, string> {
+  const merged = new Map<string, [string, string]>();
+  for (const [name, value] of Object.entries(configHeaders ?? {})) {
+    merged.set(name.toLowerCase(), [name, value]);
+  }
+  for (const raw of flags) {
+    const [name, value] = parseHeaderFlag(raw);
+    merged.set(name.toLowerCase(), [name, value]);
+  }
+  return Object.fromEntries(merged.values());
+}
+
+/**
+ * Barandilla de destino (plan §8.1) antes de cualquier petición: un host no local exige --allow-remote, y luego
+ * confirmación por TTY o BASESEC_ALLOW_REMOTE=1. Devuelve 3 si se niega (ya impreso) o undefined si se puede seguir.
+ * La comparten `dast` y `scan --verify`.
+ */
+export async function confirmTargetAccess(args: {
+  target: string;
+  hostname: string;
+  origin: string;
+  allowRemote: boolean;
+  isTTY: boolean;
+  envAllowRemote: boolean;
+  /** Comando que el mensaje sugiere si el usuario está autorizado (distinto en `dast` y en `scan --verify`). */
+  retryCommand: string;
+}): Promise<number | undefined> {
+  const safe = (message: string): string => scrubMessage(message, args.target, args.origin);
+  try {
+    // Probe sin --allow-remote: solo sirve para saber si el host es remoto, antes de preguntar.
+    await new Guard().assertTargetAllowed(args.target, { isTTY: args.isTTY });
+  } catch (e) {
+    if (e instanceof GuardError && e.code === 'remote-blocked') {
+      if (!args.allowRemote) {
+        printRemoteBlocked(args.hostname, args.retryCommand);
+        return 3;
+      }
+      if (args.isTTY) {
+        const answer = await prompts({
+          type: 'text',
+          name: 'value',
+          message: 'Type the host to confirm you are authorized to test it:',
+          // El prompt va por stderr: stdout puede estar llevando el JSON del informe.
+          stdout: process.stderr,
+        });
+        if (typeof answer.value !== 'string' || normalizeHost(answer.value) !== normalizeHost(args.hostname)) {
+          printError('Host confirmation did not match. No requests were sent.');
+          return 3;
+        }
+      } else if (!args.envAllowRemote) {
+        printError('Remote host without a terminal: set BASESEC_ALLOW_REMOTE=1 to allow it. No requests were sent.');
+        return 3;
+      }
+    } else if (e instanceof GuardError) {
+      printError(safe(e.message));
+      return 3;
+    } else {
+      throw e;
+    }
+  }
+  return undefined;
+}
+
+/** Avisos al terminar el ataque: endpoints atacados y evidencia que no pudo escribirse. */
+export function printAttackNotices(result: ScanResult, evidence: boolean, quiet: boolean): void {
+  const attacked = result.stats.dast?.endpoints.attacked ?? 0;
+  if (!quiet && attacked > 0) {
+    console.error(pc.cyan(`  Sent non-destructive payloads to ${attacked} endpoint(s); mutations are off.`));
+  }
+
+  if (evidence && !quiet && result.findings.length > 0 && result.stats.dast?.evidenceDir === undefined) {
+    console.error(pc.yellow('  ⚠ Evidence files could not be written (run with --verbose for details).'));
+  }
+}
+
+/** Progreso en stderr: una línea que se reescribe en un TTY, líneas sueltas si no. `clear()` borra la línea. */
+export function createProgressReporter(quiet: boolean): {
+  onProgress: ((event: { done: number; total: number; requests: number; label: string }) => void) | undefined;
+  clear: () => void;
+} {
+  const progressTTY = !quiet && process.stderr.isTTY === true;
+  return {
+    onProgress: quiet
+      ? undefined
+      : (event): void => {
+          if (progressTTY) {
+            process.stderr.write(`\r\x1b[K  ${event.done}/${event.total} · ${event.requests} requests · ${event.label}`);
+          } else {
+            process.stderr.write(`[${event.done}/${event.total}] ${event.label} · ${event.requests} requests\n`);
+          }
+        },
+    clear: (): void => {
+      if (progressTTY) process.stderr.write('\r\x1b[K');
+    },
+  };
 }
 
 /**
@@ -262,16 +360,7 @@ export async function runDastCommand(url: string | undefined, options: DastCliOp
     const rawEvidenceDir = options.evidenceDir ?? dastConfig.evidenceDir;
     evidenceDir = rawEvidenceDir !== undefined ? validateEvidenceDir(String(rawEvidenceDir)) : undefined;
 
-    // Config primero; cada --header sustituye a la de config con el mismo nombre (sin distinguir mayúsculas).
-    const merged = new Map<string, [string, string]>();
-    for (const [name, value] of Object.entries(dastConfig.headers ?? {})) {
-      merged.set(name.toLowerCase(), [name, value]);
-    }
-    for (const raw of options.header ?? []) {
-      const [name, value] = parseHeaderFlag(raw);
-      merged.set(name.toLowerCase(), [name, value]);
-    }
-    headers = Object.fromEntries(merged.values());
+    headers = mergeDastHeaders(dastConfig.headers, options.header ?? []);
     // Valida `$env:` antes de cualquier pregunta; runDast vuelve a expandir los valores crudos.
     expandEnvHeaders(headers);
   } catch (e) {
@@ -314,38 +403,16 @@ export async function runDastCommand(url: string | undefined, options: DastCliOp
     throw e;
   }
 
-  try {
-    // Probe sin --allow-remote: solo sirve para saber si el host es remoto, antes de preguntar.
-    await new Guard().assertTargetAllowed(target, { isTTY });
-  } catch (e) {
-    if (e instanceof GuardError && e.code === 'remote-blocked') {
-      if (!allowRemoteRequested) {
-        printRemoteBlocked(hostname, origin);
-        return 3;
-      }
-      if (isTTY) {
-        const answer = await prompts({
-          type: 'text',
-          name: 'value',
-          message: 'Type the host to confirm you are authorized to test it:',
-          // El prompt va por stderr: stdout puede estar llevando el JSON del informe.
-          stdout: process.stderr,
-        });
-        if (typeof answer.value !== 'string' || normalizeHost(answer.value) !== normalizeHost(hostname)) {
-          printError('Host confirmation did not match. No requests were sent.');
-          return 3;
-        }
-      } else if (!envAllowRemote) {
-        printError('Remote host without a terminal: set BASESEC_ALLOW_REMOTE=1 to allow it. No requests were sent.');
-        return 3;
-      }
-    } else if (e instanceof GuardError) {
-      printError(safe(e.message));
-      return 3;
-    } else {
-      throw e;
-    }
-  }
+  const denied = await confirmTargetAccess({
+    target,
+    hostname,
+    origin,
+    allowRemote: allowRemoteRequested,
+    isTTY,
+    envAllowRemote,
+    retryCommand: `basesec dast ${origin} --allow-remote`,
+  });
+  if (denied !== undefined) return denied;
 
   // Después de la confirmación de host y antes de cualquier petición al target.
   let surface: LoadedSurface | undefined;
@@ -368,16 +435,7 @@ export async function runDastCommand(url: string | undefined, options: DastCliOp
     }
   }
 
-  const progressTTY = !quiet && process.stderr.isTTY === true;
-  const onProgress = quiet
-    ? undefined
-    : (event: { done: number; total: number; requests: number; label: string }): void => {
-        if (progressTTY) {
-          process.stderr.write(`\r\x1b[K  ${event.done}/${event.total} · ${event.requests} requests · ${event.label}`);
-        } else {
-          process.stderr.write(`[${event.done}/${event.total}] ${event.label} · ${event.requests} requests\n`);
-        }
-      };
+  const progress = createProgressReporter(quiet);
 
   let result: ScanResult;
   try {
@@ -401,7 +459,7 @@ export async function runDastCommand(url: string | undefined, options: DastCliOp
       // Solo por config: rutas públicas a propósito que DAST-008 no debe reportar.
       publicRoutes: dastConfig.publicRoutes,
       probeRateLimit: options.probeRateLimit === true || dastConfig.probeRateLimit === true,
-      onProgress,
+      onProgress: progress.onProgress,
     });
   } catch (e) {
     if (e instanceof GuardError || e instanceof DastConfigError) {
@@ -415,17 +473,10 @@ export async function runDastCommand(url: string | undefined, options: DastCliOp
     printError(safe(e instanceof Error ? e.message : String(e)));
     return 2;
   } finally {
-    if (progressTTY) process.stderr.write('\r\x1b[K');
+    progress.clear();
   }
 
-  const attacked = result.stats.dast?.endpoints.attacked ?? 0;
-  if (!quiet && attacked > 0) {
-    console.error(pc.cyan(`  Sent non-destructive payloads to ${attacked} endpoint(s); mutations are off.`));
-  }
-
-  if (evidence && !quiet && result.findings.length > 0 && result.stats.dast?.evidenceDir === undefined) {
-    console.error(pc.yellow('  ⚠ Evidence files could not be written (run with --verbose for details).'));
-  }
+  printAttackNotices(result, evidence, quiet);
 
   const filtered = result.findings.filter((finding) => severityGte(finding.severity, severity));
   const filteredResult: ScanResult = { ...result, findings: filtered };

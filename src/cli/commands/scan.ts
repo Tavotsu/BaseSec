@@ -9,24 +9,21 @@ import { writeRouteArtifact } from '../../core/route-emitter';
 import { validateRouteOptions } from '../validation';
 import * as path from 'node:path';
 
-export async function runScan(
+export interface TargetAnalysis {
+  result: ScanResult;
+  /** Config leída del fichero (o {} si no hay). `scan --verify` toma de aquí la sección `dast`. */
+  fileConfig: Partial<basesecConfig>;
+}
+
+/**
+ * Análisis estático con la configuración de `scan`. Lo usan `scan` y `scan --verify`, que así analizan igual.
+ * Devuelve 3 (sin analizar) si el fichero de config indicado no carga.
+ */
+export async function analyzeTarget(
   targetPath: string,
   options: CliOptions,
-): Promise<number> {
-  const routeError = validateRouteOptions({
-    emitRoutes: options.emitRoutes === true,
-    routesOut: options.routesOut,
-    ai: options.ai === true,
-  });
-  if (routeError) {
-    console.error(`  Error: ${routeError}`);
-    return 2;
-  }
-
-  if (options.verbose) {
-    logger.isVerbose = true;
-  }
-
+  emitRoutes: boolean,
+): Promise<TargetAnalysis | number> {
   const pipeline = new Pipeline(undefined, {
     workers: options.workers,
     noCache: options.noCache,
@@ -89,8 +86,35 @@ export async function runScan(
     aiModel: options.aiModel,
     aiDryRun: options.aiDryRun,
     aiContext: options.aiContext,
-    emitRoutes: options.emitRoutes,
+    emitRoutes,
   });
+
+  return { result, fileConfig };
+}
+
+export async function runScan(
+  targetPath: string,
+  options: CliOptions,
+): Promise<number> {
+  const routeError = validateRouteOptions({
+    emitRoutes: options.emitRoutes === true,
+    routesOut: options.routesOut,
+    ai: options.ai === true,
+  });
+  if (routeError) {
+    console.error(`  Error: ${routeError}`);
+    return 2;
+  }
+
+  if (options.verbose) {
+    logger.isVerbose = true;
+  }
+
+  const analysis = await analyzeTarget(targetPath, options, options.emitRoutes === true);
+  if (typeof analysis === 'number') {
+    return analysis;
+  }
+  const { result } = analysis;
 
   if (options.emitRoutes) {
     if (!result.routes) {
@@ -132,7 +156,7 @@ export async function runScan(
   return 0;
 }
 
-function filterBySeverity(
+export function filterBySeverity(
   result: ScanResult,
   minSeverity: string,
 ): typeof result.findings {
