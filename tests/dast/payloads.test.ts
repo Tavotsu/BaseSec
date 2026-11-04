@@ -85,16 +85,16 @@ describe('payload policy (plan §0): no payload modifies or destroys state', () 
 
   it('the catalog is exactly the reviewed allowlist: a new payload must be added here on purpose', () => {
     const REVIEWED = new Set([
-      "'",
-      "' OR '1'='1",
-      "1' OR '1'='1'--",
-      "1' AND SLEEP({{delay}})-- -",
-      "1'; SELECT pg_sleep({{delay}})-- -",
+      "'/*{{canary}}*/",
+      "' OR '1'='1/*{{canary}}*/",
+      "1' OR '1'='1'/*{{canary}}*/--",
+      "1' AND SLEEP({{delay}})/*{{canary}}*/-- -",
+      "1'; SELECT pg_sleep({{delay}})/*{{canary}}*/-- -",
       '{{canary}}',
       '',
-      '; sleep {{delay}}',
-      '| sleep {{delay}}',
-      '$(sleep {{delay}})',
+      '; sleep {{delay}} #{{canary}}',
+      '| sleep {{delay}} #{{canary}}',
+      '$(sleep {{delay}}) #{{canary}}',
       '; echo {{canary}}',
       '$(echo {{canary}})',
       '../../../../etc/passwd',
@@ -111,7 +111,8 @@ describe('payload policy (plan §0): no payload modifies or destroys state', () 
 
   it('every command in a command-injection payload is a bounded sleep or an echo of the canary', () => {
     for (const payload of PAYLOAD_TEMPLATES.filter((p) => p.class === 'cmdi')) {
-      expect(payload.template).toMatch(/^(?:; |\| |\$\()(?:sleep \{\{delay\}\}|echo \{\{canary\}\})\)?$/);
+      // El único sufijo permitido es el comentario de shell que lleva el canario (` #{{canary}}`).
+      expect(payload.template).toMatch(/^(?:; |\| |\$\()(?:sleep \{\{delay\}\}|echo \{\{canary\}\})\)?(?: #\{\{canary\}\})?$/);
     }
   });
 
@@ -132,10 +133,20 @@ describe('payload policy (plan §0): no payload modifies or destroys state', () 
 describe('buildPayloads', () => {
   it('substitutes the canary and the delay', () => {
     const sqli = buildPayloads('sqli', CANARY, 2).find((p) => p.oracle === 'timing');
-    expect(sqli?.text).toBe("1' AND SLEEP(2)-- -");
-    expect(buildPayloads('cmdi', CANARY, 1).map((p) => p.text)).toContain('; sleep 1');
+    expect(sqli?.text).toBe(`1' AND SLEEP(2)/*${CANARY}*/-- -`);
+    expect(buildPayloads('cmdi', CANARY, 1).map((p) => p.text)).toContain(`; sleep 1 #${CANARY}`);
     expect(buildPayloads('xss', CANARY, 0).every((p) => p.text.includes(CANARY))).toBe(true);
     expect(buildPayloads('xss', CANARY, 0).every((p) => p.canary === CANARY)).toBe(true);
+  });
+
+  it('carries the canary in the text of the sql-error, sqli-timing and cmdi-timing payloads', () => {
+    const carriers = PAYLOAD_CLASSES.flatMap((cls) => buildPayloads(cls, CANARY, 2)).filter(
+      (p) => p.oracle === 'sql-error' || p.oracle === 'timing',
+    );
+    expect(carriers.length).toBeGreaterThan(0);
+    for (const payload of carriers) {
+      expect(payload.text, `${payload.class}: ${payload.text}`).toContain(CANARY);
+    }
   });
 
   it('leaves no placeholder behind', () => {

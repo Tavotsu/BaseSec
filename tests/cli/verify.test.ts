@@ -143,7 +143,8 @@ describe('scan --verify: correlación', () => {
     expect(sqli[0].verified).toBe(true);
     expect(sqli[0].source).toBeUndefined();
     expect(sqli[0].evidence?.correlation).toBe('handler');
-    expect(sqli[0].evidence?.payload).toBe("'");
+    // El payload SQLi lleva el canario en un comentario inocuo (`'/*BS…*/`) para que el agente lo vea en el sink.
+    expect(sqli[0].evidence?.payload).toMatch(/^'(?:\/\*BS[0-9a-f]{8}\*\/)?$/);
     expect(sqli[0].evidence?.oracle).toBe('sql-error');
     expect(report.findings.some((f) => f.ruleId === 'DAST-101')).toBe(false);
     expect(report.stats).toMatchObject({ dast: { target: targetUrl, mode: 'full' } });
