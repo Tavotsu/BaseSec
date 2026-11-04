@@ -103,7 +103,8 @@ export async function runScan(
     const routes = result.routes.routes;
     const expressCount = routes.filter((r) => r.framework === 'express').length;
     const nestCount = routes.filter((r) => r.framework === 'nestjs').length;
-    console.log(`  Routes: ${routes.length} (${expressCount} express, ${nestCount} nestjs) · unresolved: ${result.routes.unresolved.length}`);
+    const nextCount = routes.filter((r) => r.framework === 'nextjs').length;
+    console.log(`  Routes: ${routes.length} (${expressCount} express, ${nestCount} nestjs, ${nextCount} nextjs) · unresolved: ${result.routes.unresolved.length}`);
     console.log(`  Artifact: ${written}`);
     return 0;
   }

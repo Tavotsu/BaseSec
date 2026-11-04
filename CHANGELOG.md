@@ -11,6 +11,7 @@ All notable changes to BaseSec are documented in this file.
 - **`stats.dast` in reports**: JSON, SARIF (`runs[0].properties.dast`), HTML and Markdown show the DAST mode and whether the analysis was incomplete.
 
 ### Changed
+- SAST: server-side taint sources for Next.js route handlers; Next.js projects may report new findings.
 - **BREAKING: `engines.node` now requires patched versions**: `^22.23.4 || ^24.22.1 || >=26.12.1`. Node 18 and 20 are no longer supported (npm warns on install, and `pnpm`/`npm` with `engine-strict` refuse it). Node 22 and 24 releases before these versions are affected by Node2Shell (CVE-2026-111497) and by other CVEs fixed on 2026-10-21.
 - Build target raised to `node22`.
 - `basesec rules` lists the DAST rules after the SAST rules and counts both in the title.

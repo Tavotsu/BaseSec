@@ -22,7 +22,7 @@ export interface ExtractedRoute {
   method: string;
   /** Empieza por '/', sin '//' repetidos, sin '/' final salvo la raíz. */
   path: string;
-  framework: 'express' | 'nestjs';
+  framework: 'express' | 'nestjs' | 'nextjs';
   /** Fichero del HANDLER, relativo a la raíz del proyecto. */
   filePath: string;
   /** Inicio del handler (1-based). */

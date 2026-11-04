@@ -50,7 +50,8 @@ describe('scan --emit-routes', () => {
     expect(artifact.routes.some((r: { path: string; method: string }) => r.method === 'GET' && r.path === '/api/users/:id')).toBe(true);
 
     const printed = logSpy.mock.calls.map((c) => String(c[0])).join('\n');
-    expect(printed).toMatch(/Routes: \d+ \(\d+ express, \d+ nestjs\) · unresolved: \d+/);
+    // Fase 2b añade el recuento de nextjs al resumen (siempre listado con los tres frameworks).
+    expect(printed).toMatch(/Routes: \d+ \(\d+ express, \d+ nestjs, \d+ nextjs\) · unresolved: \d+/);
     expect(printed).toContain(`Artifact: ${out}`);
   });
 

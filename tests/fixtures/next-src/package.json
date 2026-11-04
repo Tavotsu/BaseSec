@@ -1,0 +1,10 @@
+{
+  "name": "next-src-fixture",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Parsed-only fixture for Next.js route extraction. Never installed or executed.",
+  "dependencies": {
+    "next": "^15.0.0",
+    "react": "^19.0.0"
+  }
+}

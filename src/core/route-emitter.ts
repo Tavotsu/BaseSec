@@ -5,6 +5,7 @@ import type { Finding, ParsedFile } from '../rules/types';
 import { buildImportGraph } from './import-graph';
 import { extractExpressRoutes } from '../framework/routes/express-routes';
 import { extractNestRoutes } from '../framework/routes/nestjs-routes';
+import { extractNextRoutes } from '../framework/routes/nextjs-routes';
 import { toRootRelative } from '../framework/routes/common';
 import type {
   ExtractedRoute,
@@ -46,6 +47,11 @@ export function buildRouteArtifact(args: BuildRouteArtifactArgs): RouteArtifact 
   }
   if (frameworks.has('nestjs')) {
     const result = extractNestRoutes(ctx);
+    rawRoutes.push(...result.routes);
+    unresolved.push(...result.unresolved);
+  }
+  if (frameworks.has('nextjs')) {
+    const result = extractNextRoutes(ctx);
     rawRoutes.push(...result.routes);
     unresolved.push(...result.unresolved);
   }

@@ -65,6 +65,10 @@ function buildFlows(
     }
 
     for (const source of sources) {
+      // Una fuente de Next.js que es solo el nombre de una variable (`const { id } = await req.json()`
+      // tiene `expression: 'id'`) se enlaza abajo con límites de palabra y orden de líneas; aquí
+      // `includes('id')` casaría con `SELECT id FROM t`.
+      if (isNextVariableOnly(source)) continue;
       if (lineContainsTaintSource(sinkLineText, source.expression)) {
         if (sink.line !== source.line) {
           flows.push({
@@ -77,9 +81,31 @@ function buildFlows(
         }
       }
     }
+
+    // Fuentes de Next.js con variable (`const q = req.nextUrl.searchParams.get('q')`): la propagación
+    // de taint no conoce sus patrones, así que el flujo se enlaza aquí por nombre de variable.
+    for (const source of sources) {
+      if (!source.kind.startsWith('next:') || source.variableName === undefined) continue;
+      // Una variable no puede usarse antes de declararse: evita enlazar el sink de un handler con
+      // la variable homónima de otro handler declarado más abajo.
+      if (source.line >= sink.line || taintMap.get(source.variableName)?.isSanitized === true) continue;
+      if (lineContainsVar(sinkLineText, source.variableName)) {
+        flows.push({
+          source,
+          sink,
+          path: [source.expression, source.variableName, sink.functionName],
+          isSanitized: false,
+          sanitizersApplied: [],
+        });
+      }
+    }
   }
 
   return deduplicateFlows(flows);
+}
+
+function isNextVariableOnly(source: TaintSourceInfo): boolean {
+  return source.kind.startsWith('next:') && source.variableName !== undefined && source.expression === source.variableName;
 }
 
 function lineContainsVar(line: string, varName: string): boolean {

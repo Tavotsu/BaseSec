@@ -107,7 +107,8 @@ describe('runScan --emit-routes', () => {
     expect(code).toBe(0);
     expect(errSpy.mock.calls.map((c) => String(c[0])).join('\n')).toContain('add it to .gitignore');
     const stdout = logSpy.mock.calls.map((c) => String(c[0])).join('\n');
-    expect(stdout).toMatch(/Routes: 1 \(1 express, 0 nestjs\) · unresolved: 0/);
+    // Fase 2b añade el recuento de nextjs al resumen (siempre listado con los tres frameworks).
+    expect(stdout).toMatch(/Routes: 1 \(1 express, 0 nestjs, 0 nextjs\) · unresolved: 0/);
     expect(JSON.parse(fs.readFileSync(out, 'utf-8')).routes[0].path).toBe('/ping');
   });
 });
