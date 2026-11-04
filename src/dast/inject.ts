@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import type { DastEvidence, Finding, RuleCategory, Severity } from '../rules/types';
-import type { RouteParam } from '../framework/routes/types';
+import type { ExtractedRoute, RouteParam } from '../framework/routes/types';
 import type { HttpClient } from './http';
 import type { DastObservation, HttpResponse } from './types';
 import { BudgetExceededError, GuardError } from './types';
@@ -42,8 +42,27 @@ export interface InjectionPoint {
   param: RouteParam;
 }
 
+/**
+ * Un envío de inyección con respuesta: qué canario viajó, a qué endpoint, parámetro y clase. Solo lo usa la
+ * correlación con el agente (en memoria, no se persiste).
+ */
+export interface InjectionTrace {
+  canary: string;
+  cls: InjectionClass;
+  /** Etiqueta del endpoint ("GET /users/:id"), la misma que lleva su hallazgo. */
+  endpoint: string;
+  route: ExtractedRoute;
+  param: RouteParam;
+  method: string;
+  url: string;
+  payloadText: string;
+  response: HttpResponse;
+}
+
 export interface InjectionOptions {
   client: Pick<HttpClient, 'request'>;
+  /** Recibe cada envío de un payload que obtuvo respuesta. */
+  trace?: (entry: InjectionTrace) => void;
   /** Origen del target, sin path. Toda URL de ataque debe quedar en él. */
   origin: string;
   artifactTarget?: string;
@@ -290,7 +309,20 @@ async function attack(
   const payload = freshPayload(cls, index, delay);
   const traversal = cls === 'path-traversal';
   const sent = await transmit(state.run, state.point, payload.text, payload.bracket, traversal, true);
-  return sent === undefined ? undefined : { ...sent, payload };
+  if (sent === undefined) return undefined;
+  const { run, point } = state;
+  run.options.trace?.({
+    canary: payload.canary,
+    cls,
+    endpoint: `${run.endpoint.method} ${run.endpoint.path}`,
+    route: run.endpoint.route,
+    param: point.param,
+    method: run.endpoint.method,
+    url: sent.url,
+    payloadText: payload.text,
+    response: sent.response,
+  });
+  return { ...sent, payload };
 }
 
 /**

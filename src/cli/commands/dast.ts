@@ -7,6 +7,11 @@ import { getFormatter } from '../../report/formatter';
 import { Guard } from '../../dast/guard';
 import { DastConfigError, expandEnvHeaders, parseHeaderFlag } from '../../dast/config';
 import { DastTargetUnreachableError, runDast } from '../../dast/runner';
+import { startAgentCollector } from '../../dast/agent-client';
+import type { AgentEventSource } from '../../dast/agent-client';
+import { AppStartError, DEFAULT_START_TIMEOUT_S, resolveAgentBundle, startTargetApp } from '../../dast/agent-launcher';
+import type { StartedApp } from '../../dast/agent-launcher';
+import { resolveAgentDir } from '../../dast/agent/channel';
 import { GuardError } from '../../dast/types';
 import { RouteArtifactError, isArtifactStale, loadRouteArtifact, toSurfaceEndpoints } from '../../dast/surface';
 import type { LoadedSurface } from '../../dast/surface';
@@ -49,6 +54,16 @@ export interface DastCliOptions {
   scan?: string;
   /** --probe-rate-limit: activa DAST-010. Sin el flag manda dast.probeRateLimit de la config. */
   probeRateLimit?: boolean;
+  /** --agent: correlaciona las inyecciones con los sinks reales del agente IAST (requiere superficie). */
+  agent?: boolean;
+  /** --start <cmd>: arranca la app con el agente inyectado y la detiene al terminar. Implica --agent. */
+  start?: string | true;
+  /** --start-timeout <s>: segundos que se espera a que la app responda. */
+  startTimeout?: number | string;
+  /** --agent-dir <dir>: directorio de sockets del agente en modo manual. */
+  agentDir?: string;
+  /** Ruta de dist/agent.cjs. Solo para tests: por defecto se resuelve desde el bundle del CLI. */
+  agentBundle?: string;
 }
 
 const SURFACE_LABEL: Record<LoadedSurface['source'], string> = {
@@ -299,6 +314,51 @@ export function createProgressReporter(quiet: boolean): {
   };
 }
 
+interface AgentSessionArgs {
+  start: string | true | undefined;
+  startTimeout: number;
+  agentDirFlag: string | undefined;
+  agentBundle: string | undefined;
+  origin: string;
+  health: string;
+  quiet: boolean;
+}
+
+/** Sockets del agente en `dir` que ya existen (cero: la app aún no lo ha cargado). */
+function countAgentSockets(dir: string): number {
+  try {
+    return fs.readdirSync(dir).filter((name) => name.endsWith('.sock')).length;
+  } catch (error) {
+    void error;
+    return 0;
+  }
+}
+
+/**
+ * Modo `--start`: arranca la app con el agente y espera a que responda (lanza AppStartError si no lo hace). Modo
+ * manual: el usuario ya la arrancó con NODE_OPTIONS; se usa `--agent-dir` o el directorio por defecto.
+ */
+async function startAgentSession(args: AgentSessionArgs): Promise<{ dir: string; app?: StartedApp }> {
+  if (typeof args.start === 'string') {
+    const bundle = args.agentBundle ?? resolveAgentBundle();
+    if (!args.quiet) console.error(pc.cyan(`  Starting the app with the IAST agent: ${args.start}`));
+    const app = await startTargetApp({
+      command: args.start,
+      origin: args.origin,
+      health: args.health,
+      timeoutS: args.startTimeout,
+      agentBundle: bundle,
+      cwd: process.cwd(),
+    });
+    return { dir: app.dir, app };
+  }
+  const dir = args.agentDirFlag !== undefined ? path.resolve(args.agentDirFlag) : resolveAgentDir();
+  if (!args.quiet && countAgentSockets(dir) === 0) {
+    console.error(pc.yellow(`  ⚠ No agent socket in ${dir} yet. Start the app with NODE_OPTIONS="--require <path to dist/agent.cjs>".`));
+  }
+  return { dir };
+}
+
 /**
  * Comando `basesec dast <url>`. Sin superficie es el modo sin código fuente. Devuelve el exit code:
  * 0 sin hallazgos (o con hallazgos sin --strict), 1 hallazgos con --strict,
@@ -341,7 +401,14 @@ export async function runDastCommand(url: string | undefined, options: DastCliOp
   const format: OutputFormat = options.format ?? 'terminal';
   const severity: Severity = options.severity ?? 'low';
 
-  let numbers: { rps: number; concurrency: number; maxRequests: number; timeout: number; requestTimeout: number };
+  let numbers: {
+    rps: number;
+    concurrency: number;
+    maxRequests: number;
+    timeout: number;
+    requestTimeout: number;
+    startTimeout: number;
+  };
   let evidenceDir: string | undefined;
   let headers: Record<string, string>;
   try {
@@ -356,6 +423,7 @@ export async function runDastCommand(url: string | undefined, options: DastCliOp
         dastConfig.requestTimeout,
         DEFAULTS.requestTimeout,
       ),
+      startTimeout: resolveInteger('--start-timeout', options.startTimeout, dastConfig.startTimeout, DEFAULT_START_TIMEOUT_S),
     };
     const rawEvidenceDir = options.evidenceDir ?? dastConfig.evidenceDir;
     evidenceDir = rawEvidenceDir !== undefined ? validateEvidenceDir(String(rawEvidenceDir)) : undefined;
@@ -370,6 +438,25 @@ export async function runDastCommand(url: string | undefined, options: DastCliOp
     }
     throw e;
   }
+
+  if (options.start !== undefined && (typeof options.start !== 'string' || options.start.trim() === '')) {
+    printError('--start needs a command, e.g. --start "pnpm dev"');
+    return 3;
+  }
+  if (options.start !== undefined && options.agentDir !== undefined) {
+    printError('--agent-dir cannot be combined with --start: --start uses its own directory');
+    return 3;
+  }
+  if (options.agentDir !== undefined && options.agent !== true) {
+    printError('--agent-dir needs --agent');
+    return 3;
+  }
+  if (options.startTimeout !== undefined && options.start === undefined) {
+    printError('--start-timeout needs --start');
+    return 3;
+  }
+  // --start implica --agent; la configuración solo activa el agente, nunca lanza procesos (start no viene de config).
+  const agentRequested = options.agent === true || options.start !== undefined || dastConfig.agent === true;
 
   const evidence = options.evidence ?? dastConfig.evidence ?? true;
   const rules = options.rules !== undefined
@@ -426,6 +513,11 @@ export async function runDastCommand(url: string | undefined, options: DastCliOp
     throw e;
   }
 
+  if (agentRequested && surface === undefined) {
+    printError('--agent needs routes to attack: pass --routes, --scan, or emit them first with basesec scan --emit-routes');
+    return 3;
+  }
+
   if (!quiet) {
     if (surface) {
       printSurfaceNotices(surface);
@@ -438,8 +530,27 @@ export async function runDastCommand(url: string | undefined, options: DastCliOp
   const progress = createProgressReporter(quiet);
 
   let result: ScanResult;
+  let app: StartedApp | undefined;
+  let agentSource: AgentEventSource | undefined;
   try {
+    if (agentRequested) {
+      const agentDir = await startAgentSession({
+        start: options.start,
+        startTimeout: numbers.startTimeout,
+        agentDirFlag: options.agentDir ?? dastConfig.agentDir,
+        agentBundle: options.agentBundle,
+        origin,
+        health,
+        quiet,
+      });
+      app = agentDir.app;
+      agentSource = startAgentCollector(agentDir.dir);
+      if (!quiet) {
+        console.error(pc.cyan(`  IAST agent: sockets in ${agentDir.dir}`));
+      }
+    }
     result = await runDast({
+      agent: agentSource,
       url: target,
       surface,
       health,
@@ -470,10 +581,17 @@ export async function runDastCommand(url: string | undefined, options: DastCliOp
       printError(`${safe(e.message)}. Is the application running?`);
       return 2;
     }
+    if (e instanceof AppStartError) {
+      printError(safe(e.message));
+      return 2;
+    }
     printError(safe(e instanceof Error ? e.message : String(e)));
     return 2;
   } finally {
     progress.clear();
+    agentSource?.close();
+    // Teardown garantizado del grupo de procesos de --start, también ante errores.
+    if (app !== undefined) await app.stop();
   }
 
   printAttackNotices(result, evidence, quiet);

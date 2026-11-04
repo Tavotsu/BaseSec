@@ -138,8 +138,39 @@ function buildContext(staticFindings: Finding[], artifact: RouteArtifact): Conte
 
 function decide(dynamic: Finding, ctx: Context): Decision | undefined {
   const injection = INJECTION_CATEGORY[dynamic.ruleId];
+  // Un sink del agente da la ubicación exacta: tiene prioridad sobre handler e import-graph (§7.8).
+  const sink = dynamic.evidence?.sink;
+  if (injection !== undefined && sink !== undefined) {
+    const agent = decideAgent(sink, dynamic.ruleId, injection, ctx);
+    if (agent !== undefined) return agent;
+  }
   if (injection !== undefined) return decideInjection(dynamic, injection, ctx);
   return decideSister(dynamic, ctx);
+}
+
+/** Tolerancia en líneas entre el sink que reporta el agente y el estático (§7.8). */
+const SINK_LINE_TOLERANCE = 2;
+
+/**
+ * Enlace por agente: estáticos de la categoría de la inyección en el mismo fichero que el sink (±2 líneas). Los sinks
+ * son rutas relativas a la raíz del artefacto, como `relPath`.
+ */
+function decideAgent(
+  sink: { filePath: string; line: number },
+  ruleId: string,
+  category: RuleCategory,
+  ctx: Context,
+): Decision | undefined {
+  const sinkPath = sink.filePath.replace(/\\/g, '/');
+  const ruleAllowed = INJECTION_RULES[ruleId];
+  const targets = ctx.statics
+    .filter(({ finding, relPath }) => {
+      if (finding.category !== category) return false;
+      if (ruleAllowed !== undefined && !ruleAllowed(finding.ruleId)) return false;
+      return relPath === sinkPath && Math.abs(finding.line - sink.line) <= SINK_LINE_TOLERANCE;
+    })
+    .map(({ index }) => ({ index, confidence: 'high' as const }));
+  return targets.length > 0 ? { kind: 'link', correlation: 'agent', targets } : undefined;
 }
 
 /**

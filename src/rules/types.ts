@@ -131,11 +131,19 @@ export interface DastConfig {
   publicRoutes?: string[];
   /** Activa DAST-010 (sonda de rate limiting, ráfaga de 30 peticiones). Equivale a --probe-rate-limit. */
   probeRateLimit?: boolean;
+  /** Activa la correlación con el agente IAST (equivale a --agent). No lanza procesos: --start solo por flag. */
+  agent?: boolean;
+  /** Segundos que se espera a que la app responda con --start. */
+  startTimeout?: number;
+  /** Directorio de sockets del agente en modo manual (equivale a --agent-dir). */
+  agentDir?: string;
 }
 
 /** Flags `--dast-*` de `scan --verify` ya leídos de la línea de comandos (sin validar: lo hace el comando). */
 export interface VerifyDastOptions {
   allowRemote?: boolean;
+  /** --dast-agent: correlación con el agente IAST por sockets (modo manual; la app ya tiene NODE_OPTIONS). */
+  agent?: boolean;
   allowVulnerableNode?: boolean;
   /** Repetible: "Name: value". */
   headers?: string[];

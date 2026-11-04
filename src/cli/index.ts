@@ -29,6 +29,7 @@ function verifyDastOptions(options: any): VerifyDastOptions {
     headers: dastHeaderValues(options),
     rules: options.dastRules,
     probeRateLimit: options.dastProbeRateLimit === true,
+    agent: options.dastAgent === true,
     timeout: options.dastTimeout,
     requestTimeout: options.dastRequestTimeout,
     rps: options.dastRps,
@@ -77,6 +78,7 @@ export async function main(): Promise<void> {
     .option('--dast-header <header>', 'Request header "Name: value" for --verify (repeatable)', { type: [] })
     .option('--dast-rules <ids>', 'Comma-separated DAST rule IDs for --verify')
     .option('--dast-probe-rate-limit', 'Enable DAST-010 in --verify')
+    .option('--dast-agent', 'Correlate --verify with a running IAST agent (sockets in BASESEC_AGENT_DIR); needs the app started with NODE_OPTIONS')
     .option('--dast-timeout <s>', 'Global DAST timeout in seconds for --verify (default: 300)')
     .option('--dast-request-timeout <ms>', 'Per-request DAST timeout for --verify (default: 10000)')
     .option('--dast-rps <n>', 'DAST requests per second for --verify (default: 20)')
@@ -131,6 +133,7 @@ export async function main(): Promise<void> {
         ['--dast-header', dastHeaderValues(options).length > 0 ? true : undefined],
         ['--dast-rules', options.dastRules],
         ['--dast-probe-rate-limit', options.dastProbeRateLimit === true ? true : undefined],
+        ['--dast-agent', options.dastAgent === true ? true : undefined],
         ['--dast-timeout', options.dastTimeout],
         ['--dast-request-timeout', options.dastRequestTimeout],
         ['--dast-rps', options.dastRps],
@@ -218,6 +221,10 @@ export async function main(): Promise<void> {
     .option('--no-evidence', 'Do not write evidence files')
     .option('--rules <ids>', 'Comma-separated DAST rule IDs')
     .option('--probe-rate-limit', 'Send 30 rapid requests to a login or healthcheck to check rate limiting (DAST-010)')
+    .option('--agent', 'Confirm injections with the IAST agent: canaries that reach a real sink (needs routes)')
+    .option('--start <cmd>', 'Start the app with the IAST agent injected, wait for --health, and stop it after (implies --agent)')
+    .option('--start-timeout <s>', 'Seconds to wait for the app to answer with --start (default: 60)')
+    .option('--agent-dir <dir>', 'Directory with the agent sockets, for a manually started app (default: $BASESEC_AGENT_DIR or the tmp dir)')
     .option('--routes <file>', 'Route artifact to test (default: ~/.basesec/routes/<hash>.json)')
     .option('--scan <path>', 'Derive routes from this code path in memory (nothing is written)')
     .option('--config <path>, -c', 'Path to config file')
@@ -276,6 +283,11 @@ export async function main(): Promise<void> {
           evidence: options.evidence === false ? false : undefined,
           rules: options.rules,
           probeRateLimit: options.probeRateLimit === true,
+          agent: options.agent === true,
+          start: options.start,
+          // cac entrega `true` si el flag no lleva valor: se rechaza en el comando (exit 3).
+          startTimeout: options.startTimeout === true ? '' : options.startTimeout,
+          agentDir: typeof options.agentDir === 'string' ? options.agentDir : undefined,
           // cac entrega `true` si el flag no lleva valor; el comando lo rechaza con exit 3.
           routes: options.routes === undefined ? undefined : typeof options.routes === 'string' ? options.routes : '',
           scan: options.scan === undefined ? undefined : typeof options.scan === 'string' ? options.scan : '',

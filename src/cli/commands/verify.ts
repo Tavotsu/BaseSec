@@ -5,6 +5,8 @@ import { DastConfigError, expandEnvHeaders } from '../../dast/config';
 import { DastTargetUnreachableError, runDast } from '../../dast/runner';
 import { GuardError } from '../../dast/types';
 import { correlate } from '../../dast/correlate';
+import { startAgentCollector } from '../../dast/agent-client';
+import { resolveAgentDir } from '../../dast/agent/channel';
 import type { LoadedSurface } from '../../dast/surface';
 import type { CliOptions, DastConfig, ScanResult } from '../../rules/types';
 import { logger } from '../../utils/logger';
@@ -130,9 +132,12 @@ export async function runVerify(targetPath: string, options: CliOptions): Promis
     : dastConfig.rules;
   const progress = createProgressReporter(quiet);
 
+  // --dast-agent: modo manual. La app ya arrancó con NODE_OPTIONS; sus sockets están en BASESEC_AGENT_DIR (o el default).
+  const agentSource = flags.agent === true ? startAgentCollector(resolveAgentDir()) : undefined;
   let dynamic: ScanResult;
   try {
     dynamic = await runDast({
+      agent: agentSource,
       url: rawTarget,
       surface,
       health: dastConfig.health ?? '/',
@@ -167,6 +172,7 @@ export async function runVerify(targetPath: string, options: CliOptions): Promis
     return 2;
   } finally {
     progress.clear();
+    agentSource?.close();
   }
 
   printAttackNotices(dynamic, evidence, quiet);

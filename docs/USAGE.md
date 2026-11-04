@@ -159,6 +159,10 @@ When the run is non-interactive (CI), a remote host also needs `BASESEC_ALLOW_RE
 | `--no-evidence` | off | Do not write evidence files |
 | `--rules <ids>` | all | Comma-separated DAST rule IDs, e.g. `DAST-001,DAST-005`. Active and injection IDs (`DAST-008`, `DAST-010`, `DAST-011`, `DAST-101` to `DAST-105`) select their checks |
 | `--probe-rate-limit` | off | Enables `DAST-010`: 30 rapid requests to a login or to the healthcheck. Also `dast.probeRateLimit: true` in the config |
+| `--agent` | off | Confirms injections with the IAST agent: a canary that reaches a real sink raises the finding to `high`. Needs routes. See [IAST agent](#iast-agent---agent---start) |
+| `--start <cmd>` | — | Starts the app with the agent injected, waits for `--health`, and stops it (whole process group) when done. Implies `--agent`. Not read from the config |
+| `--start-timeout <s>` | 60 | Seconds to wait for the app to answer with `--start` |
+| `--agent-dir <dir>` | `$BASESEC_AGENT_DIR` or the tmp dir | Directory with the agent sockets, for an app started by hand. Needs `--agent` |
 | `--config`, `-c` | — | Path to config file |
 | `--allow-vulnerable-node` | off | Run even if Node lacks the mandatory security patches |
 | `--format`, `-f` / `--output`, `-o` | `terminal` | Same as `scan` |
@@ -258,6 +262,55 @@ Each finding gets a redacted `.http` file in `~/.basesec/dast-<timestamp>/`, for
 `DAST-005-7143753f.http`. It opens in VS Code (REST Client) or IntelliJ. Cookie values, values of
 `--header` and `$env:` secrets are replaced with `[REDACTED]`. The body is truncated to 8 KB. The
 directory has mode `0700` and files have mode `0600`. Existing files are never overwritten.
+
+### IAST agent (`--agent`, `--start`)
+
+The agent confirms an injection when a payload's canary reaches a real sink in the app. The
+black-box oracle still decides what is reported; the agent adds the sink location (`file:line`) and
+raises the finding to `high`. Without the agent, injections stay at the confidence of their oracle.
+
+```bash
+# Recommended: BaseSec starts the app with the agent and stops it afterwards
+basesec dast http://localhost:3000 --start "pnpm dev" --health /healthz --agent
+
+# Manual: the app is started by hand with the agent loaded, then BaseSec attaches to it
+export BASESEC_AGENT_DIR=$(mktemp -d)
+NODE_OPTIONS='--require /absolute/path/to/basesec/dist/agent.cjs' pnpm dev
+basesec dast http://localhost:3000 --agent --agent-dir "$BASESEC_AGENT_DIR"
+
+# scan --verify: correlates static findings with the sink (same manual mode)
+basesec scan ./src --verify --target http://localhost:3000 --dast-agent
+```
+
+- **How it loads.** `--start` injects `--require <absolute path to dist/agent.cjs>` into `NODE_OPTIONS`
+  of the command, plus `BASESEC_AGENT_DIR` (a new directory per run) and `BASESEC_AGENT_ROOT` (the
+  working directory). The agent is a standalone CommonJS bundle with no dependencies. The app's
+  `node_modules` are not needed for it, but drivers are resolved from `BASESEC_AGENT_ROOT`.
+- **Teardown.** The app runs in its own process group. On success, error, Ctrl-C, SIGTERM or SIGHUP, BaseSec
+  kills the whole group, so a `pnpm dev` that starts the server as a grandchild does not leave it behind.
+  A SIGKILL of BaseSec itself cannot be intercepted; then, kill the group by hand.
+- **What it can confirm.** A canary only counts when it reaches a sink of the same family as the class:
+  `child_process` for command injection, `mongodb` for NoSQL injection, `pg`/`mysql2` for SQL injection and
+  `fs` for path traversal. A canary that lands in another family (an XSS payload inside a SQL string, for
+  example) is ignored, so the agent never relabels a finding. Payloads of the timing and SQL-error classes
+  carry no canary in the current catalog (adding one would change what every `dast` run sends, and the payload
+  policy is reviewed byte by byte), and reflected XSS and open redirect have no instrumented sink. In practice
+  the agent links command injection (echo payloads) and NoSQL operators.
+- **Limits.** Drivers that are ESM-only are not instrumented. In a monorepo where the driver lives
+  outside the working directory, set `BASESEC_AGENT_ROOT` to the package root. `eval`, the `Function`
+  constructor and `vm.runInThisContext` are not instrumented (replacing them would change scoping and
+  identity), so code injection through them is not confirmed. A sink called synchronously from inside another
+  instrumented sink is reported once, by the outer one. Windows is not supported yet: the agent stays off there.
+  The agent enables Node source maps in the app process so locations map to the TypeScript source; this changes
+  how `error.stack` is formatted in the app (and costs some time when errors are thrown), nothing else.
+- **Manual mode.** The directory must be yours and `0700` (`mktemp -d` creates one); otherwise the agent stays
+  off and BaseSec ignores it. Example: `export BASESEC_AGENT_DIR=$(mktemp -d)`, start the app, then pass the
+  same value to `--agent-dir`.
+- **Never alters the app.** Every hook calls the original function with the original arguments and
+  returns its result unchanged. An error in the agent is reported on stderr and the app keeps running
+  without instrumentation. The agent only reports an argument that contains a canary, and nothing
+  reaches the socket otherwise. It reads arguments without running application code (no getters or
+  `toJSON`). It writes nothing to disk except its socket.
 
 ### Exit codes
 

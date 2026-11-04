@@ -5,6 +5,9 @@ import { createEvidenceWriter } from './evidence';
 import { DastConfigError, expandEnvHeaders } from './config';
 import { observationOf } from './probe';
 import { INJECTION_RULE_IDS, runInjection } from './inject';
+import type { InjectionTrace } from './inject';
+import { linkAgentEvents } from './agent-link';
+import type { AgentEventSource } from './agent-client';
 import { ACTIVE_RULE_IDS, pickRateLimitTarget, runAuthCheck, runRateLimitCheck } from './active-checks';
 import type { ActiveCheckContext, ActiveCheckResult, SurfaceTarget } from './active-checks';
 import { clampDelaySeconds } from './payloads';
@@ -44,6 +47,10 @@ export interface DastRunOptions {
   /** Superficie de ataque (artefacto de rutas). Sin ella, solo se observan `/` y el healthcheck. */
   surface?: LoadedSurface;
   onProgress?: (event: { done: number; total: number; requests: number; label: string }) => void;
+  /**
+   * Fuente de eventos del agente IAST (`--agent`). Sin ella, la inyección no se correlaciona con sinks reales.
+   */
+  agent?: AgentEventSource;
   /** Inyección para tests. */
   resolver?: (hostname: string) => Promise<string[]>;
 }
@@ -57,6 +64,8 @@ export class DastTargetUnreachableError extends Error {
 
 const DEFAULT_TIMEOUT_S = 300;
 const DEFAULT_REQUEST_TIMEOUT_MS = 10000;
+/** Cuerpo que se guarda de cada envío de inyección para la evidencia de un hallazgo confirmado por el agente. */
+const TRACE_BODY_LIMIT = 16 * 1024;
 
 function assertPositiveInteger(name: string, value: number | undefined): void {
   if (value !== undefined && !(Number.isInteger(value) && value > 0)) {
@@ -390,6 +399,8 @@ export async function runDast(opts: DastRunOptions): Promise<ScanResult> {
         if (param.in === 'path' || param.in === 'query') points.push({ endpoint, param });
       }
     }
+    // Con agente: cada envío con respuesta queda indexado por su canario (en memoria) para enlazar los sinks.
+    const trace = opts.agent !== undefined ? new Map<string, InjectionTrace>() : undefined;
     const outcome = await runInjection(points, {
       client: trackClient(false),
       origin,
@@ -398,7 +409,25 @@ export async function runDast(opts: DastRunOptions): Promise<ScanResult> {
       delaySeconds: clampDelaySeconds(opts.injectionDelaySeconds),
       rulesFilter: injectionRules,
       deadlineReached: () => Date.now() > deadline,
+      ...(trace !== undefined
+        ? {
+            trace: (entry: InjectionTrace): void => {
+              trace.set(entry.canary, {
+                ...entry,
+                response: { ...entry.response, body: entry.response.body.slice(0, TRACE_BODY_LIMIT) },
+              });
+            },
+          }
+        : {}),
     });
+    if (opts.agent !== undefined && trace !== undefined) {
+      const events = await opts.agent.collect();
+      linkAgentEvents(outcome.findings, events, {
+        trace,
+        knownSecrets,
+        ...(surface?.artifact.target !== undefined ? { artifactTarget: surface.artifact.target } : {}),
+      });
+    }
     // El intercambio de cada hallazgo se asocia ahora (con las cabeceras de la petición) para la evidencia.
     for (const finding of outcome.findings) {
       const observation = observationOf(finding);
@@ -457,7 +486,7 @@ export async function runDast(opts: DastRunOptions): Promise<ScanResult> {
         routesSource: surface.source,
         routesStale: surface.stale,
         readOnly: true,
-        agent: false,
+        agent: opts.agent !== undefined,
         endpoints: {
           total: surfaceEndpoints.length,
           analyzed: endpointObservations.length + observations.filter((o) => o.route !== undefined).length,
@@ -475,7 +504,7 @@ export async function runDast(opts: DastRunOptions): Promise<ScanResult> {
         routesSource: 'none',
         routesStale: false,
         readOnly: true,
-        agent: false,
+        agent: opts.agent !== undefined,
         endpoints: { total: targets.length, analyzed: observations.length, skippedMutating: 0, unresolved: 0 },
         requests: client.requestCount,
         ...(incomplete !== undefined ? { incomplete } : {}),
