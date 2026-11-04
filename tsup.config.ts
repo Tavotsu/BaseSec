@@ -5,7 +5,8 @@ export default defineConfig([
   {
     entry: {
       index: 'src/cli/index.ts',
-      worker: 'src/worker/analyzer.ts'
+      worker: 'src/worker/analyzer.ts',
+      config: 'src/config/index.ts'
     },
     format: ['esm'],
     target: 'node22',

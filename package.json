@@ -9,6 +9,7 @@
   },
   "exports": {
     ".": "./dist/index.js",
+    "./config": "./dist/config.js",
     "./agent": "./dist/agent.cjs"
   },
   "repository": {
