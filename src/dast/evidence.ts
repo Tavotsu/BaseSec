@@ -88,7 +88,7 @@ const MAX_NAME_ATTEMPTS = 1000;
  * Crea `dir` (0700) o, si ya existe, comprueba que es un directorio real (no un symlink plantado) y
  * propio, y le fuerza 0700. Avisa si tenía permisos más laxos.
  */
-function prepareDir(baseDir: string, dir: string): void {
+export function prepareDir(baseDir: string, dir: string): void {
   fs.mkdirSync(baseDir, { recursive: true, mode: 0o700 });
   try {
     fs.mkdirSync(dir, { mode: 0o700 });

@@ -16,7 +16,7 @@ export interface ExpressAppInfo {
 }
 
 const HTTP_METHODS = ['get', 'post', 'put', 'delete', 'patch', 'head', 'options', 'all'];
-const AUTH_MIDDLEWARE_NAMES = [
+export const AUTH_MIDDLEWARE_NAMES = [
   'auth', 'authenticate', 'isAuth', 'isAuthenticated', 'requireAuth',
   'jwt', 'passport', 'verifyToken', 'checkAuth', 'ensureAuth',
   'authMiddleware', 'protect', 'guard', 'requireLogin',

@@ -10,7 +10,7 @@ import { ALL_DAST_RULES } from '../dast/rules/index';
 import pc from 'picocolors';
 import { revokeConsent } from '../ai/consent';
 import type { CliOptions, OutputFormat, Severity } from '../rules/types';
-import { VALID_FORMATS, VALID_SEVERITIES } from './validation';
+import { VALID_FORMATS, VALID_SEVERITIES, validateRouteOptions } from './validation';
 
 const VALID_FRAMEWORKS = ['auto', 'express', 'nestjs', 'mongoose', 'typeorm', 'fastify', 'koa', 'prisma', 'react', 'nextjs', 'vue', 'angular', 'svelte'];
 
@@ -45,6 +45,8 @@ export async function main(): Promise<void> {
     .option('--ai-model <model>', 'LLM model to use')
     .option('--ai-dry-run', 'Show what would be sent to the LLM without sending')
     .option('--ai-context <level>', 'Context level: minimal|context|file', { default: 'minimal' })
+    .option('--emit-routes', 'Write the route artifact (attack surface) instead of the report')
+    .option('--routes-out <file>', 'Path for the route artifact (requires --emit-routes; default ~/.basesec/routes/)')
     .action(async (path: string | undefined, options: any) => {
       const targetPath = path || process.cwd();
 
@@ -75,6 +77,16 @@ export async function main(): Promise<void> {
         }
       }
 
+      const emitRoutes = options.emitRoutes === true;
+      // cac devuelve un array si la opción se repite: vale la última.
+      const rawRoutesOut: unknown = Array.isArray(options.routesOut) ? options.routesOut.at(-1) : options.routesOut;
+      const routesOut = typeof rawRoutesOut === 'string' ? rawRoutesOut : undefined;
+      const routeError = validateRouteOptions({ emitRoutes, routesOut, ai: options.ai === true });
+      if (routeError) {
+        printError(routeError);
+        process.exit(2);
+      }
+
       const rawIgnore: string[] = Array.isArray(options.ignore)
         ? options.ignore.filter((v: any) => v !== null && v !== undefined)
         : [];
@@ -102,6 +114,8 @@ export async function main(): Promise<void> {
         aiModel: options.aiModel,
         aiDryRun: options.aiDryRun === true,
         aiContext: options.aiContext,
+        emitRoutes,
+        routesOut,
       };
 
       if (!cliOptions.noBanner && !cliOptions.quiet) {

@@ -5,11 +5,24 @@ import type { CliOptions, ScanResult, basesecConfig } from '../../rules/types';
 import { severityGte } from '../../utils/severity';
 import { logger } from '../../utils/logger';
 import { emitReport } from '../report-output';
+import { writeRouteArtifact } from '../../core/route-emitter';
+import { validateRouteOptions } from '../validation';
+import * as path from 'node:path';
 
 export async function runScan(
   targetPath: string,
   options: CliOptions,
 ): Promise<number> {
+  const routeError = validateRouteOptions({
+    emitRoutes: options.emitRoutes === true,
+    routesOut: options.routesOut,
+    ai: options.ai === true,
+  });
+  if (routeError) {
+    console.error(`  Error: ${routeError}`);
+    return 2;
+  }
+
   if (options.verbose) {
     logger.isVerbose = true;
   }
@@ -76,7 +89,24 @@ export async function runScan(
     aiModel: options.aiModel,
     aiDryRun: options.aiDryRun,
     aiContext: options.aiContext,
+    emitRoutes: options.emitRoutes,
   });
+
+  if (options.emitRoutes) {
+    if (!result.routes) {
+      throw new Error('Route artifact was not built.');
+    }
+    const written = writeRouteArtifact(
+      result.routes,
+      options.routesOut ? path.resolve(options.routesOut) : undefined,
+    );
+    const routes = result.routes.routes;
+    const expressCount = routes.filter((r) => r.framework === 'express').length;
+    const nestCount = routes.filter((r) => r.framework === 'nestjs').length;
+    console.log(`  Routes: ${routes.length} (${expressCount} express, ${nestCount} nestjs) · unresolved: ${result.routes.unresolved.length}`);
+    console.log(`  Artifact: ${written}`);
+    return 0;
+  }
 
   const filtered = filterBySeverity(result, options.severity);
   const filteredResult: ScanResult = {

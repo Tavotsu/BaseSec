@@ -1,3 +1,5 @@
+import type { RouteArtifact } from '../framework/routes/types';
+
 export type Severity = 'critical' | 'high' | 'medium' | 'low' | 'info';
 
 export type RuleCategory =
@@ -176,12 +178,18 @@ export interface CliOptions {
   aiModel?: string;
   aiDryRun?: boolean;
   aiContext?: string;
+  /** Escribe el artefacto de rutas (plan §5.3) en lugar del reporte. */
+  emitRoutes?: boolean;
+  /** Ruta explícita del artefacto con emitRoutes; por defecto ~/.basesec/routes/. */
+  routesOut?: string;
 }
 
 export interface ScanResult {
   findings: Finding[];
   stats: ScanStats;
   duration: number;
+  /** Presente solo cuando se pidió emitRoutes. */
+  routes?: RouteArtifact;
 }
 
 export interface DastStats {
