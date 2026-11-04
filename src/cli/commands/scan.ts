@@ -16,34 +16,47 @@ export interface TargetAnalysis {
 }
 
 /**
+ * Config del fichero. Con `--config` que no carga: 3, ya impreso. Sin `--config`, un fallo avisa (en --verbose) y sigue
+ * con los valores por defecto. Es la única lectura de config de `scan` y de `scan --verify`: `verify` la carga antes
+ * de escanear (necesita la sección `dast`) y se la pasa a `analyzeTarget`, así el fichero se lee una sola vez.
+ */
+export function loadFileConfig(targetPath: string, options: CliOptions): Partial<basesecConfig> | number {
+  if (options.config) {
+    try {
+      return loadConfig(options.config, targetPath);
+    } catch (e) {
+      console.error(`  Error: Could not load config file: ${e instanceof Error ? e.message : String(e)}`);
+      return 3;
+    }
+  }
+  try {
+    return loadConfig(undefined, targetPath);
+  } catch (e) {
+    logger.warn('Failed to load config file, using defaults', e);
+    return {};
+  }
+}
+
+/**
  * Análisis estático con la configuración de `scan`. Lo usan `scan` y `scan --verify`, que así analizan igual.
- * Devuelve 3 (sin analizar) si el fichero de config indicado no carga.
+ * Devuelve 3 (sin analizar) si el fichero de config indicado no carga. `preloaded` evita releer el fichero.
  */
 export async function analyzeTarget(
   targetPath: string,
   options: CliOptions,
   emitRoutes: boolean,
+  preloaded?: Partial<basesecConfig>,
 ): Promise<TargetAnalysis | number> {
   const pipeline = new Pipeline(undefined, {
     workers: options.workers,
     noCache: options.noCache,
   });
 
-  let fileConfig: Partial<basesecConfig> = {};
-  if (options.config) {
-    try {
-      fileConfig = loadConfig(options.config, targetPath);
-    } catch (e) {
-      console.error(`  Error: Could not load config file: ${e instanceof Error ? e.message : String(e)}`);
-      return 3;
-    }
-  } else {
-    try {
-      fileConfig = loadConfig(undefined, targetPath);
-    } catch (e) {
-      logger.warn('Failed to load config file, using defaults', e);
-    }
+  const loaded = preloaded ?? loadFileConfig(targetPath, options);
+  if (typeof loaded === 'number') {
+    return loaded;
   }
+  const fileConfig: Partial<basesecConfig> = loaded;
 
   const ruleFilter = options.rules
     ? options.rules.split(',').map((r) => r.trim())

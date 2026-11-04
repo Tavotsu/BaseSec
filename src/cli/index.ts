@@ -192,8 +192,8 @@ export async function main(): Promise<void> {
         verifyDast: verifyDastOptions(options),
       };
 
-      // Con --verify y un formato no terminal el informe va a stdout (como en `dast`): el banner lo rompería.
-      const reportToStdout = verify && format !== 'terminal';
+      // Con --verify, un formato no terminal y sin --output el informe va a stdout (como en `dast`): el banner lo rompería.
+      const reportToStdout = verify && format !== 'terminal' && !cliOptions.output;
       if (!cliOptions.noBanner && !cliOptions.quiet && !reportToStdout) {
         printBanner(cliOptions.noColor);
       }

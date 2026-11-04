@@ -16,10 +16,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # Sin `version`: pnpm/action-setup toma el de `packageManager` en package.json (con ambos falla por duplicado).
       - name: Install pnpm
         uses: pnpm/action-setup@v4
-        with:
-          version: 11
 
       - name: Setup Node.js
         uses: actions/setup-node@v4

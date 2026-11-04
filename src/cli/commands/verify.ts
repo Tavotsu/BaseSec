@@ -1,5 +1,4 @@
 import pc from 'picocolors';
-import { loadConfig } from '../../config/loader';
 import { getFormatter } from '../../report/formatter';
 import { Guard } from '../../dast/guard';
 import { DastConfigError, expandEnvHeaders } from '../../dast/config';
@@ -9,11 +8,11 @@ import { correlate } from '../../dast/correlate';
 import { startAgentCollector } from '../../dast/agent-client';
 import { resolveAgentDir } from '../../dast/agent/channel';
 import type { LoadedSurface } from '../../dast/surface';
-import type { CliOptions, DastConfig, ScanResult, basesecConfig } from '../../rules/types';
+import type { CliOptions, DastConfig, ScanResult } from '../../rules/types';
 import { logger } from '../../utils/logger';
 import { printError } from '../output';
 import { emitReport } from '../report-output';
-import { analyzeTarget, filterBySeverity } from './scan';
+import { analyzeTarget, filterBySeverity, loadFileConfig } from './scan';
 import {
   DEFAULTS,
   confirmTargetAccess,
@@ -120,7 +119,7 @@ export async function runVerify(targetPath: string, options: CliOptions): Promis
   }
 
   // Escaneo SAST: solo ahora, con la entrada ya validada y el host confirmado.
-  const analysis = await analyzeTarget(targetPath, options, true);
+  const analysis = await analyzeTarget(targetPath, options, true, fileConfig);
   if (typeof analysis === 'number') {
     return analysis;
   }
@@ -195,26 +194,6 @@ export async function runVerify(targetPath: string, options: CliOptions): Promis
     duration: Date.now() - started,
   };
   return writeReport(correlated, options, targetPath);
-}
-
-/**
- * Config del fichero, leída como `analyzeTarget` (que la vuelve a leer después). Con `--config` que no carga: 3, ya
- * impreso. Sin `--config`, un fallo se ignora aquí (`analyzeTarget` avisa), igual que hace `scan`.
- */
-function loadFileConfig(targetPath: string, options: CliOptions): Partial<basesecConfig> | number {
-  if (options.config) {
-    try {
-      return loadConfig(options.config, targetPath);
-    } catch (e) {
-      console.error(`  Error: Could not load config file: ${e instanceof Error ? e.message : String(e)}`);
-      return 3;
-    }
-  }
-  try {
-    return loadConfig(undefined, targetPath);
-  } catch {
-    return {};
-  }
 }
 
 /** Filtra por severidad, formatea y escribe el informe como `scan`. Devuelve 1 con --strict si quedan hallazgos. */
