@@ -47,7 +47,12 @@ export class MarkdownFormatter implements ReportFormatter {
     }
     lines.push('');
     lines.push(`**Total Findings:** ${result.findings.length}`);
-    lines.push(`**Files Scanned:** ${result.stats.filesScanned} | **Duration:** ${(result.duration / 1000).toFixed(1)}s`);
+    const dast = result.stats.dast;
+    if (dast && result.stats.filesScanned === 0) {
+      lines.push(`**Mode:** ${dast.mode} | **Requests:** ${dast.requests} | **Incomplete:** ${dast.incomplete ?? 'no'} | **Duration:** ${(result.duration / 1000).toFixed(1)}s`);
+    } else {
+      lines.push(`**Files Scanned:** ${result.stats.filesScanned} | **Duration:** ${(result.duration / 1000).toFixed(1)}s`);
+    }
     lines.push('');
     lines.push('---');
     lines.push('');

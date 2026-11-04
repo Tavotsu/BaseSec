@@ -86,6 +86,8 @@ export interface DastObservation {
   url: string;
   method: string;
   response: HttpResponse;
+  /** Cabeceras que envió el usuario (sin redactar). Solo para la evidencia. */
+  requestHeaders?: Record<string, string>;
 }
 
 export interface DastProbeContext {

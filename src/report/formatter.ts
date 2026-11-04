@@ -30,19 +30,34 @@ class TerminalFormatter implements ReportFormatter {
     const lines: string[] = [];
 
     lines.push('');
+    const dast = result.stats.dast;
     lines.push(pc.cyan(`  Scanning: ${target}`));
     if (result.stats.frameworks.length > 0) {
       lines.push(pc.cyan(`  Frameworks: ${result.stats.frameworks.join(', ')}`));
     }
-    lines.push(
-      pc.cyan(
-        `  Files: ${result.stats.filesScanned} | Skipped: ${result.stats.filesSkipped}`,
-      ),
-    );
+    if (dast && result.stats.filesScanned === 0) {
+      lines.push(pc.cyan(`  Target: ${dast.target} · mode: ${dast.mode} · ${dast.requests} requests`));
+      if (dast.incomplete) {
+        lines.push(pc.yellow(`  ⚠ Incomplete analysis: ${dast.incomplete}`));
+      }
+      if (dast.mode === 'no-source') {
+        lines.push(pc.yellow('  No source code: only headers, cookies and errors of / and the healthcheck were checked.'));
+      }
+    } else {
+      lines.push(
+        pc.cyan(
+          `  Files: ${result.stats.filesScanned} | Skipped: ${result.stats.filesSkipped}`,
+        ),
+      );
+    }
     lines.push('');
 
     if (result.findings.length === 0) {
-      lines.push(pc.green('  No vulnerabilities found.'));
+      lines.push(
+        pc.green(
+          dast ? '  No issues confirmed at runtime (this is not the same as "secure").' : '  No vulnerabilities found.',
+        ),
+      );
       lines.push('');
       return lines.join('\n');
     }
@@ -142,6 +157,7 @@ class JsonFormatter implements ReportFormatter {
         filesSkipped: result.stats.filesSkipped,
         duration: result.duration,
         rulesRun: result.stats.rulesRun,
+        ...(result.stats.dast ? { dast: result.stats.dast } : {}),
       },
       findings: result.findings,
     };

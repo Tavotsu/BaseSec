@@ -65,6 +65,22 @@ export class HtmlFormatter implements ReportFormatter {
       totalByCategory.set(f.category, (totalByCategory.get(f.category) ?? 0) + 1);
     }
 
+    const dast = result.stats.dast;
+    const overviewFilesHtml = dast && result.stats.filesScanned === 0
+      ? ''
+      : `<div class="stat-item">Files scanned: <strong>${result.stats.filesScanned}</strong></div>
+        <div class="stat-item">Files skipped: <strong>${result.stats.filesSkipped}</strong></div>`;
+    const dastCardHtml = dast
+      ? `
+      <div class="stats-card">
+        <h3>DAST</h3>
+        <div class="stat-item">Target: <strong>${escapeHtml(dast.target)}</strong></div>
+        <div class="stat-item">Mode: <strong>${escapeHtml(dast.mode)}</strong></div>
+        <div class="stat-item">Requests: <strong>${dast.requests}</strong></div>
+        <div class="stat-item">Incomplete: <strong>${dast.incomplete ? escapeHtml(dast.incomplete) : 'no'}</strong></div>
+      </div>`
+      : '';
+
     const severityStats = SEVERITY_ORDER
       .filter((s) => (totalBySeverity.get(s) ?? 0) > 0)
       .map((s) => `<div class="stat-item"><span style="background-color:${severityToColor(s)};color:#fff;padding:4px 12px;border-radius:4px;">${s.toUpperCase()}</span> <strong>${totalBySeverity.get(s) ?? 0}</strong></div>`)
@@ -170,12 +186,11 @@ export class HtmlFormatter implements ReportFormatter {
     <div class="stats-grid">
       <div class="stats-card">
         <h3>Overview</h3>
-        <div class="stat-item">Files scanned: <strong>${result.stats.filesScanned}</strong></div>
-        <div class="stat-item">Files skipped: <strong>${result.stats.filesSkipped}</strong></div>
+        ${overviewFilesHtml}
         <div class="stat-item">Rules run: <strong>${result.stats.rulesRun}</strong></div>
         <div class="stat-item">Findings: <strong>${result.findings.length}</strong></div>
         <div class="stat-item">Duration: <strong>${(result.duration / 1000).toFixed(1)}s</strong></div>
-      </div>
+      </div>${dastCardHtml}
       <div class="stats-card">
         <h3>By Severity</h3>
         ${severityStats || '<div class="stat-item">No findings</div>'}

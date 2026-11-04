@@ -1,4 +1,4 @@
-import type { basesecConfig, Severity, OutputFormat, RuleConfigOverride, AiConfig } from '../rules/types';
+import type { basesecConfig, Severity, OutputFormat, RuleConfigOverride, AiConfig, DastConfig } from '../rules/types';
 
 export interface basesecConfigSchema {
   target?: string[];
@@ -32,6 +32,7 @@ export interface basesecConfigSchema {
     maxFindings?: number;
     timeout?: number;
   };
+  dast?: DastConfig;
 }
 
 export function defineConfig(config: basesecConfigSchema): basesecConfigSchema {

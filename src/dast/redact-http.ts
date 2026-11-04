@@ -135,3 +135,16 @@ export function redactHeaders(
   }
   return out;
 }
+
+/**
+ * Sustituye por completo cada secreto conocido (sin dejar el prefijo visible que deja redactSecret).
+ * Los más largos primero; los valores de menos de 3 caracteres se ignoran, como en redactHttp.
+ */
+export function maskKnownSecrets(text: string, knownSecrets: string[]): string {
+  let out = text;
+  const secrets = [...new Set(knownSecrets)].filter((secret) => secret.length >= 3).sort((a, b) => b.length - a.length);
+  for (const secret of secrets) {
+    out = out.replaceAll(secret, REDACTED);
+  }
+  return out;
+}

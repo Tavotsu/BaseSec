@@ -165,6 +165,26 @@ Framework-agnostic browser rules. Run on any JS/TS; the DOM-specific ones (`wind
 |---|---|---|---|
 | `SVELTE-001` | {@html} with Dynamic Expression | critical | `{@html expr}` renders raw HTML, bypassing escaping (`.svelte` template) |
 
+## Runtime / DAST (DAST)
+
+These rules run against a **running** application with `basesec dast <url>`. They are not part of
+`basesec scan` and do not appear in ALL_RULES. In no-source mode, they inspect only the responses to
+`GET /` and to the healthcheck. A finding is *verified* because the runtime response shows it. The
+absence of a finding means "not confirmed at runtime", not "secure".
+
+| ID | Name | Severity | Description |
+|---|---|---|---|
+| `DAST-001` | Missing security headers | medium | HTML responses lack X-Content-Type-Options, X-Frame-Options (or CSP `frame-ancestors`) or Referrer-Policy. Scope: target |
+| `DAST-002` | Missing HSTS | medium | HTTPS responses lack a `Strict-Transport-Security` header with a positive `max-age`. Scope: target |
+| `DAST-003` | Missing or weak Content-Security-Policy | medium | HTML responses have no CSP, or the CSP `script-src` allows `'unsafe-inline'`, `'unsafe-eval'` or `*` without nonce, hash or `'strict-dynamic'`. Scope: target |
+| `DAST-004` | Permissive CORS at runtime | high (medium for `*`) | The runtime reflects an arbitrary Origin, `null` or `*` in `Access-Control-Allow-Origin` while `Access-Control-Allow-Credentials` is true. Scope: target |
+| `DAST-005` | Insecure cookie flags | high | `Set-Cookie` lacks `HttpOnly` or `SameSite`, or lacks `Secure` over HTTPS. Scope: endpoint |
+| `DAST-006` | Stack trace exposed | high | A 5xx response body contains a Node.js stack trace with internal file paths. Scope: endpoint |
+| `DAST-007` | Server banner leakage | low | Responses disclose the framework (`X-Powered-By`) or the server version (`Server`). Scope: target |
+
+Run a subset with `basesec dast <url> --rules DAST-001,DAST-005`. List the rules with
+`basesec rules --dast`.
+
 ## Severity Scale
 
 - **Critical** — Exploitable remotely, data breach or RCE likely

@@ -109,5 +109,6 @@ export function mergeConfigWithDefaults(
       filePath: cliOverrides.output?.filePath ?? fileConfig.output?.filePath ?? DEFAULT_CONFIG.output.filePath,
     },
     ai: cliOverrides.ai ?? fileConfig.ai ?? DEFAULT_CONFIG.ai,
+    dast: cliOverrides.dast ?? fileConfig.dast,
   };
 }

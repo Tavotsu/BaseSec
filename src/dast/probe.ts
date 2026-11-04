@@ -1,6 +1,6 @@
 import type { Confidence, Finding, Severity } from '../rules/types';
 import type { DastObservation, DastRule } from './types';
-import { redactHeaders, redactHttp } from './redact-http';
+import { maskKnownSecrets, redactHeaders, redactHttp } from './redact-http';
 
 export interface DynamicFindingArgs {
   rule: Pick<DastRule, 'id' | 'name' | 'category' | 'severity'>;
@@ -28,14 +28,23 @@ const CONTROL_CHARS_SINGLE_LINE = /[\u0000-\u0008\u000A-\u001F\u007F-\u009F]/g;
  * Elimina caracteres de control que podrían manipular la terminal al imprimir un hallazgo
  * (secuencias ANSI/OSC procedentes de un body hostil). Conserva \t y, salvo singleLine, \n.
  */
-function stripControl(text: string, singleLine = false): string {
+export function stripControl(text: string, singleLine = false): string {
   return text.replace(singleLine ? CONTROL_CHARS_SINGLE_LINE : CONTROL_CHARS, '');
+}
+
+/** Observación de la que sale cada hallazgo dinámico: enlace exacto, sin comparar textos. */
+const FINDING_OBSERVATION = new WeakMap<Finding, DastObservation>();
+
+/** Observación (intercambio HTTP) que originó un hallazgo creado con dynamicFinding. */
+export function observationOf(finding: Finding): DastObservation | undefined {
+  return FINDING_OBSERVATION.get(finding);
 }
 
 /** Construye un Finding dinámico a nivel de target o de endpoint. Todas las reglas DAST pasan por aquí. */
 export function dynamicFinding(args: DynamicFindingArgs): Finding {
   const { rule, observation, knownSecrets } = args;
   const redactOptions = { knownSecrets };
+  const scrub = (text: string): string => redactHttp(maskKnownSecrets(text, knownSecrets), redactOptions);
 
   const headerLines: string[] = [];
   for (const [name, value] of Object.entries(redactHeaders(observation.response.headers))) {
@@ -45,7 +54,7 @@ export function dynamicFinding(args: DynamicFindingArgs): Finding {
   }
   const response = [`HTTP ${observation.response.status}`, ...headerLines].join('\n');
 
-  return {
+  const finding: Finding = {
     ruleId: rule.id,
     ruleName: rule.name,
     category: rule.category,
@@ -55,8 +64,8 @@ export function dynamicFinding(args: DynamicFindingArgs): Finding {
     column: 0,
     endLine: 0,
     endColumn: 0,
-    message: stripControl(redactHttp(args.message, redactOptions)),
-    codeSnippet: stripControl(redactHttp(args.codeSnippet, redactOptions), true),
+    message: stripControl(scrub(args.message)),
+    codeSnippet: stripControl(scrub(args.codeSnippet), true),
     remediation: args.remediation,
     references: args.references,
     confidence: args.confidence,
@@ -64,10 +73,12 @@ export function dynamicFinding(args: DynamicFindingArgs): Finding {
     verified: true,
     endpoint: stripControl(args.endpoint, true),
     evidence: {
-      request: stripControl(redactHttp(`${observation.method} ${observation.url}`, redactOptions)),
-      response: stripControl(redactHttp(response, redactOptions)),
+      request: stripControl(scrub(`${observation.method} ${observation.url}`)),
+      response: stripControl(scrub(response)),
       payload: '',
       oracle: 'header',
     },
   };
+  FINDING_OBSERVATION.set(finding, observation);
+  return finding;
 }

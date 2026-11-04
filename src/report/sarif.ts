@@ -29,6 +29,7 @@ export class SarifFormatter implements ReportFormatter {
             },
           },
           results,
+          ...(result.stats.dast ? { properties: { dast: result.stats.dast } } : {}),
         },
       ],
     };

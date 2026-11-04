@@ -108,6 +108,21 @@ export interface AiConfig {
   timeout?: number;
 }
 
+export interface DastConfig {
+  target?: string;
+  headers?: Record<string, string>;
+  health?: string;
+  allowRemote?: boolean;
+  rps?: number;
+  concurrency?: number;
+  maxRequests?: number;
+  timeout?: number;          // segundos, global
+  requestTimeout?: number;   // ms
+  evidence?: boolean;
+  evidenceDir?: string;
+  rules?: string[];
+}
+
 export interface basesecConfig {
   target: string[];
   ignore: string[];
@@ -132,6 +147,7 @@ export interface basesecConfig {
     filePath?: string;
   };
   ai?: AiConfig;
+  dast?: DastConfig;
 }
 
 export interface CliOptions {
@@ -168,11 +184,27 @@ export interface ScanResult {
   duration: number;
 }
 
+export interface DastStats {
+  /** Origen del target, sin credenciales (sin user:pass@). */
+  target: string;
+  mode: 'full' | 'no-source';
+  routesSource: 'artifact' | 'scan' | 'routes-file' | 'none';
+  routesStale: boolean;
+  readOnly: boolean;
+  agent: boolean;
+  endpoints: { total: number; analyzed: number; skippedMutating: number; unresolved: number };
+  requests: number;
+  incomplete?: 'budget' | 'timeout';
+  /** Ausente si no se escribió evidencia (--no-evidence o ningún hallazgo). */
+  evidenceDir?: string;
+}
+
 export interface ScanStats {
   filesScanned: number;
   filesSkipped: number;
   rulesRun: number;
   frameworks: string[];
+  dast?: DastStats;
 }
 
 export interface ParsedFile {

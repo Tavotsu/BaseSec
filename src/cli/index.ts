@@ -3,14 +3,15 @@ import { cac } from 'cac';
 import { printBanner, printError } from './output';
 import { VERSION } from '../version';
 import { runScan } from './commands/scan';
+import { runDastCommand } from './commands/dast';
 import { runInit } from './commands/init';
 import { ALL_RULES } from '../rules/index';
+import { ALL_DAST_RULES } from '../dast/rules/index';
 import pc from 'picocolors';
 import { revokeConsent } from '../ai/consent';
-import type { CliOptions, OutputFormat, Severity, RuleCategory } from '../rules/types';
+import type { CliOptions, OutputFormat, Severity } from '../rules/types';
+import { VALID_FORMATS, VALID_SEVERITIES } from './validation';
 
-const VALID_FORMATS: OutputFormat[] = ['terminal', 'json', 'sarif', 'html', 'markdown'];
-const VALID_SEVERITIES: Severity[] = ['critical', 'high', 'medium', 'low', 'info'];
 const VALID_FRAMEWORKS = ['auto', 'express', 'nestjs', 'mongoose', 'typeorm', 'fastify', 'koa', 'prisma', 'react', 'nextjs', 'vue', 'angular', 'svelte'];
 
 export async function main(): Promise<void> {
@@ -117,6 +118,82 @@ export async function main(): Promise<void> {
     });
 
   cli
+    .command('dast [url]', 'Test a running app for runtime security issues')
+    .option('--health <path>', 'Healthcheck path (default: /)')
+    .option('--header <header>', 'Request header "Name: value" (repeatable)', { type: [] })
+    .option('--allow-remote', 'Allow non-local targets (requires confirmation)')
+    .option('--rps <n>', 'Requests per second (default: 20)')
+    .option('--concurrency <n>', 'Parallel requests (default: 5)')
+    .option('--max-requests <n>', 'Hard request budget (default: 5000)')
+    .option('--timeout <s>', 'Global timeout in seconds (default: 300)')
+    .option('--request-timeout <ms>', 'Per-request timeout (default: 10000)')
+    .option('--evidence-dir <dir>', 'Where to write .http evidence (default: ~/.basesec)')
+    .option('--no-evidence', 'Do not write evidence files')
+    .option('--rules <ids>', 'Comma-separated DAST rule IDs')
+    .option('--config <path>, -c', 'Path to config file')
+    .option('--allow-vulnerable-node', 'Run even if Node lacks mandatory security patches')
+    .option('--format <format>, -f', 'Output format: terminal|json|sarif|html|markdown', { default: 'terminal' })
+    .option('--output [file], -o', 'Output file path (default: ~/.basesec/scan-<timestamp>.<format>)')
+    .option('--severity <level>, -s', 'Minimum severity: critical|high|medium|low|info', { default: 'low' })
+    .option('--strict', 'Exit with code 1 on any finding')
+    .option('--quiet, -q', 'Only show summary')
+    .option('--verbose, -V', 'Show verbose output')
+    .option('--no-color', 'Disable colored output')
+    .option('--no-banner', 'Disable banner')
+    .action(async (url: string | undefined, options: any) => {
+      const format = (options.format ?? 'terminal') as string;
+      if (!VALID_FORMATS.includes(format as OutputFormat)) {
+        printError(`Invalid format: ${format}. Valid options: ${VALID_FORMATS.join(', ')}`);
+        process.exit(3);
+      }
+
+      const severity = (options.severity ?? 'low') as string;
+      if (!VALID_SEVERITIES.includes(severity as Severity)) {
+        printError(`Invalid severity: ${severity}. Valid options: ${VALID_SEVERITIES.join(', ')}`);
+        process.exit(3);
+      }
+
+      const headerFlags: string[] = Array.isArray(options.header)
+        ? options.header.filter((v: unknown): v is string => typeof v === 'string')
+        : [];
+
+      // El banner va a stdout: con un formato no terminal rompería `-f json > fichero`.
+      if (format === 'terminal' && options.banner !== false && options.quiet !== true) {
+        printBanner(options.color === false);
+      }
+
+      try {
+        const exitCode = await runDastCommand(url, {
+          format: format as OutputFormat,
+          output: options.output,
+          severity: severity as Severity,
+          strict: options.strict === true,
+          quiet: options.quiet === true,
+          verbose: options.verbose === true,
+          noColor: options.color === false,
+          config: options.config,
+          health: options.health,
+          header: headerFlags,
+          allowRemote: options.allowRemote === true,
+          allowVulnerableNode: options.allowVulnerableNode === true,
+          rps: options.rps,
+          concurrency: options.concurrency,
+          maxRequests: options.maxRequests,
+          timeout: options.timeout,
+          requestTimeout: options.requestTimeout,
+          evidenceDir: options.evidenceDir,
+          // cac pone evidence=true por defecto: solo --no-evidence cuenta como flag explícito (la config decide el resto).
+          evidence: options.evidence === false ? false : undefined,
+          rules: options.rules,
+        });
+        process.exit(exitCode);
+      } catch (e) {
+        printError(e instanceof Error ? e.message : String(e));
+        process.exit(2);
+      }
+    });
+
+  cli
     .command('init', 'Initialize basesec config file')
     .option('--format <format>', 'Config format: ts or json', { default: 'ts' })
     .option('--revoke-ai-consent', 'Revoke AI consent')
@@ -138,20 +215,18 @@ export async function main(): Promise<void> {
     .command('rules', 'List all built-in rules')
     .option('--category <cat>', 'Filter by category')
     .option('--severity <level>, -s', 'Filter by severity')
+    .option('--dast', 'Show only DAST (runtime) rules')
     .action((options: any) => {
       const category = options.category as string | undefined;
       const severity = options.severity as string | undefined;
+      const matches = (rule: { category: string; severity: string }): boolean =>
+        (!category || rule.category === category) && (!severity || rule.severity === severity);
 
-      let rules = [...ALL_RULES];
+      const sastRules = options.dast === true ? [] : ALL_RULES.filter(matches);
+      const dastRules = ALL_DAST_RULES.filter(matches);
+      const total = sastRules.length + dastRules.length;
 
-      if (category) {
-        rules = rules.filter((r) => r.category === category);
-      }
-      if (severity) {
-        rules = rules.filter((r) => r.severity === severity);
-      }
-
-      if (rules.length === 0) {
+      if (total === 0) {
         console.log(pc.yellow('  No rules found matching the specified filters.'));
         return;
       }
@@ -164,10 +239,10 @@ export async function main(): Promise<void> {
         info: pc.gray,
       };
 
-      console.log(pc.bold(`\n  basesec rules (${rules.length} rules)\n`));
+      console.log(pc.bold(`\n  basesec rules (${total} rules)\n`));
 
-      const byCategory = new Map<string, typeof rules>();
-      for (const rule of rules) {
+      const byCategory = new Map<string, typeof sastRules>();
+      for (const rule of sastRules) {
         const cat = rule.category;
         if (!byCategory.has(cat)) byCategory.set(cat, []);
         byCategory.get(cat)!.push(rule);
@@ -182,6 +257,18 @@ export async function main(): Promise<void> {
           console.log(`    ${colorFn(label)} ${pc.bold(rule.id)}: ${rule.name}`);
           console.log(pc.gray(`      ${rule.description}`));
           console.log(pc.gray(`      Frameworks: ${frameworks} | Tags: ${rule.tags.join(', ')}`));
+        }
+        console.log('');
+      }
+
+      if (dastRules.length > 0) {
+        console.log(pc.cyan('  DAST (runtime)'));
+        for (const rule of dastRules) {
+          const colorFn = severityColors[rule.severity] ?? pc.white;
+          const label = rule.severity.toUpperCase().padEnd(8);
+          console.log(`    ${colorFn(label)} ${pc.bold(rule.id)}: ${rule.name}`);
+          console.log(pc.gray(`      ${rule.description}`));
+          console.log(pc.gray(`      Scope: ${rule.once ? 'target' : 'endpoint'}`));
         }
         console.log('');
       }

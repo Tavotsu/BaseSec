@@ -25,6 +25,7 @@
 - **Worker Threads** — multi-core parallel analysis for large codebases
 - **Custom Rules** — load external rule files (MJS/CJS) via `.basesecrc`
 - **AI-Powered Analysis** — enriches findings with AI explanations and detects suspicious taint flows (Ollama or OpenAI)
+- **Runtime Testing (`basesec dast`)** — checks a running app for headers, cookies, CORS and error-page issues (DAST-001 to DAST-007) in no-source mode, with redacted evidence and an allowlist that blocks remote hosts by default
 - **Zero Configuration** — works out of the box with sensible defaults
 
 ## Quick Start
@@ -128,7 +129,7 @@ Combined, these deliver **~12x speedup** on rescans. See [PERFORMANCE.md](PERFOR
 ## Documentation
 
 - [INSTALLATION.md](docs/INSTALLATION.md) — Detailed installation options
-- [USAGE.md](docs/USAGE.md) — CLI commands and flags
+- [USAGE.md](docs/USAGE.md) — CLI commands and flags, including [runtime testing (`basesec dast`)](docs/USAGE.md#runtime-testing-basesec-dast)
 - [CONFIGURATION.md](docs/CONFIGURATION.md) — Configuration file reference
 - [RULES.md](docs/RULES.md) — Complete rule catalog
 - [PERFORMANCE.md](PERFORMANCE.md) — Benchmarks and optimization guide

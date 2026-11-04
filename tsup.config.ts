@@ -6,7 +6,7 @@ export default defineConfig({
     worker: 'src/worker/analyzer.ts'
   },
   format: ['esm'],
-  target: 'node18',
+  target: 'node22',
   clean: true,
   outDir: 'dist',
   splitting: false,
