@@ -7,6 +7,7 @@ import type { AddressInfo } from 'node:net';
 import { runScan } from '../../src/cli/commands/scan';
 import { runVerify } from '../../src/cli/commands/verify';
 import { validateVerifyOptions } from '../../src/cli/validation';
+import { Pipeline } from '../../src/core/pipeline';
 import { Guard } from '../../src/dast/guard';
 import { GuardError } from '../../src/dast/types';
 import type { CliOptions, ScanResult } from '../../src/rules/types';
@@ -72,15 +73,12 @@ function captureConsole(): { out: () => string; err: () => string; restore: () =
   };
 }
 
-/** Ejecuta `scan --verify` en JSON y lee el informe de la HOME temporal. */
+/** Ejecuta `scan --verify` en JSON. Sin --output el informe va a stdout (como `dast`), no a un fichero. */
 async function verifyJson(overrides: Partial<CliOptions> = {}): Promise<{ code: number; report: ScanResult & { target: string } }> {
   const io = captureConsole();
   try {
     const code = await runVerify(project, baseOptions({ format: 'json', verify: true, target: targetUrl, ...overrides }));
-    const reportLine = io.out().split('\n').find((line) => line.startsWith('Report written to '));
-    if (reportLine === undefined) throw new Error(`no report written. stdout: ${io.out()} stderr: ${io.err()}`);
-    const file = reportLine.slice('Report written to '.length).trim();
-    return { code, report: JSON.parse(fs.readFileSync(file, 'utf-8')) };
+    return { code, report: JSON.parse(io.out()) };
   } finally {
     io.restore();
   }
@@ -281,6 +279,29 @@ describe('scan --verify: barandillas y fugas', () => {
     expect(requests).toBe(0);
   });
 
+  it('validación antes del escaneo: --dast-rps, host remoto y --dast-max-requests inválidos salen 3 sin ejecutar el pipeline SAST', async () => {
+    // Espía sobre Pipeline.run: si la validación fuera después, el escaneo se ejecutaría antes de fallar.
+    const run = vi.spyOn(Pipeline.prototype, 'run');
+    const io = captureConsole();
+    let codes: number[] = [];
+    try {
+      codes = [
+        await runVerify(project, baseOptions({ verify: true, target: targetUrl, verifyDast: { rps: 'abc', evidence: false } })),
+        await runVerify(project, baseOptions({ verify: true, target: 'http://example.com', verifyDast: { evidence: false } })),
+        await runVerify(project, baseOptions({ verify: true, target: targetUrl, verifyDast: { maxRequests: 0, evidence: false } })),
+      ];
+      expect(run).not.toHaveBeenCalled();
+
+      // Control: con entrada válida sí se escanea (el espía observa la llamada real).
+      expect(await runVerify(project, baseOptions({ verify: true, target: targetUrl, verifyDast: { evidence: false } }))).toBe(0);
+      expect(run).toHaveBeenCalledTimes(1);
+    } finally {
+      io.restore();
+    }
+    expect(codes).toEqual([3, 3, 3]);
+    expect(requests).toBeGreaterThan(0);
+  });
+
   it('números inválidos y cabecera mal formada: exit 3 sin peticiones', async () => {
     const io = captureConsole();
     try {
@@ -300,6 +321,7 @@ describe('scan --verify: barandillas y fugas', () => {
     const io = captureConsole();
     let code: number;
     let text = '';
+    let stdout = '';
     try {
       code = await runVerify(
         project,
@@ -311,14 +333,15 @@ describe('scan --verify: barandillas y fugas', () => {
           verifyDast: { evidenceDir, headers: ['Authorization: Bearer SECRETTOKEN123', 'X-Api-Key: KEY987654'] },
         }),
       );
-      text = `${io.out()}\n${io.err()}`;
+      stdout = io.out();
+      text = `${stdout}\n${io.err()}`;
     } finally {
       io.restore();
     }
-    const written = text.split('\n').find((line) => line.startsWith('Report written to '));
     expect(code).toBe(0);
-    expect(written).toBeDefined();
-    const files = [written!.slice('Report written to '.length).trim()];
+    // El informe JSON va a stdout: debe ser JSON válido, y ya está en `text`, así que sus credenciales se comprueban.
+    expect(() => JSON.parse(stdout)).not.toThrow();
+    const files: string[] = [];
     const walk = (dir: string): void => {
       for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
         const full = path.join(dir, entry.name);
@@ -327,7 +350,7 @@ describe('scan --verify: barandillas y fugas', () => {
       }
     };
     walk(evidenceDir);
-    expect(files.length).toBeGreaterThan(1);
+    expect(files.length).toBeGreaterThan(0);
     for (const file of files) text += `\n${fs.readFileSync(file, 'utf-8')}`;
     for (const secret of ['hunter2', 'alice:', 'SECRETTOKEN123', 'KEY987654']) {
       expect(text).not.toContain(secret);

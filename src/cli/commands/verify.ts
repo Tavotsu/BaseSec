@@ -1,4 +1,5 @@
 import pc from 'picocolors';
+import { loadConfig } from '../../config/loader';
 import { getFormatter } from '../../report/formatter';
 import { Guard } from '../../dast/guard';
 import { DastConfigError, expandEnvHeaders } from '../../dast/config';
@@ -8,7 +9,7 @@ import { correlate } from '../../dast/correlate';
 import { startAgentCollector } from '../../dast/agent-client';
 import { resolveAgentDir } from '../../dast/agent/channel';
 import type { LoadedSurface } from '../../dast/surface';
-import type { CliOptions, DastConfig, ScanResult } from '../../rules/types';
+import type { CliOptions, DastConfig, ScanResult, basesecConfig } from '../../rules/types';
 import { logger } from '../../utils/logger';
 import { printError } from '../output';
 import { emitReport } from '../report-output';
@@ -30,6 +31,9 @@ import {
  * de ese mismo código (el motor de `dast`) y correlaciona: un estático confirmado pasa a `verified`, sin duplicarse.
  * Exit codes como `scan` y `dast`: 0 limpio, 1 hallazgos con --strict, 2 target inalcanzable o error de ejecución,
  * 3 configuración, validación o barandillas.
+ *
+ * Orden (plan H): todo lo barato (suelo de Node, URL, config, números `--dast-*`, cabeceras, host y su confirmación)
+ * se valida ANTES del escaneo SAST; el ataque sigue después del escaneo.
  */
 export async function runVerify(targetPath: string, options: CliOptions): Promise<number> {
   const started = Date.now();
@@ -65,11 +69,11 @@ export async function runVerify(targetPath: string, options: CliOptions): Promis
   const isTTY = process.stdin.isTTY === true;
   const envAllowRemote = process.env.BASESEC_ALLOW_REMOTE === '1';
 
-  const analysis = await analyzeTarget(targetPath, options, true);
-  if (typeof analysis === 'number') {
-    return analysis;
+  // La sección `dast` de la config gobierna los números y el host, así que se lee antes del escaneo.
+  const fileConfig = loadFileConfig(targetPath, options);
+  if (typeof fileConfig === 'number') {
+    return fileConfig;
   }
-  const { result: staticResult, fileConfig } = analysis;
   const dastConfig: DastConfig = fileConfig.dast ?? {};
 
   // Valores de --dast-* sobre los de `dast` en la config. Se validan antes de cualquier pregunta o petición.
@@ -114,6 +118,13 @@ export async function runVerify(targetPath: string, options: CliOptions): Promis
   if (denied !== undefined) {
     return denied;
   }
+
+  // Escaneo SAST: solo ahora, con la entrada ya validada y el host confirmado.
+  const analysis = await analyzeTarget(targetPath, options, true);
+  if (typeof analysis === 'number') {
+    return analysis;
+  }
+  const { result: staticResult } = analysis;
 
   const routes = staticResult.routes;
   if (routes === undefined || routes.routes.length === 0) {
@@ -186,13 +197,33 @@ export async function runVerify(targetPath: string, options: CliOptions): Promis
   return writeReport(correlated, options, targetPath);
 }
 
+/**
+ * Config del fichero, leída como `analyzeTarget` (que la vuelve a leer después). Con `--config` que no carga: 3, ya
+ * impreso. Sin `--config`, un fallo se ignora aquí (`analyzeTarget` avisa), igual que hace `scan`.
+ */
+function loadFileConfig(targetPath: string, options: CliOptions): Partial<basesecConfig> | number {
+  if (options.config) {
+    try {
+      return loadConfig(options.config, targetPath);
+    } catch (e) {
+      console.error(`  Error: Could not load config file: ${e instanceof Error ? e.message : String(e)}`);
+      return 3;
+    }
+  }
+  try {
+    return loadConfig(undefined, targetPath);
+  } catch {
+    return {};
+  }
+}
+
 /** Filtra por severidad, formatea y escribe el informe como `scan`. Devuelve 1 con --strict si quedan hallazgos. */
 async function writeReport(result: ScanResult, options: CliOptions, targetPath: string): Promise<number> {
   const filtered = filterBySeverity(result, options.severity);
   const filteredResult: ScanResult = { ...result, findings: filtered, stats: { ...result.stats } };
   const output = getFormatter(options.format).format(filteredResult, targetPath);
 
-  if (!(await emitReport(output, options.format, options.output))) {
+  if (!(await emitReport(output, options.format, options.output, true))) {
     return 0;
   }
   if (options.strict && filtered.length > 0) {

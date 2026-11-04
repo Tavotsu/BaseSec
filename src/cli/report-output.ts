@@ -9,8 +9,16 @@ const TERMINAL_FORMATS = ['terminal'];
 /**
  * Escribe un informe como lo hace `scan`: a `outputPath` (con confirmación si queda fuera del cwd),
  * a la ruta por defecto para formatos no terminal, o a stdout. Devuelve false si el usuario canceló.
+ *
+ * `preferStdout` (usado por `dast` y `scan --verify`): sin `outputPath`, un formato no terminal va a stdout en
+ * vez de a la ruta por defecto, para que `basesec dast <url> -f json > out.json` funcione. `scan` no lo pasa.
  */
-export async function emitReport(output: string, format: OutputFormat, outputPath?: string): Promise<boolean> {
+export async function emitReport(
+  output: string,
+  format: OutputFormat,
+  outputPath?: string,
+  preferStdout = false,
+): Promise<boolean> {
   if (outputPath) {
     const resolvedOutput = path.resolve(outputPath);
     const cwd = process.cwd();
@@ -35,12 +43,12 @@ export async function emitReport(output: string, format: OutputFormat, outputPat
     }
     fs.writeFileSync(resolvedOutput, output, 'utf-8');
     console.log(`Report written to ${resolvedOutput}`);
-  } else if (!TERMINAL_FORMATS.includes(format)) {
+  } else if (TERMINAL_FORMATS.includes(format) || preferStdout) {
+    console.log(output);
+  } else {
     const defaultPath = getDefaultReportPath(format);
     fs.writeFileSync(defaultPath, output, 'utf-8');
     console.log(`Report written to ${defaultPath}`);
-  } else {
-    console.log(output);
   }
   return true;
 }

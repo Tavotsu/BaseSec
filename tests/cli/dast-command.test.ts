@@ -246,6 +246,15 @@ describe('basesec dast command review hardening', () => {
     expect(report.stats.dast.evidenceDir).not.toContain('..');
   });
 
+  it('con -f json y sin --output el informe va a stdout y no se escribe en ~/.basesec', async () => {
+    const code = await runDastCommand(url, baseOptions({ format: 'json' }));
+
+    expect(code).toBe(0);
+    const logged = vi.mocked(console.log).mock.calls.flat().join('\n');
+    expect(() => JSON.parse(logged)).not.toThrow();
+    expect(fs.existsSync(path.join(fakeHome, '.basesec'))).toBe(false);
+  });
+
   it('keeps credentials and header values out of stdout, stderr, the report and the error messages', async () => {
     const PASS = 'zq9-userpass-UNIQUE';
     const TOKEN = 'zq9-token-UNIQUE-4411';

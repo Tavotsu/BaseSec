@@ -48,14 +48,14 @@ export async function main(): Promise<void> {
 
   cli
     .command('scan [path]', 'Scan a directory for vulnerabilities')
-    .option('--format <format>, -f', 'Output format: terminal|json|sarif|html|markdown', { default: 'terminal' })
-    .option('--output [file], -o', 'Output file path (default: ~/.basesec/scan-<timestamp>.<format>)')
-    .option('--severity <level>, -s', 'Minimum severity: critical|high|medium|low|info', { default: 'low' })
-    .option('--rules <rules>, -r', 'Comma-separated rule IDs to run')
-    .option('--ignore <patterns>, -i', 'Glob patterns to ignore', { type: [] })
-    .option('--config <path>, -c', 'Path to config file')
+    .option('-f, --format <format>', 'Output format: terminal|json|sarif|html|markdown', { default: 'terminal' })
+    .option('-o, --output [file]', 'Output file path (default: ~/.basesec/scan-<timestamp>.<format>)')
+    .option('-s, --severity <level>', 'Minimum severity: critical|high|medium|low|info', { default: 'low' })
+    .option('-r, --rules <rules>', 'Comma-separated rule IDs to run')
+    .option('-i, --ignore <patterns>', 'Glob patterns to ignore', { type: [] })
+    .option('-c, --config <path>', 'Path to config file')
     .option('--no-taint', 'Disable taint analysis')
-    .option('--quiet, -q', 'Only show summary')
+    .option('-q, --quiet', 'Only show summary')
     .option('--strict', 'Exit with code 1 on any finding')
     .option('--framework <fw>', 'Force framework: express|nestjs|mongoose|typeorm|fastify|koa|prisma|react|nextjs|vue|angular|svelte|auto', { default: 'auto' })
     .option('--no-color', 'Disable colored output')
@@ -64,7 +64,7 @@ export async function main(): Promise<void> {
     .option('--no-cache', 'Disable result caching')
     .option('--no-deps', 'Disable dependency checking')
     .option('--read-env', 'Allow scanning of .env files ',{ default: 'false' })
-    .option('--verbose, -V', 'Show verbose output')
+    .option('-V, --verbose', 'Show verbose output')
     .option('--ai', 'Enable AI-powered analysis enhancement')
     .option('--ai-provider <provider>', 'LLM provider: ollama|openai')
     .option('--ai-model <model>', 'LLM model to use')
@@ -192,7 +192,9 @@ export async function main(): Promise<void> {
         verifyDast: verifyDastOptions(options),
       };
 
-      if (!cliOptions.noBanner && !cliOptions.quiet) {
+      // Con --verify y un formato no terminal el informe va a stdout (como en `dast`): el banner lo rompería.
+      const reportToStdout = verify && format !== 'terminal';
+      if (!cliOptions.noBanner && !cliOptions.quiet && !reportToStdout) {
         printBanner(cliOptions.noColor);
       }
 
@@ -227,27 +229,28 @@ export async function main(): Promise<void> {
     .option('--agent-dir <dir>', 'Directory with the agent sockets, for a manually started app (default: $BASESEC_AGENT_DIR or the tmp dir)')
     .option('--routes <file>', 'Route artifact to test (default: ~/.basesec/routes/<hash>.json)')
     .option('--scan <path>', 'Derive routes from this code path in memory (nothing is written)')
-    .option('--config <path>, -c', 'Path to config file')
+    .option('-c, --config <path>', 'Path to config file')
     .option('--allow-vulnerable-node', 'Run even if Node lacks mandatory security patches')
-    .option('--format <format>, -f', 'Output format: terminal|json|sarif|html|markdown', { default: 'terminal' })
-    .option('--output [file], -o', 'Output file path (default: ~/.basesec/scan-<timestamp>.<format>)')
-    .option('--severity <level>, -s', 'Minimum severity: critical|high|medium|low|info', { default: 'low' })
+    .option('-f, --format <format>', 'Output format: terminal|json|sarif|html|markdown', { default: 'terminal' })
+    .option('-o, --output [file]', 'Output file path (default: ~/.basesec/scan-<timestamp>.<format>)')
+    .option('-s, --severity <level>', 'Minimum severity: critical|high|medium|low|info', { default: 'low' })
     .option('--strict', 'Exit with code 1 on any finding')
-    .option('--quiet, -q', 'Only show summary')
-    .option('--verbose, -V', 'Show verbose output')
+    .option('-q, --quiet', 'Only show summary')
+    .option('-V, --verbose', 'Show verbose output')
     .option('--no-color', 'Disable colored output')
     .option('--no-banner', 'Disable banner')
     .action(async (url: string | undefined, options: any) => {
+      // Validación de flags de salida: exit 2, como `scan`. Los errores de config y barandillas siguen en 3.
       const format = (options.format ?? 'terminal') as string;
       if (!VALID_FORMATS.includes(format as OutputFormat)) {
         printError(`Invalid format: ${format}. Valid options: ${VALID_FORMATS.join(', ')}`);
-        process.exit(3);
+        process.exit(2);
       }
 
       const severity = (options.severity ?? 'low') as string;
       if (!VALID_SEVERITIES.includes(severity as Severity)) {
         printError(`Invalid severity: ${severity}. Valid options: ${VALID_SEVERITIES.join(', ')}`);
-        process.exit(3);
+        process.exit(2);
       }
 
       const headerFlags: string[] = Array.isArray(options.header)
@@ -320,7 +323,7 @@ export async function main(): Promise<void> {
   cli
     .command('rules', 'List all built-in rules')
     .option('--category <cat>', 'Filter by category')
-    .option('--severity <level>, -s', 'Filter by severity')
+    .option('-s, --severity <level>', 'Filter by severity')
     .option('--dast', 'Show only DAST (runtime) rules')
     .action((options: any) => {
       const category = options.category as string | undefined;

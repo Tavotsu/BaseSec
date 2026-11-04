@@ -115,6 +115,9 @@ basesec dast http://localhost:3000
 # Healthcheck on another path, JSON report saved to a file
 basesec dast http://localhost:3000 --health /healthz -f json -o ./dast.json
 
+# JSON report to stdout (no -o: nothing is written to ~/.basesec)
+basesec dast http://localhost:3000 -f json > dast.json
+
 # Authenticated check; the token is read from the environment, not from the command line
 basesec dast http://localhost:3000 --header 'Authorization: Bearer $env:API_TOKEN' --strict
 
@@ -165,12 +168,12 @@ When the run is non-interactive (CI), a remote host also needs `BASESEC_ALLOW_RE
 | `--agent-dir <dir>` | `$BASESEC_AGENT_DIR` or the tmp dir | Directory with the agent sockets, for an app started by hand. Needs `--agent` |
 | `--config`, `-c` | — | Path to config file |
 | `--allow-vulnerable-node` | off | Run even if Node lacks the mandatory security patches |
-| `--format`, `-f` / `--output`, `-o` | `terminal` | Same as `scan` |
+| `--format`, `-f` / `--output`, `-o` | `terminal` | Output format. Without `--output`, a non-terminal format (`json`, `sarif`, `html`, `markdown`) goes to **stdout**, not to `~/.basesec` (unlike `scan`). With `--output`, it is written to that file |
 | `--severity`, `-s` | `low` | Minimum severity to report, same as `scan` |
 | `--strict` | off | Exit 1 if there are findings |
 | `--quiet`, `-q` / `--verbose`, `-V` / `--no-color` / `--no-banner` | — | Same as `scan` |
 
-Progress is printed to stderr, so `basesec dast <url> -f json > out.json` stays valid JSON.
+Progress and notices are printed to stderr, so `basesec dast <url> -f json > out.json` stays valid JSON. An invalid `--format` or `--severity` exits 2; the rest of the configuration errors exit 3.
 
 ### No-source mode and full mode
 
@@ -318,8 +321,8 @@ basesec scan ./src --verify --target http://localhost:3000 --dast-agent
 |---|---|
 | 0 | No findings (or findings below the severity threshold, without `--strict`) |
 | 1 | Findings with `--strict` |
-| 2 | Target unreachable or unexpected error |
-| 3 | Configuration error, invalid flag, blocked host (no request was sent), missing `$env:` variable, or Node below the patched floor |
+| 2 | Target unreachable, unexpected error, or invalid `--format` / `--severity` |
+| 3 | Configuration error (e.g. invalid `--rps`), blocked host (no request was sent), missing `$env:` variable, or Node below the patched floor |
 
 ### Verify static findings at runtime (`scan --verify`)
 
@@ -389,6 +392,8 @@ below the patched floor. Invalid flag combinations (`--verify` without `--target
 `--ai`, or `--target` / `--dast-*` without `--verify`) exit 2, as the other `scan` flag errors do. If no routes are extracted from the code, nothing is attacked: BaseSec reports the
 static findings and warns on stderr.
 
+The cheap checks run before the static scan: the Node floor, the `--dast-*` numbers, the headers, and the target host with its confirmation. A bad value or a blocked host exits 3 right away, with no static analysis and no request. As with `dast`, a non-terminal `--format` without `--output` writes the report to stdout (`scan --verify -f json > out.json`), and the banner is not printed in that case.
+
 ## Exit Codes
 
 | Code | Meaning |
@@ -405,7 +410,9 @@ Colored table output. Default. Always prints to stdout. No auto-save.
 
 ### JSON / SARIF / HTML / Markdown
 
-When using these formats, reports are **automatically saved** to `~/.basesec/scan-<timestamp>.<format>` unless you specify an explicit path with `--output`.
+When using these formats, `scan` **automatically saves** reports to `~/.basesec/scan-<timestamp>.<format>` unless you specify an explicit path with `--output`.
+
+`dast` and `scan --verify` differ: without `--output` they print the report to **stdout**. For example, `basesec dast http://localhost:3000 -f json` writes the JSON to stdout, so `> out.json` captures it. Use `--output` to write a file.
 
 ```bash
 # Auto-saves to ~/.basesec/scan-2026-06-03T12-00-00.json

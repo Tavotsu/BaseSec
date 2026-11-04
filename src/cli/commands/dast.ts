@@ -600,7 +600,7 @@ export async function runDastCommand(url: string | undefined, options: DastCliOp
   const filteredResult: ScanResult = { ...result, findings: filtered };
   const output = getFormatter(format).format(filteredResult, result.stats.dast?.target ?? hostname);
 
-  if (!(await emitReport(output, format, options.output))) {
+  if (!(await emitReport(output, format, options.output, true))) {
     return 0;
   }
 
