@@ -139,6 +139,8 @@ export default defineConfig({
     evidenceDir: '/var/tmp/basesec-evidence',   // absolute path; "~" is not expanded
     rules: ['DAST-001', 'DAST-005'],
     allowRemote: false,
+    publicRoutes: ['/api/*/status'],
+    probeRateLimit: false,
   },
 });
 ```
@@ -157,6 +159,8 @@ export default defineConfig({
 | `evidenceDir` | `string` | `~/.basesec` | Directory for evidence files. Use an absolute path; `~` is not expanded |
 | `rules` | `string[]` | all | DAST rule IDs to run |
 | `allowRemote` | `boolean` | `false` | Allow non-local targets. **Not enough on its own**: each run still needs the typed host confirmation, or `BASESEC_ALLOW_REMOTE=1` without a terminal |
+| `publicRoutes` | `string[]` | `[]` | Routes that are public on purpose, excluded from `DAST-008`. Each pattern is split by `/`; `*` matches exactly one segment (`"/api/*/status"` covers `/api/v1/status`) |
+| `probeRateLimit` | `boolean` | `false` | Enables the `DAST-010` burst probe. Same as the `--probe-rate-limit` flag |
 
 ### Secrets in headers: `$env:NAME`
 

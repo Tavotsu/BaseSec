@@ -167,10 +167,16 @@ Framework-agnostic browser rules. Run on any JS/TS; the DOM-specific ones (`wind
 
 ## Runtime / DAST (DAST)
 
-These rules run against a **running** application with `basesec dast <url>`. They are not part of
-`basesec scan` and do not appear in ALL_RULES. In no-source mode, they inspect only the responses to
-`GET /` and to the healthcheck. A finding is *verified* because the runtime response shows it. The
-absence of a finding means "not confirmed at runtime", not "secure".
+These rules run against a **running** application with `basesec dast <url>` (and, to confirm static
+findings, `basesec scan --verify`). They are not part of `basesec scan` and do not appear in
+`ALL_RULES`. In no-source mode, BaseSec inspects only the responses to `GET /` and to the healthcheck.
+In full mode — when the endpoints are known from your code (`--routes`, `--scan`, or the saved
+artifact) — it also requests each read-only endpoint and runs the active, non-destructive injection
+checks below. A finding is reported because the runtime response shows it; the absence of a finding
+means "not confirmed at runtime", not "secure".
+
+`basesec rules --dast` lists all 15 implemented DAST rules. `DAST-009` (verbose error on malformed
+input) is **not implemented yet** and is not listed; it arrives with the mutation tests.
 
 | ID | Name | Severity | Description |
 |---|---|---|---|
@@ -183,9 +189,17 @@ absence of a finding means "not confirmed at runtime", not "secure".
 | `DAST-007` | Server banner leakage | low | Responses disclose the framework (`X-Powered-By`) or the server version (`Server`). Scope: target |
 | `DAST-008` | Unauthenticated sensitive endpoint | medium | A sensitive `GET`/`HEAD` route with `hasAuth: false` in the route artifact answers 2xx without credentials (confidence low). Full mode only. Scope: endpoint |
 | `DAST-010` | Missing rate limiting | low | Opt-in (`--probe-rate-limit`): 30 rapid requests to a login or healthcheck target get no 429 and no rate-limit headers. Scope: target |
+| `DAST-011` | Open redirect (confirmed at runtime) | medium | Active check: an injected external URL comes back in `Location` pointing to another host. Full mode only. Scope: endpoint |
+| `DAST-101` | SQL injection (confirmed at runtime) | critical | Active check confirmed by a SQL error signature or by timing with a control request. Full mode only. Scope: endpoint |
+| `DAST-102` | NoSQL injection (confirmed at runtime) | high | Active check: an operator payload (`param[$ne]=…`) confirmed by a stable response difference. Full mode only. Scope: endpoint |
+| `DAST-103` | Command injection (confirmed at runtime) | critical | Active check confirmed by an echoed canary or by timing with a control request. Full mode only. Scope: endpoint |
+| `DAST-104` | Path traversal (confirmed at runtime) | critical | Active check: `/etc/passwd` or `win.ini` contents appear in the response. Full mode only. Scope: endpoint |
+| `DAST-105` | Reflected XSS (confirmed at runtime) | high | Active check: an unescaped canary is reflected in an HTML response. Full mode only. Scope: endpoint |
 
-Run a subset with `basesec dast <url> --rules DAST-001,DAST-005`. List the rules with
-`basesec rules --dast`. `DAST-009` is not implemented yet (see the USAGE guide).
+Run a subset with `basesec dast <url> --rules DAST-101,DAST-105`. `DAST-008`, `DAST-011` and
+`DAST-101`–`DAST-105` run only in full mode (endpoints come from your code); `DAST-010` is opt-in
+(`--probe-rate-limit`) and also runs without routes. See
+[USAGE.md](USAGE.md#active-checks-injection) for the payload policy and the oracles behind each one.
 
 ## Severity Scale
 

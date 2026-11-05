@@ -7,7 +7,7 @@
   <img src="https://img.shields.io/npm/dm/basesec?logo=npm&style=flat-square" alt="downloads">
   <img src="https://img.shields.io/github/stars/Tavotsu/BaseSec?logo=github&style=flat-square" alt="stars">
   <br>
-  <h2 align="center">Static Application Security Testing (SAST) CLI for JavaScript &amp; TypeScript — Node.js backends and frontend frameworks.</h2>
+  <h2 align="center">Static Application Security Testing (SAST) CLI for JavaScript &amp; TypeScript — Node.js backends and frontend frameworks, with optional runtime DAST &amp; IAST testing.</h2>
 </p>
 
 
@@ -25,7 +25,8 @@
 - **Worker Threads** — multi-core parallel analysis for large codebases
 - **Custom Rules** — load external rule files (MJS/CJS) via `.basesecrc`
 - **AI-Powered Analysis** — enriches findings with AI explanations and detects suspicious taint flows (Ollama or OpenAI)
-- **Runtime Testing (`basesec dast`)** — checks a running app for headers, cookies, CORS and error-page issues (DAST-001 to DAST-007) in no-source mode, with redacted evidence and an allowlist that blocks remote hosts by default
+- **Runtime Testing / DAST (`basesec dast`)** — tests a running app: passive checks for security headers, HSTS, CSP, CORS, cookie flags, stack traces and server banners (DAST-001–007), plus full-mode active checks that safely confirm SQL/NoSQL/command injection, path traversal, reflected XSS and open redirect (DAST-101–105, DAST-011) and flag unauthenticated sensitive endpoints (DAST-008); an opt-in burst probe checks for missing rate limiting (DAST-010). Endpoints come from your own code (no crawler), payloads are non-destructive, evidence is redacted, and a host allowlist blocks remote and cloud-metadata targets by default
+- **Runtime Verification & IAST (`scan --verify`, `--agent`)** — confirms static findings against the running app and marks them `verified` with request/response evidence; an optional in-process agent observes canaries reaching real sinks (`child_process`, `pg`/`mysql2`, `mongodb`, `fs`) to raise confidence to `high` with the exact sink location
 - **Zero Configuration** — works out of the box with sensible defaults
 
 ## Quick Start
@@ -58,6 +59,23 @@ basesec scan ./src --format json --output report.json
 # Only critical/high findings, strict exit code
 basesec scan ./src --severity high --strict
 ```
+
+### Runtime testing (DAST)
+
+> Run `basesec dast` only against systems you own or are authorized to test.
+
+```bash
+# Inspect a running app (no source needed): headers, CSP, CORS, cookies, error pages
+basesec dast http://localhost:3000
+
+# Full mode: derive endpoints from your code and run safe, non-destructive active checks
+basesec dast http://localhost:3000 --scan ./src
+
+# Confirm static findings at runtime and mark them "verified"
+basesec scan ./src --verify --target http://localhost:3000
+```
+
+See [USAGE.md](docs/USAGE.md#runtime-testing-basesec-dast) for full mode, the IAST agent and every flag.
 
 ## Framework Support
 

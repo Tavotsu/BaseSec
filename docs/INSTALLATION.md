@@ -2,7 +2,7 @@
 
 ## Requirements
 
-- Node.js 18+
+- Node.js 22.23.4+, 24.22.1+, or 26.12.1+ (Node 18 and 20 are not supported; earlier 22.x/24.x releases are affected by Node2Shell, CVE-2026-111497)
 - pnpm, npm, or yarn
 
 ## Global Installation (Recommended for CLI use)

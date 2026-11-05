@@ -2,6 +2,8 @@
 
 BaseSec integrates with GitHub Actions, GitLab CI, Azure DevOps, and any CI system that supports Node.js.
 
+> **Node version.** BaseSec requires Node.js 22.23.4+, 24.22.1+, or 26.12.1+ (Node 18 and 20 are not supported). The examples below pin a supported version.
+
 ## GitHub Actions
 
 ### Basic Workflow
@@ -22,7 +24,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '22.23.4'
       - run: npm install -g basesec
       - run: basesec scan ./src --strict --format sarif --output results.sarif
       - uses: github/codeql-action/upload-sarif@v3
@@ -50,7 +52,7 @@ jobs:
 
 ```yaml
 security-scan:
-  image: node:18
+  image: node:22.23.4
   script:
     - npm install -g basesec
     - basesec scan ./src --strict --format json --output report.json
@@ -69,7 +71,7 @@ security-scan:
 steps:
   - task: NodeTool@0
     inputs:
-      versionSpec: '18.x'
+      versionSpec: '22.23.4'
   - script: |
       npm install -g basesec
       basesec scan ./src --format sarif --output results.sarif
@@ -82,7 +84,7 @@ steps:
 ## Docker
 
 ```dockerfile
-FROM node:18-alpine
+FROM node:22.23.4-alpine
 RUN npm install -g basesec
 WORKDIR /app
 COPY . .
