@@ -19,12 +19,14 @@ const SENSITIVE_HEADER_NAMES = new Set([
   'x-auth-token',
 ]);
 const SENSITIVE_HEADER_PATTERN = /token|secret|session|api[-_]?key|password/i;
-const HEADER_LINE = /^([ \t]*)([A-Za-z0-9_-]+)([ \t]*:[ \t]*)([^\r\n]*)$/gm;
+// Nombre de cabecera acotado a 256 caracteres: sin cota, `[A-Za-z0-9_-]+` era cuadrático sobre líneas largas.
+const HEADER_LINE = /^([ \t]*)([A-Za-z0-9_-]{1,256})([ \t]*:[ \t]*)([^\r\n]*)$/gm;
 // Nombres de la lista del plan (token, key, sig...) más cualquier nombre que case con la regla de cabeceras
 // (api_key, refresh_token, client_secret...). El valor llega hasta el siguiente separador.
 const QUERY_SECRET =
   /([?&](?:[\w.-]*(?:token|secret|session|api[-_]?key|password)[\w.-]*|key|sig|signature)=)[^&\s#"'<>]*/gi;
-const URL_USERINFO = /(\b[a-z][a-z0-9+.-]*:\/\/[^\s/:@]+:)[^\s/@]+(?=@)/gi;
+// Esquema, usuario y contraseña acotados: sin cota, el esquema `[a-z0-9+.-]*` y el userinfo daban coste cuadrático.
+const URL_USERINFO = /(\b[a-z][a-z0-9+.-]{0,31}:\/\/[^\s/:@]{1,256}:)[^\s/@]{1,256}(?=@)/gi;
 /** Margen sobre el límite del body que se procesa: acota el coste de las regex ante cuerpos hostiles. */
 const REDACTION_MARGIN_BYTES = 4096;
 const MAX_HEAD_CHARS = 65536;

@@ -224,4 +224,21 @@ describe('redactHttp cadenas de conexión (rendimiento y userinfo)', () => {
     expect(elapsed).toBeLessThan(150);
     expect(out).toContain(CANARY);
   });
+
+  it('un texto hostil de 64 KB de `a.` repetido se redacta en menos de 150 ms (URL_USERINFO y HEADER_LINE acotados)', () => {
+    const size = 64 * 1024;
+    const hostile = `HTTP/1.1 200 OK\n\n${'a.'.repeat(size / 2)}${CANARY}`;
+    // maxBodyBytes alto para que NO se recorte antes: la regex debe enfrentarse al texto completo.
+    const started = performance.now();
+    const out = redactHttp(hostile, { maxBodyBytes: 4 * size });
+    const elapsed = performance.now() - started;
+    expect(elapsed).toBeLessThan(150);
+    expect(out).toContain(CANARY);
+    // La redacción normal sigue funcionando tras acotar las regex.
+    const conn = redactHttp(`{"dsn":"postgres://admin:s3cr3tpw@db.internal:5432/app","marker":"${CANARY}"}`);
+    expect(conn).toBe(`{"dsn":"postgres://[REDACTED]@db.internal:5432/app","marker":"${CANARY}"}`);
+    expect(redactHttp('GET https://admin:hunter2@app.local/x HTTP/1.1')).toBe(
+      'GET https://admin:[REDACTED]@app.local/x HTTP/1.1',
+    );
+  });
 });

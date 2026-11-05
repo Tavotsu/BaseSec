@@ -214,3 +214,67 @@ describe('extractExpressRoutes (snippets)', () => {
     expect(result.unresolved).toContainEqual(expect.objectContaining({ reason: 'prefijo de montaje no literal' }));
   });
 });
+
+describe('extractExpressRoutes (objetos no-Express por nombre)', () => {
+  const handler = '(req, res) => res.end()';
+
+  it('does not emit an Express route for app = fastify(); app.get(...)', () => {
+    const result = extractSnippets({
+      'app.ts': `
+        import fastify from 'fastify';
+        const app = fastify();
+        app.get('/x', ${handler});
+      `,
+    });
+    expect(result.routes).toEqual([]);
+  });
+
+  it('does not emit routes for other non-Express factories, by identifier or require() call', () => {
+    const result = extractSnippets({
+      'app.ts': `
+        const apiRouter = polka();
+        apiRouter.get('/p', ${handler});
+        const app = require('restify').createServer();
+        app.get('/q', ${handler});
+        const server = require('koa')();
+        const router = require('fastify')();
+        router.get('/r', ${handler});
+      `,
+    });
+    expect(result.routes.map((r) => r.path)).toEqual([]);
+  });
+
+  it('still emits GET /y for app = express(); app.get(...)', () => {
+    const result = extractSnippets({
+      'app.ts': `
+        import express from 'express';
+        const app = express();
+        app.get('/y', ${handler});
+      `,
+    });
+    expect(result.routes).toContainEqual(expect.objectContaining({ method: 'GET', path: '/y', framework: 'express' }));
+  });
+
+  it('still emits a route for a mounted express.Router()', () => {
+    const result = extractSnippets({
+      'app.ts': `
+        import express from 'express';
+        const app = express();
+        const r = express.Router();
+        r.get('/z', ${handler});
+        app.use('/v1', r);
+      `,
+    });
+    expect(result.routes).toContainEqual(expect.objectContaining({ method: 'GET', path: '/v1/z' }));
+  });
+
+  it('keeps treating an unknown factory (makeServer()) as a router, conservatively', () => {
+    const result = extractSnippets({
+      'app.ts': `
+        const app = makeServer();
+        app.get('/w', ${handler});
+      `,
+    });
+    expect(result.routes).toContainEqual(expect.objectContaining({ method: 'GET', path: '/w' }));
+  });
+});

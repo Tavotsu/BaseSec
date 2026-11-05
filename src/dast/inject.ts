@@ -431,7 +431,9 @@ async function diffFlow(state: PointRun, cls: InjectionClass, index: number): Pr
     attack2: second.response,
     neutral: neutrals.first,
     ...(neutrals.second !== undefined ? { neutral2: neutrals.second } : {}),
-    reflected: [state.baselineValue, ...state.neutralValues],
+    // El canario del segundo ataque también se descuenta: diffOracle solo descuenta el del primero, y un
+    // endpoint que refleja el valor inyectado haría que el segundo ataque pareciera un cambio inestable.
+    reflected: [state.baselineValue, ...state.neutralValues, second.payload.canary],
   });
   if (diff.detected) return makeFinding(state, cls, first, diff, 'diff');
   const mongo = sqlErrorOracle(input, 'mongo');

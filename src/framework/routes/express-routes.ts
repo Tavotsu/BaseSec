@@ -260,7 +260,8 @@ class ExpressExtractor {
 
     const decl = file.topDecls.get(name);
     const isInstance = decl?.kind === 'value' && decl.init !== undefined && ts.isNewExpression(unwrapExpression(decl.init));
-    if (isRoutingName(name) && !isInstance) {
+    const isForeign = decl?.kind === 'value' && decl.init !== undefined && isNonExpressFactory(decl.init);
+    if (isRoutingName(name) && !isInstance && !isForeign) {
       return this.ensureObject(file.path, name, name === 'app' ? 'root' : 'router');
     }
     return undefined;
@@ -668,6 +669,47 @@ function isRelative(spec: string): boolean {
 
 function isRoutingName(name: string): boolean {
   return name === 'app' || name === 'router' || name.endsWith('Router');
+}
+
+/**
+ * Fábricas de servidor que NO son Express (plan §5.4: Fastify, Koa... no se extraen como Express). Una variable
+ * `app`/`router`/`*Router` inicializada con una llamada a una de ellas no es un objeto de enrutado Express: el
+ * fallback por nombre no la trata como tal.
+ *
+ * Decisión deliberada: solo se excluyen fábricas CONOCIDAS. Una función desconocida (`makeServer()`) se sigue
+ * tratando como router, para no perder rutas Express reales (lado conservador). Las instancias `new Koa()` ya se
+ * excluyen por `isInstance`, y `express()` / `express.Router()` / `Router()` se clasifican en `factoryKind`.
+ */
+const NON_EXPRESS_FACTORIES = new Set([
+  'fastify',
+  'Fastify',
+  'koa',
+  'Koa',
+  'polka',
+  'hapi',
+  'Hapi',
+  'restify',
+  'connect',
+  'sails',
+  'nest',
+  'NestFactory',
+]);
+
+/** Nombre raíz de un callee: `fastify` en `fastify()`, `restify` en `restify.createServer()`, `fastify` en `require('fastify')()`. */
+function factoryRootName(callee: ts.Expression): string | undefined {
+  let current: ts.Expression = unwrapExpression(callee);
+  while (ts.isPropertyAccessExpression(current)) {
+    current = unwrapExpression(current.expression);
+  }
+  if (isRequireCall(current)) return requireSpecifier(current);
+  return ts.isIdentifier(current) ? current.text : undefined;
+}
+
+function isNonExpressFactory(init: ts.Expression): boolean {
+  const expr = unwrapExpression(init);
+  if (!ts.isCallExpression(expr)) return false;
+  const root = factoryRootName(expr.expression);
+  return root !== undefined && NON_EXPRESS_FACTORIES.has(root);
 }
 
 function compareStrings(a: string, b: string): number {

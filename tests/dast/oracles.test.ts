@@ -408,6 +408,31 @@ describe('oracle precision (realistic false positives)', () => {
       // ...pero una tercera muestra benigna de 500 bytes prueba que la página varía por naturaleza.
       expect(diffOracle({ ...base, neutral2: res(json(500)) }).detected).toBe(false);
     });
+
+    // Ambos ataques reflejan su PROPIO canario (cada uno lleva el suyo). inject.ts descuenta los dos.
+    const CANARY2 = 'BS9f8e7d6c';
+    const withCanary = (filler: number, canary: string) => ({ body: `${'x'.repeat(filler)} ${canary}` });
+
+    it('detects a stable change when each attack reflects its own canary', () => {
+      const result = diffOracle({
+        ...input(withCanary(400, CANARY), json(100)),
+        attack2: res(withCanary(400, CANARY2)),
+        neutral: res(json(100)),
+        reflected: [CANARY2],
+      });
+      expect(result.detected).toBe(true);
+      expect(result.confidence).toBe('low');
+    });
+
+    it('does not fire when the canaries are reflected but nothing else changes', () => {
+      const result = diffOracle({
+        ...input(withCanary(100, CANARY), json(100)),
+        attack2: res(withCanary(100, CANARY2)),
+        neutral: res(json(100)),
+        reflected: [CANARY2],
+      });
+      expect(result.detected).toBe(false);
+    });
   });
 
   describe('redirect', () => {
