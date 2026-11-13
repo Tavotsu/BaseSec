@@ -118,6 +118,59 @@ ignore: [
 ];
 ```
 
+## Runtime Testing (`dast`)
+
+The `dast` block configures `basesec dast`. Every field is optional. CLI flags take precedence over
+the block, and the block takes precedence over built-in defaults.
+
+```ts
+// basesec.config.ts
+export default defineConfig({
+  dast: {
+    target: 'http://localhost:3000',
+    health: '/healthz',
+    headers: { Authorization: 'Bearer $env:API_TOKEN' },
+    rps: 20,
+    concurrency: 5,
+    maxRequests: 5000,
+    timeout: 300,            // seconds
+    requestTimeout: 10000,   // milliseconds
+    evidence: true,
+    evidenceDir: '/var/tmp/basesec-evidence',   // absolute path; "~" is not expanded
+    rules: ['DAST-001', 'DAST-005'],
+    allowRemote: false,
+    publicRoutes: ['/api/*/status'],
+    probeRateLimit: false,
+  },
+});
+```
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `target` | `string` | — | URL used when `basesec dast` is run without an argument |
+| `health` | `string` | `'/'` | Healthcheck path |
+| `headers` | `Record<string, string>` | `{}` | Request headers. Values may use `$env:NAME` |
+| `rps` | `number` | `20` | Requests per second (positive integer) |
+| `concurrency` | `number` | `5` | Parallel requests (positive integer) |
+| `maxRequests` | `number` | `5000` | Hard request budget (positive integer) |
+| `timeout` | `number` | `300` | Global timeout in seconds (positive integer) |
+| `requestTimeout` | `number` | `10000` | Per-request timeout in milliseconds (positive integer) |
+| `evidence` | `boolean` | `true` | Write `.http` evidence files |
+| `evidenceDir` | `string` | `~/.basesec` | Directory for evidence files. Use an absolute path; `~` is not expanded |
+| `rules` | `string[]` | all | DAST rule IDs to run |
+| `allowRemote` | `boolean` | `false` | Allow non-local targets. **Not enough on its own**: each run still needs the typed host confirmation, or `BASESEC_ALLOW_REMOTE=1` without a terminal |
+| `publicRoutes` | `string[]` | `[]` | Routes that are public on purpose, excluded from `DAST-008`. Each pattern is split by `/`; `*` matches exactly one segment (`"/api/*/status"` covers `/api/v1/status`) |
+| `probeRateLimit` | `boolean` | `false` | Enables the `DAST-010` burst probe. Same as the `--probe-rate-limit` flag |
+
+### Secrets in headers: `$env:NAME`
+
+Do not commit tokens to the config file. Write `$env:NAME` and BaseSec replaces it with the value of
+that environment variable when it loads the config. `Bearer $env:API_TOKEN` also works. If the
+variable is missing or empty, BaseSec stops with exit code 3 and names only the variable. It never
+sends the literal `$env:NAME`. Header names must be HTTP tokens, and values may not contain CR or LF.
+
+Values from `dast.headers` are redacted in evidence files, like values passed with `--header`.
+
 ## AI Enhancement
 
 Enable AI-powered analysis to get detailed explanations and detect suspicious taint flows that may bypass existing rules.

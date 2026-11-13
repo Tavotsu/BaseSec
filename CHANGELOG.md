@@ -2,6 +2,27 @@
 
 All notable changes to BaseSec are documented in this file.
 
+## [Unreleased]
+
+### Added
+- Optional IAST agent that confirms injections by observing canaries reaching real sinks, raising confidence to high with the sink location. Use `basesec dast <url> --start "<cmd>" --agent` (or `--agent` with a manually started app, and `scan --verify --dast-agent`).
+- scan --verify --target: confirms static findings at runtime and reports them as verified, with request/response evidence.
+- **DAST-008 (unauthenticated sensitive endpoint)**: a sensitive `GET`/`HEAD` route that the route artifact marks `hasAuth: false` and that answers 2xx without credentials is reported (medium, confidence low). Full mode only. New `dast.publicRoutes` config option excludes routes that are public on purpose (`*` matches one path segment).
+- **DAST-010 (missing rate limiting)**, opt-in with `--probe-rate-limit` or `dast.probeRateLimit`: a burst of 30 requests to a login or healthcheck target, sent outside `--rps` but counted in the request budget, reports when no response is 429 and none carries rate-limit headers.
+- **`DAST-009` is deferred**: detection of verbose errors on malformed input (plan §4.3) needs the mutation tests and arrives with them. It is not implemented and does not appear in `basesec rules`.
+- Active black-box injection checks (DAST-101–105, DAST-011) over GET parameters, non-destructive payloads only.
+- **`basesec dast <url>`**: runtime testing of a running application, in no-source mode. It checks `/` and the healthcheck with `GET` only and never sends injection payloads. Options cover allowlisted targets (`--allow-remote` with typed host confirmation), rate and request budgets, per-finding redacted `.http` evidence, and `$env:` header secrets.
+- **`basesec dast --routes <file>` and `--scan <path>`**: full mode. Each route of the artifact (GET, HEAD and OPTIONS only; mutating endpoints are skipped) is requested, and cookie and stack-trace findings point to the handler's file and lines.
+- **DAST rules `DAST-001` to `DAST-007`** (headers, HSTS, CSP, CORS, cookie flags, stack traces, server banner). They are listed by `basesec rules --dast` and are not part of `scan`.
+- **`dast` section in the config file** (`basesec.config.*`, `.basesecrc`, `package.json`) with the same options as the CLI flags.
+- **`stats.dast` in reports**: JSON, SARIF (`runs[0].properties.dast`), HTML and Markdown show the DAST mode and whether the analysis was incomplete.
+
+### Changed
+- SAST: server-side taint sources for Next.js route handlers; Next.js projects may report new findings.
+- **BREAKING: `engines.node` now requires patched versions**: `^22.23.4 || ^24.22.1 || >=26.12.1`. Node 18 and 20 are no longer supported (npm warns on install, and `pnpm`/`npm` with `engine-strict` refuse it). Node 22 and 24 releases before these versions are affected by Node2Shell (CVE-2026-111497) and by other CVEs fixed on 2026-10-21.
+- Build target raised to `node22`.
+- `basesec rules` lists the DAST rules after the SAST rules from a catalog of every implemented DAST rule (DAST-001 to DAST-008, DAST-010, DAST-011, DAST-101 to DAST-105). The title counts the SAST rules only; `--dast` shows the DAST count.
+
 ## [0.1.9] - 2026-11-03
 
 ### Security

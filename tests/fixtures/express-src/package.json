@@ -1,0 +1,9 @@
+{
+  "name": "express-src-fixture",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Parsed-only fixture for route extraction. Never installed or executed.",
+  "dependencies": {
+    "express": "^4.21.2"
+  }
+}

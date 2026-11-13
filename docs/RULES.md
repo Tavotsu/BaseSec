@@ -165,6 +165,42 @@ Framework-agnostic browser rules. Run on any JS/TS; the DOM-specific ones (`wind
 |---|---|---|---|
 | `SVELTE-001` | {@html} with Dynamic Expression | critical | `{@html expr}` renders raw HTML, bypassing escaping (`.svelte` template) |
 
+## Runtime / DAST (DAST)
+
+These rules run against a **running** application with `basesec dast <url>` (and, to confirm static
+findings, `basesec scan --verify`). They are not part of `basesec scan` and do not appear in
+`ALL_RULES`. In no-source mode, BaseSec inspects only the responses to `GET /` and to the healthcheck.
+In full mode — when the endpoints are known from your code (`--routes`, `--scan`, or the saved
+artifact) — it also requests each read-only endpoint and runs the active, non-destructive injection
+checks below. A finding is reported because the runtime response shows it; the absence of a finding
+means "not confirmed at runtime", not "secure".
+
+`basesec rules --dast` lists all 15 implemented DAST rules. `DAST-009` (verbose error on malformed
+input) is **not implemented yet** and is not listed; it arrives with the mutation tests.
+
+| ID | Name | Severity | Description |
+|---|---|---|---|
+| `DAST-001` | Missing security headers | medium | HTML responses lack X-Content-Type-Options, X-Frame-Options (or CSP `frame-ancestors`) or Referrer-Policy. Scope: target |
+| `DAST-002` | Missing HSTS | medium | HTTPS responses lack a `Strict-Transport-Security` header with a positive `max-age`. Scope: target |
+| `DAST-003` | Missing or weak Content-Security-Policy | medium | HTML responses have no CSP, or the CSP `script-src` allows `'unsafe-inline'`, `'unsafe-eval'` or `*` without nonce, hash or `'strict-dynamic'`. Scope: target |
+| `DAST-004` | Permissive CORS at runtime | high (medium for `*`) | The runtime reflects an arbitrary Origin, `null` or `*` in `Access-Control-Allow-Origin` while `Access-Control-Allow-Credentials` is true. Scope: target |
+| `DAST-005` | Insecure cookie flags | high | `Set-Cookie` lacks `HttpOnly` or `SameSite`, or lacks `Secure` over HTTPS. Scope: endpoint |
+| `DAST-006` | Stack trace exposed | high | A 5xx response body contains a Node.js stack trace with internal file paths. Scope: endpoint |
+| `DAST-007` | Server banner leakage | low | Responses disclose the framework (`X-Powered-By`) or the server version (`Server`). Scope: target |
+| `DAST-008` | Unauthenticated sensitive endpoint | medium | A sensitive `GET`/`HEAD` route with `hasAuth: false` in the route artifact answers 2xx without credentials (confidence low). Full mode only. Scope: endpoint |
+| `DAST-010` | Missing rate limiting | low | Opt-in (`--probe-rate-limit`): 30 rapid requests to a login or healthcheck target get no 429 and no rate-limit headers. Scope: target |
+| `DAST-011` | Open redirect (confirmed at runtime) | medium | Active check: an injected external URL comes back in `Location` pointing to another host. Full mode only. Scope: endpoint |
+| `DAST-101` | SQL injection (confirmed at runtime) | critical | Active check confirmed by a SQL error signature or by timing with a control request. Full mode only. Scope: endpoint |
+| `DAST-102` | NoSQL injection (confirmed at runtime) | high | Active check: an operator payload (`param[$ne]=…`) confirmed by a stable response difference. Full mode only. Scope: endpoint |
+| `DAST-103` | Command injection (confirmed at runtime) | critical | Active check confirmed by an echoed canary or by timing with a control request. Full mode only. Scope: endpoint |
+| `DAST-104` | Path traversal (confirmed at runtime) | critical | Active check: `/etc/passwd` or `win.ini` contents appear in the response. Full mode only. Scope: endpoint |
+| `DAST-105` | Reflected XSS (confirmed at runtime) | high | Active check: an unescaped canary is reflected in an HTML response. Full mode only. Scope: endpoint |
+
+Run a subset with `basesec dast <url> --rules DAST-101,DAST-105`. `DAST-008`, `DAST-011` and
+`DAST-101`–`DAST-105` run only in full mode (endpoints come from your code); `DAST-010` is opt-in
+(`--probe-rate-limit`) and also runs without routes. See
+[USAGE.md](USAGE.md#active-checks-injection) for the payload policy and the oracles behind each one.
+
 ## Severity Scale
 
 - **Critical** — Exploitable remotely, data breach or RCE likely

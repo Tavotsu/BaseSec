@@ -3,42 +3,60 @@ import { getFormatter } from '../../report/formatter';
 import { loadConfig } from '../../config/loader';
 import type { CliOptions, ScanResult, basesecConfig } from '../../rules/types';
 import { severityGte } from '../../utils/severity';
-import { getDefaultReportPath } from '../../utils/basesec-dir';
-import * as fs from 'node:fs';
-import * as path from 'node:path';
 import { logger } from '../../utils/logger';
-import prompts from 'prompts';
+import { emitReport } from '../report-output';
+import { writeRouteArtifact } from '../../core/route-emitter';
+import { validateRouteOptions } from '../validation';
+import * as path from 'node:path';
 
-const TERMINAL_FORMATS = ['terminal'];
+export interface TargetAnalysis {
+  result: ScanResult;
+  /** Config leída del fichero (o {} si no hay). `scan --verify` toma de aquí la sección `dast`. */
+  fileConfig: Partial<basesecConfig>;
+}
 
-export async function runScan(
+/**
+ * Config del fichero. Con `--config` que no carga: 3, ya impreso. Sin `--config`, un fallo avisa (en --verbose) y sigue
+ * con los valores por defecto. Es la única lectura de config de `scan` y de `scan --verify`: `verify` la carga antes
+ * de escanear (necesita la sección `dast`) y se la pasa a `analyzeTarget`, así el fichero se lee una sola vez.
+ */
+export function loadFileConfig(targetPath: string, options: CliOptions): Partial<basesecConfig> | number {
+  if (options.config) {
+    try {
+      return loadConfig(options.config, targetPath);
+    } catch (e) {
+      console.error(`  Error: Could not load config file: ${e instanceof Error ? e.message : String(e)}`);
+      return 3;
+    }
+  }
+  try {
+    return loadConfig(undefined, targetPath);
+  } catch (e) {
+    logger.warn('Failed to load config file, using defaults', e);
+    return {};
+  }
+}
+
+/**
+ * Análisis estático con la configuración de `scan`. Lo usan `scan` y `scan --verify`, que así analizan igual.
+ * Devuelve 3 (sin analizar) si el fichero de config indicado no carga. `preloaded` evita releer el fichero.
+ */
+export async function analyzeTarget(
   targetPath: string,
   options: CliOptions,
-): Promise<number> {
-  if (options.verbose) {
-    logger.isVerbose = true;
-  }
-
+  emitRoutes: boolean,
+  preloaded?: Partial<basesecConfig>,
+): Promise<TargetAnalysis | number> {
   const pipeline = new Pipeline(undefined, {
     workers: options.workers,
     noCache: options.noCache,
   });
 
-  let fileConfig: Partial<basesecConfig> = {};
-  if (options.config) {
-    try {
-      fileConfig = loadConfig(options.config, targetPath);
-    } catch (e) {
-      console.error(`  Error: Could not load config file: ${e instanceof Error ? e.message : String(e)}`);
-      return 3;
-    }
-  } else {
-    try {
-      fileConfig = loadConfig(undefined, targetPath);
-    } catch (e) {
-      logger.warn('Failed to load config file, using defaults', e);
-    }
+  const loaded = preloaded ?? loadFileConfig(targetPath, options);
+  if (typeof loaded === 'number') {
+    return loaded;
   }
+  const fileConfig: Partial<basesecConfig> = loaded;
 
   const ruleFilter = options.rules
     ? options.rules.split(',').map((r) => r.trim())
@@ -81,7 +99,52 @@ export async function runScan(
     aiModel: options.aiModel,
     aiDryRun: options.aiDryRun,
     aiContext: options.aiContext,
+    emitRoutes,
   });
+
+  return { result, fileConfig };
+}
+
+export async function runScan(
+  targetPath: string,
+  options: CliOptions,
+): Promise<number> {
+  const routeError = validateRouteOptions({
+    emitRoutes: options.emitRoutes === true,
+    routesOut: options.routesOut,
+    ai: options.ai === true,
+  });
+  if (routeError) {
+    console.error(`  Error: ${routeError}`);
+    return 2;
+  }
+
+  if (options.verbose) {
+    logger.isVerbose = true;
+  }
+
+  const analysis = await analyzeTarget(targetPath, options, options.emitRoutes === true);
+  if (typeof analysis === 'number') {
+    return analysis;
+  }
+  const { result } = analysis;
+
+  if (options.emitRoutes) {
+    if (!result.routes) {
+      throw new Error('Route artifact was not built.');
+    }
+    const written = writeRouteArtifact(
+      result.routes,
+      options.routesOut ? path.resolve(options.routesOut) : undefined,
+    );
+    const routes = result.routes.routes;
+    const expressCount = routes.filter((r) => r.framework === 'express').length;
+    const nestCount = routes.filter((r) => r.framework === 'nestjs').length;
+    const nextCount = routes.filter((r) => r.framework === 'nextjs').length;
+    console.log(`  Routes: ${routes.length} (${expressCount} express, ${nestCount} nestjs, ${nextCount} nextjs) · unresolved: ${result.routes.unresolved.length}`);
+    console.log(`  Artifact: ${written}`);
+    return 0;
+  }
 
   const filtered = filterBySeverity(result, options.severity);
   const filteredResult: ScanResult = {
@@ -95,38 +158,8 @@ export async function runScan(
   const formatter = getFormatter(options.format);
   const output = formatter.format(filteredResult, targetPath);
 
-  const isTerminalFormat = TERMINAL_FORMATS.includes(options.format);
-
-  if (options.output) {
-    const resolvedOutput = path.resolve(options.output);
-    const cwd = process.cwd();
-
-    if (!resolvedOutput.startsWith(cwd)) {
-      const response = await prompts({
-        type: 'confirm',
-        name: 'value',
-        message: `The output is configured to be generated outside the default path: ${resolvedOutput}, Are you sure you want to continue? (yes/no)`,
-        initial: false
-      });
-
-      if (!response.value) {
-        console.log('Operation cancelled by user.');
-        return 0;
-      }
-    }
-
-    const dir = path.dirname(resolvedOutput);
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
-    }
-    fs.writeFileSync(resolvedOutput, output, 'utf-8');
-    console.log(`Report written to ${resolvedOutput}`);
-  } else if (!isTerminalFormat) {
-    const defaultPath = getDefaultReportPath(options.format);
-    fs.writeFileSync(defaultPath, output, 'utf-8');
-    console.log(`Report written to ${defaultPath}`);
-  } else {
-    console.log(output);
+  if (!(await emitReport(output, options.format, options.output))) {
+    return 0;
   }
 
   if (options.strict && filtered.length > 0) {
@@ -136,7 +169,7 @@ export async function runScan(
   return 0;
 }
 
-function filterBySeverity(
+export function filterBySeverity(
   result: ScanResult,
   minSeverity: string,
 ): typeof result.findings {

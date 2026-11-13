@@ -1,3 +1,5 @@
+import type { RouteArtifact } from '../framework/routes/types';
+
 export type Severity = 'critical' | 'high' | 'medium' | 'low' | 'info';
 
 export type RuleCategory =
@@ -16,6 +18,23 @@ export type RuleCategory =
 export type Framework = 'express' | 'nestjs' | 'mongoose' | 'typeorm' | 'fastify' | 'koa' | 'prisma' | 'react' | 'nextjs' | 'vue' | 'angular' | 'svelte' | '*';
 
 export type Confidence = 'high' | 'medium' | 'low';
+
+export type FindingSource = 'static' | 'dynamic';
+
+export type CorrelationKind = 'handler' | 'import-graph' | 'agent' | 'runtime-property';
+
+export interface DastEvidence {
+  /** Método y URL absoluta, ya redactada. Ej: "GET http://localhost:3000/". */
+  request: string;
+  /** Status + headers relevantes (+ primeros bytes del body si aplica), ya redactado. */
+  response: string;
+  /** Payload enviado; '' en reglas de inspección. */
+  payload: string;
+  oracle: 'reflection' | 'sql-error' | 'timing' | 'diff' | 'redirect' | 'header' | 'agent';
+  correlation?: CorrelationKind;
+  file?: string;
+  sink?: { fn: string; filePath: string; line: number };
+}
 
 export interface Finding {
   ruleId: string;
@@ -36,6 +55,14 @@ export interface Finding {
   aiExplanation?: string;
   aiGenerated?: boolean;
   originalConfidence?: Confidence;
+  /** Ausente = 'static'. Solo se marca explícitamente lo dinámico. */
+  source?: FindingSource;
+  /** true solo si un oráculo confirmó explotación real. */
+  verified?: boolean;
+  /** Presente cuando verified === true, o en hallazgos DAST-only. */
+  evidence?: DastEvidence;
+  /** Endpoint atacado ("GET /api/users/:id") o el origen ("http://localhost:3000") a nivel de target. */
+  endpoint?: string;
 }
 
 export interface Rule {
@@ -83,6 +110,54 @@ export interface AiConfig {
   timeout?: number;
 }
 
+export interface DastConfig {
+  target?: string;
+  headers?: Record<string, string>;
+  health?: string;
+  allowRemote?: boolean;
+  rps?: number;
+  concurrency?: number;
+  maxRequests?: number;
+  timeout?: number;          // segundos, global
+  requestTimeout?: number;   // ms
+  evidence?: boolean;
+  evidenceDir?: string;
+  rules?: string[];
+  /**
+   * Rutas que son públicas a propósito y nunca se reportan por DAST-008. Cada patrón es una ruta del artefacto
+   * con segmentos separados por "/"; `*` casa con exactamente un segmento y el resto se compara literal (sin
+   * distinguir mayúsculas). Ejemplo: "/api/*\/status" cubre "/api/v1/status".
+   */
+  publicRoutes?: string[];
+  /** Activa DAST-010 (sonda de rate limiting, ráfaga de 30 peticiones). Equivale a --probe-rate-limit. */
+  probeRateLimit?: boolean;
+  /** Activa la correlación con el agente IAST (equivale a --agent). No lanza procesos: --start solo por flag. */
+  agent?: boolean;
+  /** Segundos que se espera a que la app responda con --start. */
+  startTimeout?: number;
+  /** Directorio de sockets del agente en modo manual (equivale a --agent-dir). */
+  agentDir?: string;
+}
+
+/** Flags `--dast-*` de `scan --verify` ya leídos de la línea de comandos (sin validar: lo hace el comando). */
+export interface VerifyDastOptions {
+  allowRemote?: boolean;
+  /** --dast-agent: correlación con el agente IAST por sockets (modo manual; la app ya tiene NODE_OPTIONS). */
+  agent?: boolean;
+  allowVulnerableNode?: boolean;
+  /** Repetible: "Name: value". */
+  headers?: string[];
+  rules?: string;
+  probeRateLimit?: boolean;
+  timeout?: number | string;
+  requestTimeout?: number | string;
+  rps?: number | string;
+  maxRequests?: number | string;
+  evidenceDir?: string;
+  /** false con --no-dast-evidence; undefined = lo que diga la config. */
+  evidence?: boolean;
+}
+
 export interface basesecConfig {
   target: string[];
   ignore: string[];
@@ -107,6 +182,7 @@ export interface basesecConfig {
     filePath?: string;
   };
   ai?: AiConfig;
+  dast?: DastConfig;
 }
 
 export interface CliOptions {
@@ -135,12 +211,44 @@ export interface CliOptions {
   aiModel?: string;
   aiDryRun?: boolean;
   aiContext?: string;
+  /** Escribe el artefacto de rutas (plan §5.3) en lugar del reporte. */
+  emitRoutes?: boolean;
+  /** Ruta explícita del artefacto con emitRoutes; por defecto ~/.basesec/routes/. */
+  routesOut?: string;
+  /** Confirma los hallazgos estáticos atacando `target` con la superficie del propio código. */
+  verify?: boolean;
+  target?: string;
+  verifyDast?: VerifyDastOptions;
 }
 
 export interface ScanResult {
   findings: Finding[];
   stats: ScanStats;
   duration: number;
+  /** Presente solo cuando se pidió emitRoutes. */
+  routes?: RouteArtifact;
+}
+
+export interface DastStats {
+  /** Origen del target, sin credenciales (sin user:pass@). */
+  target: string;
+  mode: 'full' | 'no-source';
+  routesSource: 'artifact' | 'scan' | 'routes-file' | 'none';
+  routesStale: boolean;
+  readOnly: boolean;
+  agent: boolean;
+  endpoints: {
+    total: number;
+    analyzed: number;
+    skippedMutating: number;
+    unresolved: number;
+    /** Endpoints a los que se envió al menos un payload de inyección (solo en modo full). */
+    attacked?: number;
+  };
+  requests: number;
+  incomplete?: 'budget' | 'timeout';
+  /** Ausente si no se escribió evidencia (--no-evidence o ningún hallazgo). */
+  evidenceDir?: string;
 }
 
 export interface ScanStats {
@@ -148,6 +256,7 @@ export interface ScanStats {
   filesSkipped: number;
   rulesRun: number;
   frameworks: string[];
+  dast?: DastStats;
 }
 
 export interface ParsedFile {

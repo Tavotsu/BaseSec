@@ -6,6 +6,7 @@ import { ResultStore } from './result-store';
 import { mergeConfigWithDefaults } from '../config/defaults';
 import { ALL_RULES } from '../rules/index';
 import { detectFrameworks } from '../framework/detector';
+import { buildRouteArtifact, findProjectRoot } from './route-emitter';
 import { RuleRegistry } from '../rules/registry';
 import { loadCustomRules } from '../rules/loader';
 import { loadConfig } from '../config/loader';
@@ -29,6 +30,7 @@ import type {
   CliOptions,
   Finding,
 } from '../rules/types';
+import type { RouteArtifact } from '../framework/routes/types';
 
 export class Pipeline {
   private collector = new FileCollector();
@@ -189,6 +191,18 @@ export class Pipeline {
     }
 
     this.store.addMany(findings);
+    const finalFindings = this.store.getFindings();
+
+    // Solo con --emit-routes: el artefacto se construye en el hilo principal sobre parsedFiles.
+    let routes: RouteArtifact | undefined;
+    if (cliOptions.emitRoutes) {
+      routes = buildRouteArtifact({
+        parsedFiles,
+        frameworks,
+        root: findProjectRoot(targetPath),
+        findings: finalFindings,
+      });
+    }
 
     const stats: ScanStats = {
       filesScanned: parsedFiles.length,
@@ -201,9 +215,10 @@ export class Pipeline {
     const duration = Date.now() - start;
 
     return {
-      findings: this.store.getFindings(),
+      findings: finalFindings,
       stats,
       duration,
+      ...(routes ? { routes } : {}),
     };
   }
 

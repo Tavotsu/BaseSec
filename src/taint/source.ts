@@ -2,6 +2,8 @@ import * as ts from 'typescript';
 import type { TaintSourceInfo, SourceDefinition } from './types';
 import { visit } from '../utils/ast-helpers';
 import { TAINT_SOURCES } from '../utils/patterns';
+import { isNextRouteHandlerPath } from '../framework/routes/nextjs-files';
+import { findNextServerSources } from './next-sources';
 
 const SOURCE_DEFINITIONS: SourceDefinition[] = [
   { pattern: 'req.body', framework: 'express' },
@@ -157,7 +159,25 @@ export function findSources(
     return 'continue';
   });
 
+  if (frameworks.includes('nextjs') && isNextRouteHandlerPath(sourceFile.fileName)) {
+    return dedupeByPosition([...sources, ...findNextServerSources(sourceFile)]);
+  }
+
   return sources;
+}
+
+/**
+ * Quita fuentes repetidas por (expresión, línea, columna), conservando la primera. El `kind` no
+ * sirve como clave: `req.query` con Express y con Next tiene kinds distintos y es la misma fuente.
+ */
+function dedupeByPosition(list: TaintSourceInfo[]): TaintSourceInfo[] {
+  const seen = new Set<string>();
+  return list.filter((s) => {
+    const key = `${s.expression}\0${s.line}\0${s.column}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 function isTaintExpression(

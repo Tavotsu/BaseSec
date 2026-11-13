@@ -1,6 +1,6 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import type { basesecConfig, Severity, OutputFormat, RuleConfigOverride } from '../rules/types';
+import type { basesecConfig, DastConfig, Severity, OutputFormat, RuleConfigOverride } from '../rules/types';
 import { SENSITIVE_FILE_PATTERNS } from './defaults';
 import { logger } from '../utils/logger';
 
@@ -217,7 +217,48 @@ function normalizeConfig(raw: Record<string, unknown>): Partial<basesecConfig> {
     };
   }
 
+  if (raw.dast && typeof raw.dast === 'object' && !Array.isArray(raw.dast)) {
+    config.dast = normalizeDastConfig(raw.dast as Record<string, unknown>);
+  }
+
   return config;
+}
+
+function isPositiveFiniteNumber(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0;
+}
+
+/** Copia solo los campos de `dast` con el tipo correcto. Lo demás se ignora en silencio. */
+function normalizeDastConfig(raw: Record<string, unknown>): DastConfig {
+  const dast: DastConfig = {};
+  if (typeof raw.target === 'string') dast.target = raw.target;
+  if (typeof raw.health === 'string') dast.health = raw.health;
+  if (typeof raw.allowRemote === 'boolean') dast.allowRemote = raw.allowRemote;
+  if (typeof raw.evidence === 'boolean') dast.evidence = raw.evidence;
+  if (typeof raw.evidenceDir === 'string') dast.evidenceDir = raw.evidenceDir;
+  if (isPositiveFiniteNumber(raw.rps)) dast.rps = raw.rps;
+  if (isPositiveFiniteNumber(raw.concurrency)) dast.concurrency = raw.concurrency;
+  if (isPositiveFiniteNumber(raw.maxRequests)) dast.maxRequests = raw.maxRequests;
+  if (isPositiveFiniteNumber(raw.timeout)) dast.timeout = raw.timeout;
+  if (isPositiveFiniteNumber(raw.requestTimeout)) dast.requestTimeout = raw.requestTimeout;
+  if (typeof raw.probeRateLimit === 'boolean') dast.probeRateLimit = raw.probeRateLimit;
+  if (typeof raw.agent === 'boolean') dast.agent = raw.agent;
+  if (isPositiveFiniteNumber(raw.startTimeout)) dast.startTimeout = raw.startTimeout;
+  if (typeof raw.agentDir === 'string') dast.agentDir = raw.agentDir;
+  if (Array.isArray(raw.publicRoutes)) {
+    dast.publicRoutes = raw.publicRoutes.filter((route): route is string => typeof route === 'string');
+  }
+  if (Array.isArray(raw.rules) && raw.rules.every((rule) => typeof rule === 'string')) {
+    dast.rules = raw.rules as string[];
+  }
+  if (raw.headers && typeof raw.headers === 'object' && !Array.isArray(raw.headers)) {
+    const headers: Record<string, string> = {};
+    for (const [name, value] of Object.entries(raw.headers as Record<string, unknown>)) {
+      if (typeof value === 'string') headers[name] = value;
+    }
+    dast.headers = headers;
+  }
+  return dast;
 }
 
 function checkSensitiveFileOverride(userIgnore: string[]): void {

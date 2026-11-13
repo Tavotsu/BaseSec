@@ -21,6 +21,8 @@ pnpm test:coverage        # Tests with v8 coverage
 pnpm typecheck            # TypeScript check (tsc --noEmit)
 ```
 
+CI (`.github/workflows/ci.yml`) runs `typecheck`, `build` and `vitest run` on Node 22.23.4, 24.22.1 and 26.12.1 for every push and pull request.
+
 Do **not** insert `--` before the arguments. pnpm forwards it literally, so
 `pnpm test -- <file>` runs the whole suite unfiltered and `pnpm dev -- scan .` never
 reaches the `scan` command at all.

@@ -47,7 +47,12 @@ export class MarkdownFormatter implements ReportFormatter {
     }
     lines.push('');
     lines.push(`**Total Findings:** ${result.findings.length}`);
-    lines.push(`**Files Scanned:** ${result.stats.filesScanned} | **Duration:** ${(result.duration / 1000).toFixed(1)}s`);
+    const dast = result.stats.dast;
+    if (dast && result.stats.filesScanned === 0) {
+      lines.push(`**Mode:** ${dast.mode} | **Requests:** ${dast.requests} | **Incomplete:** ${dast.incomplete ?? 'no'} | **Duration:** ${(result.duration / 1000).toFixed(1)}s`);
+    } else {
+      lines.push(`**Files Scanned:** ${result.stats.filesScanned} | **Duration:** ${(result.duration / 1000).toFixed(1)}s`);
+    }
     lines.push('');
     lines.push('---');
     lines.push('');
@@ -70,12 +75,37 @@ export class MarkdownFormatter implements ReportFormatter {
       const label = SEVERITY_LABELS[finding.severity] ?? finding.severity.toUpperCase();
       lines.push(`### [${label}] ${finding.ruleId}: ${finding.ruleName}`);
       lines.push('');
-      lines.push(`**File:** \`${finding.filePath}:${finding.line}\``);
+      if (finding.filePath === '' && finding.endpoint) {
+        lines.push(`**Endpoint:** \`${finding.endpoint.replace(/`/g, "'")}\``);
+      } else {
+        lines.push(`**File:** \`${finding.filePath}:${finding.line}\``);
+        if (finding.endpoint) {
+          lines.push(`**Endpoint:** \`${finding.endpoint.replace(/`/g, "'")}\``);
+        }
+      }
       lines.push('');
+      if (finding.verified === true) {
+        const correlation = finding.evidence?.correlation;
+        lines.push(`**Verified:** runtime${correlation !== undefined ? ` (${correlation})` : ''}`);
+        lines.push('');
+      }
       lines.push('```typescript');
       lines.push(escapeMarkdownCode(finding.codeSnippet));
       lines.push('```');
       lines.push('');
+      if (finding.evidence) {
+        lines.push('**Evidence:**');
+        lines.push('');
+        const { request, response, payload, oracle } = finding.evidence;
+        // Payload y oráculo solo cuando hay payload, como en la terminal. Todo pasa por escapeMarkdownCode.
+        const evidenceText = payload !== ''
+          ? `${request}\n${response}\nPayload: ${payload}\nOracle: ${oracle}`
+          : `${request}\n${response}`;
+        lines.push('```http');
+        lines.push(escapeMarkdownCode(evidenceText));
+        lines.push('```');
+        lines.push('');
+      }
       lines.push(`**Message:** ${finding.message}`);
       lines.push('');
       lines.push(`**Remedy:** ${finding.remediation}`);

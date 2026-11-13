@@ -6,6 +6,9 @@ import * as path from 'node:path';
 import * as os from 'node:os';
 import type { Rule } from '../../src/rules/types';
 
+// chmod-based permission checks are meaningless for root, which bypasses file modes.
+const isRoot = typeof process.getuid === 'function' && process.getuid() === 0;
+
 describe('loadCustomRules', () => {
   let tmpDir: string;
 
@@ -14,6 +17,13 @@ describe('loadCustomRules', () => {
   });
 
   afterEach(() => {
+    // A test may have made a subdirectory unreadable; restore permissions first so a
+    // non-root user can remove it (rmSync force only ignores ENOENT, not EACCES).
+    try {
+      fs.chmodSync(path.join(tmpDir, 'unreadable'), 0o755);
+    } catch {
+      // no "unreadable" subdirectory in this test; nothing to restore
+    }
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });
 
@@ -70,14 +80,21 @@ describe('loadCustomRules', () => {
     expect(result.errors).toHaveLength(0);
   });
 
-  it('handles unreadable directory', async () => {
+  // 0o000 has no effect for root (it reads any directory), so the "unreadable"
+  // premise only holds for a non-root user (CI runners and normal development).
+  it.skipIf(isRoot)('handles unreadable directory', async () => {
     const unreadable = path.join(tmpDir, 'unreadable');
     fs.mkdirSync(unreadable, { recursive: true });
     fs.chmodSync(unreadable, 0o000);
 
-    const registry = new RuleRegistry();
-    const result = await loadCustomRules([unreadable], registry);
-    expect(result.errors.length).toBeGreaterThanOrEqual(1);
+    try {
+      const registry = new RuleRegistry();
+      const result = await loadCustomRules([unreadable], registry);
+      expect(result.errors.length).toBeGreaterThanOrEqual(1);
+    } finally {
+      // restore so afterEach can remove it as a non-root user
+      fs.chmodSync(unreadable, 0o755);
+    }
   });
 
   it('loads MJS files', async () => {
