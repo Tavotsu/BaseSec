@@ -2,7 +2,7 @@
 
 All notable changes to BaseSec are documented in this file.
 
-## [Unreleased]
+## [0.2.0] - 2026-11-13
 
 ### Added
 - Optional IAST agent that confirms injections by observing canaries reaching real sinks, raising confidence to high with the sink location. Use `basesec dast <url> --start "<cmd>" --agent` (or `--agent` with a manually started app, and `scan --verify --dast-agent`).
@@ -207,4 +207,5 @@ All notable changes to BaseSec are documented in this file.
 - Basic rule registry and loader
 - Terminal and JSON formatters
 
+[0.2.0]: https://github.com/Tavotsu/BaseSec/releases/tag/v0.2.0
 [0.1.0]: https://github.com/tavotsu/basesec/releases/tag/v0.1.0

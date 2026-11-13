@@ -1,7 +1,7 @@
 {
   "name": "basesec",
-  "version": "0.1.9",
-  "description": "Fast, zero-config SAST CLI for JavaScript & TypeScript — Node.js backends and frontend frameworks. Detects SQLi, NoSQLi, XSS, DOM-based XSS, RCE, path traversal, secrets, and 60+ other vulnerabilities via AST + taint analysis. Supports Express, NestJS, Fastify, Koa, Mongoose, TypeORM, Prisma, React, Next.js, Vue, Nuxt, Angular, and Svelte.",
+  "version": "0.2.0",
+  "description": "Fast, zero-config SAST CLI for JavaScript & TypeScript — Node.js backends and frontend frameworks. Detects SQLi, NoSQLi, XSS, DOM-based XSS, RCE, path traversal, secrets, and 60+ other vulnerabilities via AST + taint analysis. Includes runtime testing (DAST) of a running app with non-destructive active checks, an optional IAST agent, and scan --verify to confirm static findings at runtime. Supports Express, NestJS, Fastify, Koa, Mongoose, TypeORM, Prisma, React, Next.js, Vue, Nuxt, Angular, and Svelte.",
   "type": "module",
   "main": "dist/index.js",
   "bin": {
@@ -31,7 +31,8 @@
     "build": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\" && tsup",
     "test": "vitest",
     "test:coverage": "vitest --coverage",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "pnpm build"
   },
   "keywords": [
     "sast",
@@ -218,7 +219,13 @@
     "prototype-pollution",
     "jsx",
     "single-file-component",
-    "vue-sfc"
+    "vue-sfc",
+    "dast",
+    "iast",
+    "runtime-testing",
+    "runtime-security",
+    "dynamic-analysis",
+    "black-box-testing"
   ],
   "author": "tavotsu",
   "license": "CC BY-NC 4.0",
