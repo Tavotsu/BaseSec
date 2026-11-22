@@ -1,5 +1,5 @@
 import { VERSION } from '../version';
-import type { ScanResult, Finding, Severity } from '../rules/types';
+import type { ScanResult, Severity } from '../rules/types';
 import type { ReportFormatter } from './formatter';
 
 const SEVERITY_LABELS: Record<string, string> = {

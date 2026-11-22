@@ -99,7 +99,6 @@ export class TaintPropagation {
           if (this.templateLiteralHasTaint(node.initializer)) {
             const sources = this.getTemplateLiteralSources(node.initializer);
             if (sources.length === 0) return 'continue';
-            const pos = this.sourceFile.getLineAndCharacterOfPosition(node.getStart(this.sourceFile));
             this.taintMap.set(varName, {
               sources,
               isSanitized: false,
@@ -223,7 +222,6 @@ export class TaintPropagation {
   }
 
   private markSanitized(varName: string, sanitizer: string, node: ts.Node): void {
-    const pos = this.sourceFile.getLineAndCharacterOfPosition(node.getStart(this.sourceFile));
     const existing = this.taintMap.get(varName);
     if (existing) {
       existing.isSanitized = true;
@@ -240,7 +238,6 @@ export class TaintPropagation {
   private propagateTaint(exprText: string, varName: string, node: ts.Node): void {
     const sources = this.getExpressionSources(exprText);
     if (sources.length > 0) {
-      const pos = this.sourceFile.getLineAndCharacterOfPosition(node.getStart(this.sourceFile));
       this.taintMap.set(varName, {
         sources,
         isSanitized: false,

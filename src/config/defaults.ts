@@ -1,5 +1,5 @@
 import * as os from 'node:os';
-import type { basesecConfig, Severity, OutputFormat, RuleConfigOverride } from '../rules/types';
+import type { basesecConfig } from '../rules/types';
 
 export const SENSITIVE_FILE_PATTERNS: string[] = [
   '**/.env',

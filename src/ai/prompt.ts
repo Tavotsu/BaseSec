@@ -1,5 +1,3 @@
-import type { Finding } from '../rules/types';
-
 export interface EnrichmentPromptData {
   ruleId: string;
   ruleName: string;

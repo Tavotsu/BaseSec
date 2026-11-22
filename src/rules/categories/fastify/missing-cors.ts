@@ -12,24 +12,15 @@ export const FASTIFY003 = defineRule({
   tags: ['owasp:a5', 'cwe:942', 'misconfiguration'],
   detect(ctx) {
     const findings: import('../../../rules/types').Finding[] = [];
-    let hasCors = false;
     let hasInsecureCors = false;
     let insecureCorsLine = 1;
 
     visit(ctx.sourceFile, (node) => {
-      if (ts.isImportDeclaration(node)) {
-        const moduleSpecifier = node.moduleSpecifier.getText(ctx.sourceFile);
-        const spec = moduleSpecifier.replace(/^['"]|['"]$/g, '');
-        if (spec === '@fastify/cors' || spec === 'fastify-cors') {
-          hasCors = true;
-        }
-      }
       if (ts.isCallExpression(node)) {
         const text = node.getText(ctx.sourceFile);
         if (ts.isPropertyAccessExpression(node.expression) && node.expression.name.text === 'register') {
           const argText = node.arguments.length > 0 ? node.arguments[0].getText(ctx.sourceFile) : '';
           if (argText.includes('cors') || text.includes('cors') || text.includes('@fastify/cors')) {
-            hasCors = true;
             if (text.includes('origin') && (text.includes('*') || text.includes('origin: "*"') || text.includes("origin: '*'") || text.includes('origin: true'))) {
               hasInsecureCors = true;
               const { line } = getLineAndColumn(ctx.sourceFile, node);

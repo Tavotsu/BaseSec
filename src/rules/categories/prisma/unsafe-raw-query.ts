@@ -1,6 +1,5 @@
-import * as ts from 'typescript';
 import { defineRule } from '../../define-rule';
-import { getLineAndColumn, getCodeSnippet, visit } from '../../../utils/ast-helpers';
+import { getCodeSnippet } from '../../../utils/ast-helpers';
 import { detectPrismaPatterns } from '../../../framework/prisma';
 
 export const PRISMA002 = defineRule({

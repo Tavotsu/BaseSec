@@ -1,6 +1,6 @@
 import * as ts from 'typescript';
 import { defineRule } from '../../define-rule';
-import { getLineAndColumn, getCodeSnippet, visit } from '../../../utils/ast-helpers';
+import { getLineAndColumn, visit } from '../../../utils/ast-helpers';
 
 export const FASTIFY001 = defineRule({
   id: 'FASTIFY-001',

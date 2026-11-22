@@ -1,4 +1,4 @@
-import type { Rule, RuleCategory, Severity, Framework, Confidence } from './types';
+import type { Rule, RuleCategory, Severity, Framework } from './types';
 
 interface RuleDefinition {
   id: string;

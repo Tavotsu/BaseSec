@@ -39,7 +39,6 @@ export const CONF002 = defineRule({
         }
 
         if (ts.isPropertyAccessExpression(node.expression)) {
-          const obj = node.expression.expression;
           const method = node.expression.name.text;
           if (method === 'listen' || method === 'create') {
             const args = node.arguments;

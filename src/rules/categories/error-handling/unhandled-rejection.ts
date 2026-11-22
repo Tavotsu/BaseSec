@@ -38,7 +38,6 @@ export const ERR003 = defineRule({
     });
 
     if (!hasGlobalHandler) {
-      const { line: firstLine } = getLineAndColumn(ctx.sourceFile, ctx.sourceFile.getChildAt(0));
       findings.push({
         ruleId: 'ERR-003',
         ruleName: 'Unhandled Promise Rejection',

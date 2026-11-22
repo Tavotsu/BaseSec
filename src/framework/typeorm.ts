@@ -25,7 +25,6 @@ export function detectTypeORMPatterns(
   visit(sourceFile, (node) => {
     if (ts.isCallExpression(node)) {
       const expr = node.expression;
-      const text = node.getText(sourceFile);
 
       if (ts.isPropertyAccessExpression(expr)) {
         const methodName = expr.name.text;

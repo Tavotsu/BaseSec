@@ -1,6 +1,6 @@
 import * as ts from 'typescript';
 import { defineRule } from '../../define-rule';
-import { getLineAndColumn, getCodeSnippet, visit } from '../../../utils/ast-helpers';
+import { visit } from '../../../utils/ast-helpers';
 
 export const XSS002 = defineRule({
   id: 'XSS-002',

@@ -1,4 +1,3 @@
-import pc from 'picocolors';
 import type { DastEvidence, Finding, ScanResult, Severity } from '../rules/types';
 import type { ReportFormatter } from './formatter';
 
@@ -112,7 +111,6 @@ export class HtmlFormatter implements ReportFormatter {
       .join('\n          ');
 
     const findingsRows = sorted.map((f, i) => {
-      const color = severityToColor(f.severity);
       return `
             <tr>
               <td>${severityToBadge(f.severity)}</td>

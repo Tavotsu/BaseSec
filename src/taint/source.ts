@@ -1,7 +1,6 @@
 import * as ts from 'typescript';
 import type { TaintSourceInfo, SourceDefinition } from './types';
 import { visit } from '../utils/ast-helpers';
-import { TAINT_SOURCES } from '../utils/patterns';
 import { isNextRouteHandlerPath } from '../framework/routes/nextjs-files';
 import { findNextServerSources } from './next-sources';
 

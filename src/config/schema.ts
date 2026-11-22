@@ -1,4 +1,4 @@
-import type { basesecConfig, Severity, OutputFormat, RuleConfigOverride, AiConfig, DastConfig } from '../rules/types';
+import type { Severity, OutputFormat, RuleConfigOverride, DastConfig } from '../rules/types';
 
 export interface basesecConfigSchema {
   target?: string[];

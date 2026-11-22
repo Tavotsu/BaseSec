@@ -1,5 +1,4 @@
 import { defineRule } from '../../define-rule';
-import * as fs from 'node:fs';
 import * as path from 'node:path';
 
 interface CveEntry {
@@ -59,7 +58,6 @@ const VULNERABLE_PACKAGES: Record<string, CveEntry[]> = {
 };
 
 function satisfiesRange(version: string, range: string): boolean {
-  const op = range.slice(0, 2).trim();
   const target = range.replace(/^[<>=!]+\s*/, '');
 
   const vParts = version.replace(/^v/, '').split('.').map(Number);

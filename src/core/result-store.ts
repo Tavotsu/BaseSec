@@ -1,12 +1,5 @@
 import type { Finding } from '../rules/types';
 
-interface FindingKey {
-  ruleId: string;
-  filePath: string;
-  line: number;
-  snippetNormalized: string;
-}
-
 function normalizeSnippet(snippet: string): string {
   return snippet.replace(/\s+/g, ' ').trim();
 }

@@ -11,7 +11,25 @@ export interface NextRouteFile {
 
 const APP_ROUTE_FILE = /^route\.(ts|js|mjs|cjs)$/;
 const PAGES_EXTENSION = /^(.+)\.(ts|tsx|js|jsx|mjs|cjs)$/;
-const EXCLUDED_NAME = /\.(test|spec)\.[^/\\]+$|\.d\.ts$/;
+
+/** `marker` aparece desde `from` y le sigue al menos un carácter. */
+function hasMarker(name: string, marker: string, from: number): boolean {
+  const i = name.indexOf(marker, from);
+  return i !== -1 && i + marker.length < name.length;
+}
+
+/**
+ * Tests (`*.test.*`, `*.spec.*`) y declaraciones (`*.d.ts`). Equivale a la regex
+ * `/\.(test|spec)\.[^/\\]+$|\.d\.ts$/`, pero en tiempo lineal: esa regex sin anclar hacía
+ * backtracking cuadrático con nombres que repiten `.test.`/`.spec.` (CodeQL js/polynomial-redos).
+ * La marca solo cuenta si tras ella no hay `/` ni `\` hasta el final, como en la regex.
+ */
+function isExcludedName(name: string): boolean {
+  if (name.endsWith('.d.ts')) return true;
+  const lastSep = Math.max(name.lastIndexOf('/'), name.lastIndexOf('\\'));
+  const from = Math.max(0, lastSep - 5);
+  return hasMarker(name, '.test.', from) || hasMarker(name, '.spec.', from);
+}
 
 /**
  * Clasifica un fichero del proyecto como route handler de Next.js (plan §5.7).
@@ -21,7 +39,7 @@ const EXCLUDED_NAME = /\.(test|spec)\.[^/\\]+$|\.d\.ts$/;
 export function classifyNextFile(relPath: string): NextRouteFile | null {
   const parts = relPath.split('/').filter((p) => p !== '' && p !== '.');
   const name = parts[parts.length - 1];
-  if (name === undefined || EXCLUDED_NAME.test(name)) return null;
+  if (name === undefined || isExcludedName(name)) return null;
 
   const rest = parts[0] === 'src' ? parts.slice(1) : parts;
 
@@ -52,7 +70,7 @@ export function classifyNextFile(relPath: string): NextRouteFile | null {
 export function nextRouteFileKindOfPath(absPath: string): NextRouteFileKind | undefined {
   const segments = absPath.split(/[\\/]+/).filter((s) => s !== '');
   const name = segments[segments.length - 1];
-  if (name === undefined || EXCLUDED_NAME.test(name)) return undefined;
+  if (name === undefined || isExcludedName(name)) return undefined;
   const dirs = segments.slice(0, -1);
 
   if (APP_ROUTE_FILE.test(name) && dirs.includes('app')) return 'app-route';

@@ -162,6 +162,23 @@ describe('classifyNextFile', () => {
     expect(classifyNextFile('pages/api/x.d.ts')).toBeNull();
   });
 
+  it('excludes a test or spec marker anywhere in the name, as the old regex did', () => {
+    expect(classifyNextFile('pages/api/a.test.b.ts')).toBeNull();
+    expect(classifyNextFile('pages/api/a.test..ts')).toBeNull();
+    expect(classifyNextFile('pages/api/a.spec.test.js')).toBeNull();
+    // `.tests.` and a marker with nothing after it are not test files
+    expect(classifyNextFile('pages/api/foo.tests.ts')).toEqual({ kind: 'pages-api', segments: ['api', 'foo.tests'] });
+  });
+
+  it('classifies a pathological name in linear time (CodeQL js/polynomial-redos)', () => {
+    // The old unanchored regex backtracked quadratically on this name: the trailing backslash makes
+    // every `.spec.` start fail only after scanning to the end.
+    const name = `.test.${'.spec.'.repeat(50_000)}\\`;
+    const started = Date.now();
+    expect(classifyNextFile(`pages/api/${name}`)).toBeNull();
+    expect(Date.now() - started).toBeLessThan(500);
+  });
+
   it('keeps the api folder in Pages segments and drops index', () => {
     expect(classifyNextFile('pages/api/x.ts')).toEqual({ kind: 'pages-api', segments: ['api', 'x'] });
     expect(classifyNextFile('src/pages/api/users/index.tsx')).toEqual({ kind: 'pages-api', segments: ['api', 'users'] });

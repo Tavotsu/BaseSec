@@ -1,5 +1,4 @@
 import { defineRule } from '../../define-rule';
-import { getCodeSnippet } from '../../../utils/ast-helpers';
 
 export const ERR002 = defineRule({
   id: 'ERR-002',
