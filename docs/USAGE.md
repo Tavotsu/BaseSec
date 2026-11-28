@@ -20,6 +20,8 @@ basesec scan ./src --format json --output report.json
 | `--output [file]` | `-o` | Write report to file. Without argument, saves to `~/.basesec/scan-<timestamp>.<format>` | stdout (terminal) or auto-save (other formats) |
 | `--severity <level>` | `-s` | Minimum severity: `critical`, `high`, `medium`, `low`, `info` | `low` |
 | `--rules <ids>` | `-r` | Comma-separated rule IDs to run | all |
+| `--allow-custom-rules` | | Allow loading custom rule modules configured in config files | disabled |
+| `--custom-rules <dir>` | | Directory of custom rule modules to load (repeatable) | none |
 | `--ignore <pattern>` | `-i` | Glob patterns to ignore (repeatable) | `['node_modules','dist','coverage']` |
 | `--config <path>` | `-c` | Path to config file | `.basesecrc` |
 | `--no-taint` | | Disable taint analysis | enabled |

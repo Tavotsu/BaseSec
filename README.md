@@ -23,7 +23,7 @@
 - **Multiple Output Formats** — Terminal (colored tables), JSON, SARIF, HTML, Markdown. Non-terminal formats auto-save to `~/.basesec/`
 - **Analysis Cache** — hash-based per-file caching for 10x speedup on incremental scans
 - **Worker Threads** — multi-core parallel analysis for large codebases
-- **Custom Rules** — load external rule files (MJS/CJS) via `.basesecrc`
+- **Custom Rules** — load external rule directories (JS/MJS/CJS) with explicit opt-in via `--allow-custom-rules` or `--custom-rules <dir>`
 - **AI-Powered Analysis** — enriches findings with AI explanations and detects suspicious taint flows (Ollama or OpenAI)
 - **Runtime Testing / DAST (`basesec dast`)** — tests a running app: passive checks for security headers, HSTS, CSP, CORS, cookie flags, stack traces and server banners (DAST-001–007), plus full-mode active checks that safely confirm SQL/NoSQL/command injection, path traversal, reflected XSS and open redirect (DAST-101–105, DAST-011) and flag unauthenticated sensitive endpoints (DAST-008); an opt-in burst probe checks for missing rate limiting (DAST-010). Endpoints come from your own code (no crawler), payloads are non-destructive, evidence is redacted, and a host allowlist blocks remote and cloud-metadata targets by default
 - **Runtime Verification & IAST (`scan --verify`, `--agent`)** — confirms static findings against the running app and marks them `verified` with request/response evidence; an optional in-process agent observes canaries reaching real sinks (`child_process`, `pg`/`mysql2`, `mongodb`, `fs`) to raise confidence to `high` with the exact sink location

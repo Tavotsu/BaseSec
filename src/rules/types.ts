@@ -199,6 +199,8 @@ export interface CliOptions {
   noColor: boolean;
   noBanner: boolean;
   rulesFilter?: string[];
+  allowCustomRules?: boolean;
+  customRules?: string[];
   workers?: number;
   noCache?: boolean;
   noDeps?: boolean;

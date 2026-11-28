@@ -11,6 +11,7 @@ export interface WorkerInput {
   config: basesecConfig;
   frameworks: string[];
   ruleIds: string[];
+  allowCustomRules?: boolean;
 }
 
 export interface WorkerOutput {
@@ -28,7 +29,7 @@ async function runAnalysis() {
       const registry = new RuleRegistry();
       registry.registerMany(ALL_RULES);
       
-      if (config.rules && config.rules.length > 0) {
+      if (message.allowCustomRules === true && config.rules && config.rules.length > 0) {
         await loadCustomRules(config.rules, registry);
       }
       

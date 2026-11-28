@@ -70,7 +70,7 @@ export class Pipeline {
 
     let fileConfig: Partial<import('../rules/types').basesecConfig> = {};
     try {
-      fileConfig = loadConfig(undefined, targetPath);
+      fileConfig = loadConfig(cliOptions.config, targetPath);
     } catch (e) {
       logger.warn('Failed to load config file, using defaults', e);
     }
@@ -82,8 +82,26 @@ export class Pipeline {
       taintAnalysis: cliOptions.noTaint ? false : undefined,
     });
 
-    if (config.rules && config.rules.length > 0) {
-      const { errors } = await loadCustomRules(config.rules, this.registry);
+    const cliCustomRules = cliOptions.customRules ?? [];
+    const configCustomRules = config.rules ?? [];
+
+    if (configCustomRules.length > 0 && cliOptions.allowCustomRules !== true) {
+      logger.warn(
+        `Skipping ${configCustomRules.length} custom rule path(s) from config because custom rules are disabled by default. ` +
+        'Pass --allow-custom-rules to execute custom rule modules.'
+      );
+    }
+
+    const authorizedCustomRules = [
+      ...new Set([
+        ...(cliOptions.allowCustomRules === true ? configCustomRules : []),
+        ...cliCustomRules,
+      ]),
+    ];
+    config.rules = authorizedCustomRules;
+
+    if (authorizedCustomRules.length > 0) {
+      const { errors } = await loadCustomRules(authorizedCustomRules, this.registry);
       for (const err of errors) {
         logger.warn(err);
       }
@@ -265,7 +283,8 @@ export class Pipeline {
               file: { filePath: file.filePath, content: file.content },
               config,
               frameworks,
-              ruleIds: rules.map(r => r.id)
+              ruleIds: rules.map(r => r.id),
+              allowCustomRules: config.rules.length > 0,
             })
           );
           

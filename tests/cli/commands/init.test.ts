@@ -19,6 +19,7 @@ describe('init command', () => {
       expect.stringContaining('export default defineConfig'),
       'utf-8'
     );
+    expect(vi.mocked(fs.writeFileSync).mock.calls[0][1]).toContain('rules: []');
   });
 
   it('creates basesec.config.json by default for json', async () => {
@@ -31,6 +32,7 @@ describe('init command', () => {
       expect.stringContaining('{'),
       'utf-8'
     );
+    expect(vi.mocked(fs.writeFileSync).mock.calls[0][1]).toContain('"rules": []');
   });
 
   it('defaults to ts if unsupported format', async () => {

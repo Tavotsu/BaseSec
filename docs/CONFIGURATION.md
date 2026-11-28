@@ -93,13 +93,18 @@ module.exports = {
 
 ## Custom Rules
 
-Load external rule modules:
+Load external rule directories (`.js`, `.mjs`, `.cjs` modules):
 
 ```js
 export default {
-  rules: ['./custom-rules/my-rule.mjs', './rules/company-policy.cjs'],
+  rules: ['./custom-rules'],
 };
 ```
+
+For security, custom rules are **never** executed automatically when scanning a project. You must opt in explicitly via CLI:
+
+- `basesec scan . --allow-custom-rules` — authorize loading the directories declared in `rules` in your config file.
+- `basesec scan . --custom-rules ./my-rules` — load custom rule modules directly from the specified directory (repeatable) without executing `rules` from the target repository's config file.
 
 Custom rules must export a rule object compatible with `defineRule()`. See [CONTRIBUTING.md](CONTRIBUTING.md) for rule authoring guide.
 

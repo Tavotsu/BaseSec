@@ -15,7 +15,7 @@ export default defineConfig({
   framework: 'auto',
   severity: 'low',
   taintAnalysis: true,
-  rules: ['./rules'],
+  rules: [],
   rulesConfig: {},
   sanitizers: [],
   output: {
@@ -36,7 +36,7 @@ const JSON_CONFIG = `{
   "framework": "auto",
   "severity": "low",
   "taintAnalysis": true,
-  "rules": ["./rules"],
+  "rules": [],
   "rulesConfig": {},
   "sanitizers": [],
   "output": {
