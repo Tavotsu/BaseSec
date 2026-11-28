@@ -44,13 +44,21 @@ Yes. BaseSec supports `.basesecrc.ts`, `.basesecrc.mjs`, `.basesecrc.cjs`, and `
 
 ### Can I extend or override rules?
 
-Yes. Load custom rule files via the `rules` array in `.basesecrc`:
+Yes. Configure custom rule directories via the `rules` array in `.basesecrc` and pass `--allow-custom-rules` when scanning:
 
 ```js
 export default {
-  rules: ['./custom-rules/my-rule.mjs'],
+  rules: ['./custom-rules'],
 };
 ```
+
+```bash
+basesec scan ./src --allow-custom-rules
+# or load a trusted directory directly without trusting repo config:
+basesec scan ./src --custom-rules ./custom-rules
+```
+
+For security, custom rules are never executed automatically without an explicit CLI flag.
 
 ### How do I ignore specific files?
 
