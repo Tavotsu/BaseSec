@@ -217,5 +217,6 @@ All notable changes to BaseSec are documented in this file.
 - Basic rule registry and loader
 - Terminal and JSON formatters
 
+[0.2.1]: https://github.com/Tavotsu/BaseSec/releases/tag/v0.2.1
 [0.2.0]: https://github.com/Tavotsu/BaseSec/releases/tag/v0.2.0
 [0.1.0]: https://github.com/tavotsu/basesec/releases/tag/v0.1.0
