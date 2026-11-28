@@ -67,6 +67,7 @@ export class Pipeline {
     cliOptions: Partial<CliOptions> = {},
   ): Promise<ScanResult> {
     const start = Date.now();
+    this.store.clear();
 
     let fileConfig: Partial<import('../rules/types').basesecConfig> = {};
     try {
@@ -100,8 +101,11 @@ export class Pipeline {
     ];
     config.rules = authorizedCustomRules;
 
+    const runRegistry = new RuleRegistry();
+    runRegistry.registerMany(this.registry.getAll());
+
     if (authorizedCustomRules.length > 0) {
-      const { errors } = await loadCustomRules(authorizedCustomRules, this.registry);
+      const { errors } = await loadCustomRules(authorizedCustomRules, runRegistry);
       for (const err of errors) {
         logger.warn(err);
       }
@@ -120,7 +124,7 @@ export class Pipeline {
       targetPath,
     );
 
-    let rulesToRun = this.registry.getAll();
+    let rulesToRun = runRegistry.getAll();
     if (cliOptions.rulesFilter && cliOptions.rulesFilter.length > 0) {
       rulesToRun = rulesToRun.filter((r) =>
         cliOptions.rulesFilter!.includes(r.id),

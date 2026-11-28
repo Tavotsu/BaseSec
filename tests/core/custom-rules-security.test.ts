@@ -4,6 +4,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { Pipeline } from '../../src/core/pipeline';
 import { DEFAULT_CONFIG } from '../../src/config/defaults';
+import { analyzeWorkerMessage } from '../../src/worker/analyzer';
 
 describe('Custom rules execution safety (CWE-829)', () => {
   let tmpDir: string;
@@ -168,5 +169,113 @@ describe('Custom rules execution safety (CWE-829)', () => {
     } finally {
       fs.rmSync(trustedDir, { recursive: true, force: true });
     }
+  });
+
+  it('does NOT leak custom rules across sequential runs on the same Pipeline instance', async () => {
+    const customDir = path.join(tmpDir, 'trusted-once');
+    fs.mkdirSync(customDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(customDir, 'once.mjs'),
+      `export const onceRule = {
+        id: 'CUSTOM-LEAK-001',
+        name: 'Leak Check Rule',
+        description: 'Should not leak across runs',
+        severity: 'high',
+        category: 'misconfiguration',
+        frameworks: ['*'],
+        tags: [],
+        detect: (ctx) => [{
+          ruleId: 'CUSTOM-LEAK-001',
+          message: 'Loaded custom rule',
+          severity: 'high',
+          category: 'misconfiguration',
+          confidence: 'high',
+          filePath: ctx.filePath,
+          line: 1,
+          column: 1,
+          codeSnippet: 'const x = 1;',
+          remediation: 'None'
+        }]
+      };\n`,
+    );
+
+    const secondDir = fs.mkdtempSync(path.join(os.tmpdir(), 'basesec-second-target-'));
+    try {
+      fs.mkdirSync(path.join(secondDir, 'src'), { recursive: true });
+      fs.writeFileSync(path.join(secondDir, 'src', 'clean.js'), 'const y = 2;\n');
+
+      const pipeline = new Pipeline([], { noCache: true, workers: 0 });
+      const firstResult = await pipeline.run(tmpDir, {
+        noDeps: true,
+        customRules: [customDir],
+      });
+      expect(firstResult.findings.some((f) => f.ruleId === 'CUSTOM-LEAK-001')).toBe(true);
+
+      const secondResult = await pipeline.run(secondDir, { noDeps: true });
+      expect(secondResult.stats.rulesRun).toBe(0);
+      expect(secondResult.findings.some((f) => f.ruleId === 'CUSTOM-LEAK-001')).toBe(false);
+    } finally {
+      fs.rmSync(secondDir, { recursive: true, force: true });
+    }
+  });
+
+  it('worker analyzer rejects untrusted config.rules unless allowCustomRules is true', async () => {
+    const markerPath = path.join(tmpDir, 'rce-marker-worker.txt');
+    const evilDir = path.join(tmpDir, 'evil-worker');
+    fs.mkdirSync(evilDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(evilDir, 'pwn.mjs'),
+      `import fs from 'node:fs'; fs.writeFileSync(${JSON.stringify(markerPath)}, 'pwned'); export const x = {};\n`,
+    );
+
+    const filePath = path.join(tmpDir, 'src', 'app.js');
+    await analyzeWorkerMessage({
+      file: { filePath, content: 'const x = 1;\n' },
+      config: { ...DEFAULT_CONFIG, rules: [evilDir] },
+      frameworks: [],
+      ruleIds: [],
+    });
+
+    expect(fs.existsSync(markerPath)).toBe(false);
+  });
+
+  it('worker analyzer loads custom rules when allowCustomRules is explicitly true', async () => {
+    const trustedDir = path.join(tmpDir, 'trusted-worker');
+    fs.mkdirSync(trustedDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(trustedDir, 'worker-rule.mjs'),
+      `export const workerRule = {
+        id: 'CUSTOM-WORKER-001',
+        name: 'Worker Custom Rule',
+        description: 'Worker test rule',
+        severity: 'high',
+        category: 'misconfiguration',
+        frameworks: ['*'],
+        tags: [],
+        detect: (ctx) => [{
+          ruleId: 'CUSTOM-WORKER-001',
+          message: 'Worker finding',
+          severity: 'high',
+          category: 'misconfiguration',
+          confidence: 'high',
+          filePath: ctx.filePath,
+          line: 1,
+          column: 1,
+          codeSnippet: 'const x = 1;',
+          remediation: 'None'
+        }]
+      };\n`,
+    );
+
+    const filePath = path.join(tmpDir, 'src', 'app.js');
+    const result = await analyzeWorkerMessage({
+      file: { filePath, content: 'const x = 1;\n' },
+      config: { ...DEFAULT_CONFIG, rules: [trustedDir] },
+      frameworks: [],
+      ruleIds: ['CUSTOM-WORKER-001'],
+      allowCustomRules: true,
+    });
+
+    expect(result.findings.some((f) => f.ruleId === 'CUSTOM-WORKER-001')).toBe(true);
   });
 });

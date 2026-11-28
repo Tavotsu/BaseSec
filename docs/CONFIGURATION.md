@@ -70,7 +70,7 @@ module.exports = {
 | `framework` | `string` | `'auto'` | Framework detection mode |
 | `ignore` | `string[]` | `['node_modules','dist','coverage']` | Glob patterns to exclude |
 | `taintAnalysis` | `boolean` | `true` | Enable taint tracking |
-| `rules` | `string[]` | `[]` | Paths to custom rule files |
+| `rules` | `string[]` | `[]` | Paths to custom rule directories (requires `--allow-custom-rules`) |
 | `rulesConfig` | `object` | `{}` | Per-rule configuration |
 | `sanitizers` | `string[]` | `[]` | Recognized sanitizer function names |
 
