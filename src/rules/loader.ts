@@ -1,5 +1,6 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import type { Rule } from './types';
 import { RuleRegistry } from './registry';
 
@@ -28,7 +29,7 @@ export async function loadCustomRules(
 
     for (const filePath of entries) {
       try {
-        const moduleUrl = new URL(`file://${filePath}`);
+        const moduleUrl = pathToFileURL(filePath);
         const mod = await import(moduleUrl.href);
 
         const ruleExports = Object.values(mod).filter(

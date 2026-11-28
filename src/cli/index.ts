@@ -52,6 +52,8 @@ export async function main(): Promise<void> {
     .option('-o, --output [file]', 'Output file path (default: ~/.basesec/scan-<timestamp>.<format>)')
     .option('-s, --severity <level>', 'Minimum severity: critical|high|medium|low|info', { default: 'low' })
     .option('-r, --rules <rules>', 'Comma-separated rule IDs to run')
+    .option('--allow-custom-rules', 'Allow loading custom rule modules configured in config files')
+    .option('--custom-rules <dir>', 'Directory of custom rule modules to load (repeatable)', { type: [] })
     .option('-i, --ignore <patterns>', 'Glob patterns to ignore', { type: [] })
     .option('-c, --config <path>', 'Path to config file')
     .option('--no-taint', 'Disable taint analysis')
@@ -158,6 +160,18 @@ export async function main(): Promise<void> {
         process.exit(2);
       }
 
+      const hasMissingCustomRules = Array.isArray(options.customRules)
+        ? options.customRules.some((v: unknown) => v === true)
+        : options.customRules === true;
+      if (hasMissingCustomRules) {
+        printError('--custom-rules needs a directory path');
+        process.exit(2);
+      }
+
+      const rawCustomRules: string[] = Array.isArray(options.customRules)
+        ? options.customRules.filter((v: unknown): v is string => typeof v === 'string' && v.trim().length > 0)
+        : [];
+
       const rawIgnore: string[] = Array.isArray(options.ignore)
         ? options.ignore.filter((v: any) => v !== null && v !== undefined)
         : [];
@@ -167,6 +181,8 @@ export async function main(): Promise<void> {
         output: options.output,
         severity: severity as Severity,
         rules: options.rules,
+        allowCustomRules: options.allowCustomRules === true,
+        customRules: rawCustomRules.length > 0 ? rawCustomRules : undefined,
         ignore: rawIgnore,
         config: options.config,
         noTaint: options.taint === false,

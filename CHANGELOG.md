@@ -2,6 +2,16 @@
 
 All notable changes to BaseSec are documented in this file.
 
+## [0.2.1] - 2026-11-28
+
+### Security
+- **Require explicit CLI opt-in to execute custom rules (CWE-829)**:
+  - Changed `DEFAULT_CONFIG.rules` and `basesec init` templates from `['./rules']` to `[]` so `basesec scan` no longer imports `./rules/*.{js,mjs,cjs}` automatically during zero-config scans.
+  - Ignored `rules` entries from auto-discovered configuration files (`.basesecrc`, `basesec.config.*`, `package.json`) in both the main pipeline and worker threads unless `--allow-custom-rules` is explicitly passed.
+  - Added `--custom-rules <dir>` (repeatable) to load trusted custom rule directories directly from the CLI without authorizing `rules` from the scanned repository's config file.
+  - Respected `--config` inside `Pipeline.run()` and switched custom rule URL resolution to `pathToFileURL()`.
+  - Reported by Vishal Suwalka (`vishalsuwalkaj@gmail.com`).
+
 ## [0.2.0] - 2026-11-13
 
 ### Added

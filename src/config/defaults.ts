@@ -48,7 +48,7 @@ export const DEFAULT_CONFIG: basesecConfig = {
   framework: 'auto',
   severity: 'low',
   taintAnalysis: true,
-  rules: ['./rules'],
+  rules: [],
   rulesConfig: {},
   sanitizers: [],
   maxFileSize: 500 * 1024,
